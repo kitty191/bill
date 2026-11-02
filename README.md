@@ -28,6 +28,8 @@ npm run web
 
 当前技术栈：Expo SDK 58、React Native 0.88、React 19.3、TypeScript 6、Reanimated 4、SQLite。版本以 `package-lock.json` 为准。
 
+Android 独立预览 APK 的构建入口为 `npm run build:apk`，工具链、私有签名配置和当前网络前提见 [Android 构建说明](docs/android-build.md)。目前尚未生成可下载的 APK；iOS 安装包另需 macOS / 远程构建服务及 Apple 签名。
+
 受限网络下，Metro 可以使用 `EXPO_OFFLINE=1 npm run web -- --localhost`。如需安装 SDK 模块，使用 SDK 自带映射：`EXPO_OFFLINE=1 npx expo install <模块>`；npm 仍需访问官方包仓库，不关闭 TLS 或完整性校验。
 
 ## 验证

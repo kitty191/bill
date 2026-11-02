@@ -1,0 +1,31 @@
+plugins {
+    id 'com.android.library'
+}
+
+group = 'com.github.Dimezis'
+version = 'version-3.1.0'
+
+android {
+    namespace 'com.eightbitlab.blurview'
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        minSdkVersion 18
+        targetSdkVersion 36
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    sourceSets {
+        main {
+            java.srcDirs = ['upstream/java']
+            res.srcDirs = ['upstream/res']
+            assets.srcDirs = ['assets']
+            manifest.srcFile 'AndroidManifest.xml'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.annotation:annotation:1.9.1'
+}

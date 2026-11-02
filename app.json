@@ -7,9 +7,19 @@
     "userInterfaceStyle": "automatic",
     "scheme": "qingzhang",
     "ios": {
+      "bundleIdentifier": "com.kitty191.qingzhang",
       "supportsTablet": true
     },
-    "android": {},
+    "android": {
+      "package": "com.kitty191.qingzhang",
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
     "web": {
       "name": "清账 · 简单记录，轻盈生活",
       "bundler": "metro"

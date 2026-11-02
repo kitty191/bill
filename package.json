@@ -9,13 +9,14 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "export:web": "expo export --platform web"
+    "export:web": "expo export --platform web",
+    "build:apk": "python3 scripts/build_android.py"
   },
   "dependencies": {
     "expo": "~58.0.22",
@@ -28,6 +29,7 @@
     "expo-sharing": "~58.0.21",
     "expo-sqlite": "~58.0.15",
     "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
     "lucide-react-native": "^1.66.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

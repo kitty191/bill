@@ -1,0 +1,32 @@
+// Signing material is supplied only through environment variables, outside Git.
+gradle.settingsEvaluated { settings ->
+    def library = new File(settings.settingsDir.parentFile, 'native-deps/blurview')
+    if (new File(settings.settingsDir, 'app/build.gradle').isFile() && library.isDirectory()) {
+        settings.include(':qingzhang-blurview-upstream')
+        settings.project(':qingzhang-blurview-upstream').projectDir = library
+    }
+}
+
+gradle.beforeProject { targetProject ->
+    if (targetProject.rootProject.findProject(':qingzhang-blurview-upstream') != null) {
+        targetProject.configurations.configureEach {
+            resolutionStrategy.dependencySubstitution {
+                substitute module('com.github.Dimezis:BlurView:version-3.1.0') using project(':qingzhang-blurview-upstream')
+            }
+        }
+    }
+    targetProject.plugins.withId('com.android.application') {
+        targetProject.extensions.getByName('androidComponents').finalizeDsl { android ->
+            def required = ['QINGZHANG_KEYSTORE', 'QINGZHANG_STORE_PASSWORD', 'QINGZHANG_KEY_ALIAS', 'QINGZHANG_KEY_PASSWORD']
+            required.each { name ->
+                if (!System.getenv(name)) throw new GradleException("Missing signing variable: " + name)
+            }
+            def signing = android.signingConfigs.maybeCreate('qingzhangPreview')
+            signing.storeFile = new File(System.getenv('QINGZHANG_KEYSTORE'))
+            signing.storePassword = System.getenv('QINGZHANG_STORE_PASSWORD')
+            signing.keyAlias = System.getenv('QINGZHANG_KEY_ALIAS')
+            signing.keyPassword = System.getenv('QINGZHANG_KEY_PASSWORD')
+            android.buildTypes.getByName('release').signingConfig = signing
+        }
+    }
+}
