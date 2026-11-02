@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "清账",
+    "slug": "qingzhang",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "qingzhang",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "web": {
+      "name": "清账 · 简单记录，轻盈生活",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-font",
+      "expo-document-picker",
+      "expo-sharing"
+    ]
+  }
+}

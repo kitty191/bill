@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "types": ["vitest/globals"]
+  },
+  "exclude": ["node_modules", "dist", "playwright-report", "test-results"]
+}
