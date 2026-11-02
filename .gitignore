@@ -19,5 +19,3 @@ ios/
 *.mobileprovision
 native-deps/blurview/.gradle/
 native-deps/blurview/build/
-downloads/*.apk
-downloads/*.apk.sha256

@@ -1,6 +1,6 @@
 # 清账 Android 预览版
 
-[下载 APK](https://github.com/kitty191/bill/releases/download/v0.1.0-android-preview/qingzhang-v0.1.0-android-arm64.apk) · [版本与附件](https://github.com/kitty191/bill/releases/tag/v0.1.0-android-preview)
+[下载 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.1.0-android-arm64.apk) · [版本说明](https://github.com/kitty191/bill/releases/tag/v0.1.0-android-preview)
 
 - 版本：0.1.0，versionCode 1，约 30 MB。
 - 设备：ARM64 系统，Android 7.0 / API 24 及以上。此包不支持 32 位系统或 x86 模拟器。
@@ -17,4 +17,4 @@ SHA-256：
 630ace564e5983b7392c682c68d2f5ab4d5d185856d609632097442b50731bab
 ```
 
-完整信息见 [构建校验记录](qingzhang-v0.1.0-android-arm64-verification.json)。APK 和校验和文件作为 Release 附件上传，生成文件不纳入源码历史；签名密钥不会上传。
+完整信息见 [构建校验记录](qingzhang-v0.1.0-android-arm64-verification.json)。APK 和 [校验和文件](qingzhang-v0.1.0-android-arm64.apk.sha256) 已保存在此目录；签名密钥不会上传。
