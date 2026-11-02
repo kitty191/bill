@@ -33,9 +33,11 @@ npm run build:apk
 
 构建使用仓库外的签名配置，覆盖 Expo 模板的默认 Debug 签名。脚本保留继承的代理与 TLS 校验；如使用预下载 Gradle 压缩包，会先核对保存的官方 SHA-256。
 
-本环境无法访问 JitPack。Expo Blur 依赖的 BlurView 3.1.0 因此从官方 GitHub 固定提交核实后保存在 `native-deps/blurview/`，构建脚本仅将这个版本替换为本地模块。Java 和资源文件未修改，来源与许可证见该目录的 `UPSTREAM.md`；许可证同时打入 APK。构建无需访问 JitPack，也没有关闭 TLS 或更改依赖校验值。
+初始受限网络无法访问 JitPack。Expo Blur 依赖的 BlurView 3.1.0 因此从官方 GitHub 固定提交核实后保存在 `native-deps/blurview/`，构建脚本仅将这个版本替换为本地模块。Java 和资源文件未修改，来源与许可证见该目录的 `UPSTREAM.md`；许可证同时打入 APK。构建无需访问 JitPack，也没有关闭 TLS 或更改依赖校验值。
 
-React Native 0.88.1 的 Maven 原生 AAR 会重定向到 `repo.reactnative.dev`。受限网络需要允许该官方域名；只允许 Maven Central 不足以完成下载。当前构建已进入 ARM64 原生模块配置阶段，但被该域名的 403 策略拒绝阻止，尚未产出 APK。对应网络域名已加入环境配置草稿，需在环境设置中保存应用后继续构建。
+React Native 0.88.1 的 Maven 原生 AAR 会重定向到 `repo.reactnative.dev`。受限网络需要允许该官方域名；只允许 Maven Central 不足以完成下载。初次编译曾被 403 策略拒绝，调整联网设置后实际下载恢复，ARM64 Release 构建已成功。
+
+预览包、SHA-256 与校验记录以仓库 Release 附件分发，不把 APK 二进制加入源码历史。签名和 16 KB ZIP 对齐、ZIP 完整性、包名、架构、内置 Hermes 代码均已校验；尚未进行真机安装测试。
 
 ## iOS
 

@@ -13,13 +13,15 @@
 | Expo Android 导出 | 通过 | 原生模块解析、JavaScript / Hermes 资源打包 |
 | Expo 开发服务器 | 通过 | `/status` 响应、应用 HTML 和实际页面加载 |
 | 实际界面截图 | 6 张，运行时异常 0 | 空账本、示例首页、账单、统计、记账面板、深色首页 |
+| Android ARM64 Release APK | 通过 | 524 项构建任务完成；私有预览签名、APK v2 签名、16 KB ZIP 对齐、ZIP 完整性、包名/架构/内置代码校验 |
 
 ## 安装包构建进展
 
 - 已补齐经过官方校验的 JDK 17 / 21、Gradle 9.4.1、Android SDK 37.0、Build Tools 37.0.0、NDK 27.1.12297006 和 CMake。
 - 已添加包标识、仓库外的私有预览签名配置，以及可复用 `npm run build:apk`。
 - 针对 JitPack 策略拒绝，将 BlurView 官方固定提交的源码作为本地模块编译，保留原始实现与许可证。
-- 构建进入 ARM64 原生模块配置后，React Native 原生 AAR 的 `repo.reactnative.dev` 下载被 403 策略拒绝。尚未完成 APK 构建，也未验证签名或真机安装。
+- 初次被 `repo.reactnative.dev` 的 403 策略拒绝阻止，联网设置调整后实际下载恢复，`assembleRelease` 成功。APK 为 31,217,369 字节，版本 0.1.0 / versionCode 1、ARM64、最低 API 24、非 Debuggable，并包含独立运行的 Hermes 代码。
+- APK 签名、16 KB ZIP 对齐和 ZIP CRC 均通过。包名为 `com.kitty191.qingzhang`，无请求录音、悬浮窗和读写外部存储权限；包含上游 BlurView 许可证。校验记录见 `downloads/qingzhang-v0.1.0-android-arm64-verification.json`。
 - 新增 `expo-system-ui` 后的类型检查、28 项逻辑测试和网页生产构建均通过。
 
 七个端到端场景：
@@ -36,7 +38,7 @@
 
 ## 尚未验证
 
-- 未生成、签名或安装 IPA / APK，未上架或发布。
+- IPA 尚未生成；Android APK 已构建和签名，尚未在真机安装验收，未上架应用商店。
 - 未在 iOS / Android 真机运行 SQLite、文件分享、文件选择、中文键盘、手势与触感。
 - 未进行原生设备上的模糊效果、帧率、VoiceOver / TalkBack 和大字号专项检查。
 - 应用不提供云同步或自动备份；网页原型按单窗口使用。
