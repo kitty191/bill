@@ -119,7 +119,7 @@ describe('ledger integrity and balance', () => {
     const data = emptyLedger();
     data.accounts.push(data.accounts[0]!);
     expect(() => validateLedger(data)).toThrow();
-    expect(() => validateLedger({ ...emptyLedger(), version: 2 })).toThrow();
+    expect(() => validateLedger({ ...emptyLedger(), version: 99 })).toThrow();
     expect(() =>
       validateLedger({ ...emptyLedger(), monthlyBudget: -1 }),
     ).toThrow();

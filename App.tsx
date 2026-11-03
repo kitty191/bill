@@ -51,6 +51,9 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { EntriesScreen } from './src/screens/EntriesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { SwipePager } from './src/components/SwipePager';
+import { PrivacyProvider } from './src/state/PrivacyProvider';
+import { PrivacyGuard } from './src/components/PrivacyGuard';
+import { usePrivacy } from './src/state/PrivacyContext';
 
 const PAGE_KEYS: Tab[] = ['home', 'entries', 'stats'];
 const MemoHomeScreen = memo(HomeScreen);
@@ -63,9 +66,13 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <LedgerProvider>
-            <Main />
-          </LedgerProvider>
+          <PrivacyProvider>
+            <LedgerProvider>
+              <PrivacyGuard>
+                <Main />
+              </PrivacyGuard>
+            </LedgerProvider>
+          </PrivacyProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -86,8 +93,13 @@ function Main() {
   const [month, setMonth] = useState(localDate().slice(0, 7));
   const [entriesResetKey, setEntriesResetKey] = useState(0);
   const entriesScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
-  const [editor, setEditor] = useState<{ entry?: Entry } | null>(null);
-  const [settings, setSettings] = useState(false);
+  const [editor, setEditor] = useState<{
+    entry?: Entry;
+    refundOf?: Entry;
+    templateId?: string;
+  } | null>(null);
+  const [settings, setSettings] = useState<false | 'main' | 'privacy'>(false);
+  const privacy = usePrivacy();
   const [toast, setToast] = useState('');
   const blurTarget = useRef<React.ComponentRef<typeof View>>(null);
   useEffect(() => {
@@ -121,7 +133,16 @@ function Main() {
   );
   const onEntry = useCallback((entry: Entry) => setEditor({ entry }), []);
   const openEditor = useCallback(() => setEditor({}), []);
-  const openSettings = useCallback(() => setSettings(true), []);
+  const openSettings = useCallback(() => setSettings('main'), []);
+  const openBackup = useCallback(() => setSettings('privacy'), []);
+  const openTemplate = useCallback(
+    (templateId: string) => setEditor({ templateId }),
+    [],
+  );
+  const openRefund = useCallback(
+    (refundOf: Entry) => setEditor({ refundOf }),
+    [],
+  );
   const showAll = useCallback(() => {
     setEntriesResetKey((value) => value + 1);
     entriesScroll.current?.scrollTo({ y: 0, animated: false });
@@ -156,6 +177,8 @@ function Main() {
                     onEntry={onEntry}
                     onAll={showAll}
                     onSettings={openSettings}
+                    onTemplate={openTemplate}
+                    onBackup={openBackup}
                   />
                 ) : key === 'entries' ? (
                   <MemoEntriesScreen
@@ -186,6 +209,8 @@ function Main() {
       onEntry,
       openEditor,
       openSettings,
+      openTemplate,
+      openBackup,
       showAll,
       entriesResetKey,
       insets.bottom,
@@ -329,12 +354,35 @@ function Main() {
                     清账
                   </Txt>
                 </View>
-                <IconButton
-                  name="settings"
-                  label="打开设置"
-                  onPress={() => setSettings(true)}
-                  style={{ width: 38, height: 38, borderRadius: 19 }}
-                />
+                <View style={[styles.row, { gap: 4 }]}>
+                  <IconButton
+                    name={privacy.preferences.hideAmounts ? 'eye-off' : 'eye'}
+                    label={
+                      privacy.preferences.hideAmounts ? '显示金额' : '隐藏金额'
+                    }
+                    disabled={privacy.saving}
+                    onPress={() => {
+                      void privacy
+                        .update((value) => ({
+                          ...value,
+                          hideAmounts: !value.hideAmounts,
+                        }))
+                        .catch((error) =>
+                          setToast(
+                            error instanceof Error
+                              ? error.message
+                              : '设置保存失败',
+                          ),
+                        );
+                    }}
+                  />
+                  <IconButton
+                    name="settings"
+                    label="打开设置"
+                    onPress={openSettings}
+                    style={{ width: 38, height: 38, borderRadius: 19 }}
+                  />
+                </View>
               </View>
             </View>
             <SwipePager
@@ -382,8 +430,16 @@ function Main() {
           )}
           {editor && (
             <EntryEditor
-              key={editor.entry?.id ?? 'new'}
+              key={
+                editor.entry?.id ??
+                (editor.refundOf
+                  ? `refund-${editor.refundOf.id}`
+                  : (editor.templateId ?? 'new'))
+              }
               entry={editor.entry}
+              refundOf={editor.refundOf}
+              templateId={editor.templateId}
+              onRefund={openRefund}
               onClose={() => setEditor(null)}
               onSaved={(message, date) => {
                 setMonth(date.slice(0, 7));
@@ -393,6 +449,7 @@ function Main() {
           )}
           {settings && (
             <SettingsSheet
+              initialPage={settings || 'main'}
               onClose={() => setSettings(false)}
               onSaved={setToast}
             />

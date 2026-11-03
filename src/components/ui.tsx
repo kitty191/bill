@@ -46,14 +46,19 @@ import {
   ListFilter,
   Trash2,
   Pencil,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  RotateCcw,
+  Bell,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useTheme } from '../theme';
+import { useMoney } from '../state/PrivacyContext';
 import {
-  allCategories,
+  categoryFor,
   type Entry,
   type Ledger,
-  money,
   localDate,
 } from '../domain/ledger';
 
@@ -93,6 +98,11 @@ const icons: Record<string, LucideIcon> = {
   trash: Trash2,
   edit: Pencil,
   moon: Moon,
+  eye: Eye,
+  'eye-off': EyeOff,
+  lock: LockKeyhole,
+  refund: RotateCcw,
+  bell: Bell,
 };
 export function Icon({
   name,
@@ -421,7 +431,8 @@ export function EntryRow({
   last?: boolean;
 }) {
   const t = useTheme();
-  const category = allCategories.find((c) => c.id === entry.categoryId)!;
+  const money = useMoney();
+  const category = categoryFor(ledger, entry.categoryId);
   const account =
     ledger.accounts.find((a) => a.id === entry.accountId)?.name ?? '';
   const destination =
@@ -429,7 +440,7 @@ export function EntryRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${entry.date} ${entry.note || category.label} ${entry.kind === 'income' ? '收入' : entry.kind === 'expense' ? '支出' : '转账'} ${money(entry.amount)} 元，查看详情`}
+      accessibilityLabel={`${entry.date} ${entry.note || category.label} ${entry.kind === 'income' ? '收入' : entry.kind === 'expense' ? '支出' : entry.kind === 'refund' ? '退款' : '转账'} ${money(entry.amount)} 元，查看详情`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
@@ -452,13 +463,18 @@ export function EntryRow({
           backgroundColor: `${category.color}${t.dark ? '24' : '15'}`,
         }}
       >
-        <Icon name={category.icon} color={category.color} size={20} />
+        <Icon
+          name={entry.kind === 'refund' ? 'refund' : category.icon}
+          color={category.color}
+          size={20}
+        />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Txt size={14} weight="500" numberOfLines={1}>
           {entry.note || category.label}
         </Txt>
         <Txt size={11} color={t.muted} numberOfLines={1}>
+          {entry.kind === 'refund' ? '退款 · ' : ''}
           {category.label} · {account}
           {entry.kind === 'transfer' ? ` → ${destination}` : ''}
         </Txt>
@@ -466,10 +482,16 @@ export function EntryRow({
       <Txt
         size={16}
         weight="500"
-        color={entry.kind === 'income' ? t.income : t.text}
+        color={
+          entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
+        }
         style={{ fontVariant: ['tabular-nums'] }}
       >
-        {entry.kind === 'income' ? '+' : entry.kind === 'expense' ? '−' : ''}
+        {entry.kind === 'income' || entry.kind === 'refund'
+          ? '+'
+          : entry.kind === 'expense'
+            ? '−'
+            : ''}
         {money(entry.amount)}
       </Txt>
     </Pressable>

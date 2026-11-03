@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Switch, TextInput, View } from 'react-native';
 import { useLedger } from '../state/LedgerProvider';
 import {
@@ -9,11 +9,18 @@ import {
   demoLedger,
   emptyLedger,
   id,
-  money,
   parseAmount,
   validateLedger,
 } from '../domain/ledger';
-import { exportLedger, importLedger } from '../storage/backup';
+import {
+  exportLedger,
+  exportLegacyBackup,
+  importLedger,
+} from '../storage/backup';
+import { loadLegacyLedger } from '../storage/ledgerStore';
+import { useMoney, usePrivacy } from '../state/PrivacyContext';
+import { CategoryManager, TemplateManager } from './LedgerTools';
+import { PrivacySettings } from './PrivacySettings';
 import { useTheme } from '../theme';
 import { Sheet } from './Sheet';
 import { Button, Icon, SectionTitle, Txt, styles } from './ui';
@@ -22,11 +29,24 @@ import appConfig from '../../app.json';
 export function SettingsSheet({
   onClose,
   onSaved,
+  initialPage = 'main',
 }: {
   onClose: () => void;
   onSaved: (message: string) => void;
+  initialPage?: 'main' | 'privacy';
 }) {
   const t = useTheme();
+  const money = useMoney();
+  const privacy = usePrivacy();
+  const [page, setPage] = useState<
+    'main' | 'privacy' | 'categories' | 'templates'
+  >(initialPage);
+  const [legacy, setLegacy] = useState<string | null>(null);
+  useEffect(() => {
+    void loadLegacyLedger()
+      .then(setLegacy)
+      .catch(() => {});
+  }, []);
   const { ledger: data, update, saving } = useLedger();
   const ledger = data!;
   const [budget, setBudget] = useState(
@@ -115,6 +135,34 @@ export function SettingsSheet({
     setImported(null);
     setAccount(null);
   };
+  const backup = async () => {
+    await exportLedger(ledger, 'json');
+    await privacy.markExported();
+    onSaved('备份文件已生成，请确认已保存');
+  };
+  if (page !== 'main')
+    return (
+      <Sheet
+        visible
+        onClose={onClose}
+        title={
+          page === 'categories'
+            ? '分类管理'
+            : page === 'templates'
+              ? '常用记账'
+              : '隐私与备份'
+        }
+        dismissible={!disabled}
+      >
+        {page === 'categories' ? (
+          <CategoryManager onBack={() => setPage('main')} />
+        ) : page === 'templates' ? (
+          <TemplateManager onBack={() => setPage('main')} />
+        ) : (
+          <PrivacySettings onBack={() => setPage('main')} onBackup={backup} />
+        )}
+      </Sheet>
+    );
   return (
     <Sheet visible onClose={onClose} title="我的清账" dismissible={!disabled}>
       <View
@@ -185,6 +233,30 @@ export function SettingsSheet({
               update((current) => ({ ...current, showAccountCards: value })),
             )
           }
+        />
+      </View>
+      <SectionTitle title="记账偏好" />
+      <View style={{ gap: 9 }}>
+        <SettingAction
+          icon="list"
+          title="分类管理"
+          description="新增、重命名、排序或隐藏分类"
+          disabled={disabled}
+          onPress={() => setPage('categories')}
+        />
+        <SettingAction
+          icon="sparkles"
+          title="常用记账"
+          description="管理早餐、通勤等常用项"
+          disabled={disabled}
+          onPress={() => setPage('templates')}
+        />
+        <SettingAction
+          icon="shield"
+          title="隐私与备份提醒"
+          description="金额隐藏、应用锁与定期备份提醒"
+          disabled={disabled}
+          onPress={() => setPage('privacy')}
         />
       </View>
       <SectionTitle title="月度预算" />
@@ -312,12 +384,7 @@ export function SettingsSheet({
           title="备份账本"
           description="导出完整 JSON 文件，可用于恢复"
           disabled={disabled}
-          onPress={() =>
-            void perform(
-              () => exportLedger(ledger, 'json'),
-              '备份已导出，请妥善保存',
-            )
-          }
+          onPress={() => void perform(backup, '备份文件已生成，请确认已保存')}
         />
         <SettingAction
           icon="upload"
@@ -344,6 +411,17 @@ export function SettingsSheet({
           }
         />
       </View>
+      {legacy && (
+        <SettingAction
+          icon="download"
+          title="导出升级前备份"
+          description="保留本机首次升级前的原始账本文件"
+          disabled={disabled}
+          onPress={() =>
+            void perform(() => exportLegacyBackup(legacy), '升级前备份已导出')
+          }
+        />
+      )}
       <Txt size={10} color={t.muted} style={{ marginTop: 11 }}>
         本地数据不会自动同步。卸载应用或清除浏览器数据可能导致账本丢失，请定期备份。备份文件包含财务记录，请妥善保管。
       </Txt>
@@ -387,7 +465,7 @@ export function SettingsSheet({
           </Txt>
           <Txt size={12} color={t.muted}>
             {confirmation === 'clear'
-              ? '全部账单、账户与预算将重置。此操作无法撤销，建议先备份。'
+              ? `全部账单、账户、预算、分类与常用项将重置。本机隐私设置${legacy ? '和升级前备份' : ''}会保留。此操作无法撤销，建议先备份。`
               : confirmation === 'demo'
                 ? '示例将替换当前账户和预算，添加 9 条演示记录。你可以随时清空后开始自己的记录。'
                 : `备份包含 ${imported?.entries.length} 笔账单、${imported?.accounts.length} 个账户。当前数据将被替换，此操作无法撤销，建议先备份。`}

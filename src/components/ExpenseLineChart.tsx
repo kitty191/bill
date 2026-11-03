@@ -9,7 +9,7 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from 'react-native-svg';
-import { money } from '../domain/ledger';
+import { useMoney, useAmountsHidden } from '../state/PrivacyContext';
 import { trendAxisLabel, trendGeometry } from '../domain/expenseTrend';
 import { useTheme } from '../theme';
 import { Txt, styles } from './ui';
@@ -22,6 +22,8 @@ export function ExpenseLineChart({
   month: string;
 }) {
   const t = useTheme();
+  const money = useMoney();
+  const hidden = useAmountsHidden();
   const [width, setWidth] = useState(280);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   useEffect(() => setSelectedDay(null), [month, values.length]);
@@ -148,7 +150,7 @@ export function ExpenseLineChart({
                   fontSize={9}
                   fill={t.muted}
                 >
-                  {trendAxisLabel(value)}
+                  {hidden ? '' : trendAxisLabel(value)}
                 </SvgText>
               </React.Fragment>
             );

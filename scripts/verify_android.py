@@ -33,6 +33,7 @@ def main():
     assert f"name='{app['android']['package']}'" in badging
     assert f"versionCode='{code}'" in badging and f"versionName='{version}'" in badging
     assert "sdkVersion:'24'" in badging and 'application-debuggable' not in badging
+    assert "android.permission.USE_BIOMETRIC" in badging, 'System biometric permission missing'
     for permission in app['android']['blockedPermissions']:
         assert permission not in badging, 'Blocked permission remains: ' + permission
     with zipfile.ZipFile(apk) as archive:
@@ -43,6 +44,8 @@ def main():
         bundles = [name for name in names if name.startswith('assets/') and name.endswith('.bundle')]
         assert bundles and all(b'__qingzhangRenders' not in archive.read(name) for name in bundles), 'Benchmark instrumentation leaked'
         assert any(b'RNCViewPager' in archive.read(name) for name in names if name.endswith('.dex')), 'Native pager implementation missing'
+        for module in [b'ExpoLocalAuthentication', b'ExpoSecureStore']:
+            assert any(module in archive.read(name) for name in names if name.endswith('.dex')), 'Native privacy module missing: ' + module.decode()
         assert 'assets/third-party/BlurView-LICENSE.txt' in names
         assert archive.read('assets/third-party/react-native-pager-view-LICENSE.txt') == (ROOT / 'node_modules/react-native-pager-view/LICENSE').read_bytes()
         icons = {}
@@ -61,6 +64,7 @@ def main():
         'signature_verified': True, 'signer_certificate_sha256': certificate,
         'zip_alignment_16k_verified': True, 'zip_crc_verified': True, 'standalone_bundles': bundles,
         'native_pager_dex_verified': True, 'benchmark_instrumentation_absent': True,
+        'native_authentication_and_secure_store_dex_verified': True, 'biometric_permission_verified': True,
         'pager_license_verified': True, 'new_launcher_resources_verified': icons,
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'verified_at': datetime.now(timezone.utc).isoformat(), 'device_installation_tested': False,

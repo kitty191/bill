@@ -1,4 +1,4 @@
-import { type Entry, localDate } from './ledger';
+import { type Entry, localDate, refundAmounts } from './ledger';
 
 export function dailyExpenseValues(
   entries: Entry[],
@@ -12,10 +12,11 @@ export function dailyExpenseValues(
   ).getDate();
   const values = Array<number>(days).fill(0);
   let lastRecorded = 1;
+  const refunds = refundAmounts(entries);
   for (const entry of entries) {
     if (entry.kind !== 'expense' || !entry.date.startsWith(month)) continue;
     const day = Number(entry.date.slice(8));
-    values[day - 1]! += entry.amount;
+    values[day - 1]! += entry.amount - (refunds.get(entry.id) ?? 0);
     lastRecorded = Math.max(lastRecorded, day);
   }
   // Do not connect unobserved future days as if they were zero-spend days.

@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { ScrollView, Switch, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   type Entry,
   type EntryKind,
   amountInput,
-  expenseCategories,
   id,
-  incomeCategories,
   localDate,
   parseAmount,
   upsertEntry,
   validDate,
+  categoryFor,
+  deleteEntry,
+  entryDefault,
+  remainingRefund,
+  validateLedger,
 } from '../domain/ledger';
 import { useLedger } from '../state/LedgerProvider';
 import { useTheme } from '../theme';
@@ -20,29 +23,91 @@ import { Button, Icon, Txt, styles } from './ui';
 
 export function EntryEditor({
   entry,
+  refundOf,
+  templateId,
+  onRefund,
   onClose,
   onSaved,
 }: {
   entry?: Entry;
+  refundOf?: Entry;
+  templateId?: string;
+  onRefund: (entry: Entry) => void;
   onClose: () => void;
   onSaved: (message: string, date: string) => void;
 }) {
   const t = useTheme();
   const { ledger, update, saving } = useLedger();
-  const [kind, setKind] = useState<EntryKind>(entry?.kind ?? 'expense');
-  const [amount, setAmount] = useState(entry ? amountInput(entry.amount) : '');
-  const [categoryId, setCategoryId] = useState(entry?.categoryId ?? 'food');
+  const data = ledger!;
+  const preset = data.templates.find((template) => template.id === templateId);
+  const original =
+    refundOf ??
+    (entry?.kind === 'refund'
+      ? data.entries.find((item) => item.id === entry.originalEntryId)
+      : undefined);
+  const initialKind = original
+    ? 'refund'
+    : (entry?.kind ?? preset?.kind ?? 'expense');
+  const initialDefault = entryDefault(
+    data,
+    initialKind === 'income' ? 'income' : 'expense',
+  );
+  const [kind, setKind] = useState<EntryKind>(initialKind);
+  const [amount, setAmount] = useState(
+    entry
+      ? amountInput(entry.amount)
+      : preset
+        ? amountInput(preset.amount)
+        : '',
+  );
+  const [categoryId, setCategoryId] = useState(
+    original?.categoryId ??
+      entry?.categoryId ??
+      preset?.categoryId ??
+      initialDefault.categoryId,
+  );
   const [accountId, setAccountId] = useState(
-    entry?.accountId ?? ledger!.accounts[0]!.id,
+    entry?.accountId ??
+      original?.accountId ??
+      preset?.accountId ??
+      initialDefault.accountId,
   );
   const [toAccountId, setToAccountId] = useState(
-    entry?.toAccountId ?? ledger!.accounts[1]?.id ?? '',
+    entry?.toAccountId ??
+      data.accounts.find((account) => account.id !== initialDefault.accountId)
+        ?.id ??
+      '',
   );
   const [date, setDate] = useState(entry?.date ?? localDate());
-  const [note, setNote] = useState(entry?.note ?? '');
+  const [note, setNote] = useState(
+    entry?.note ??
+      preset?.note ??
+      (original
+        ? `${original.note || categoryFor(data, original.categoryId).label}退款`.slice(
+            0,
+            120,
+          )
+        : ''),
+  );
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const categories = kind === 'income' ? incomeCategories : expenseCategories;
+  const [saveTemplate, setSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const categories = data.categories.filter(
+    (category) =>
+      category.kind === (kind === 'income' ? 'income' : 'expense') &&
+      (!category.hidden || (entry && category.id === categoryId)),
+  );
+  const shortcuts = data.templates.filter(
+    (template) =>
+      template.kind === kind &&
+      !data.categories.find((category) => category.id === template.categoryId)
+        ?.hidden,
+  );
+  const refundable = original
+    ? remainingRefund(data, original) +
+      (entry?.kind === 'refund' ? entry.amount : 0)
+    : 0;
   const inputStyle = { color: t.text, fontSize: 14, minHeight: 46, flex: 1 };
   const save = async () => {
     setError('');
@@ -50,19 +115,41 @@ export function EntryEditor({
       const value = parseAmount(amount);
       if (!validDate(date))
         throw new Error('请填写有效日期，格式为 YYYY-MM-DD');
-      await update((current) =>
-        upsertEntry(current, {
-          id: entry?.id ?? id(),
-          kind,
-          amount: value,
-          categoryId: kind === 'transfer' ? 'transfer' : categoryId,
-          accountId,
-          ...(kind === 'transfer' ? { toAccountId } : {}),
-          date,
-          note,
-          createdAt: entry?.createdAt ?? new Date().toISOString(),
-        }),
-      );
+      await update((current) => {
+        const next = upsertEntry(
+          current,
+          {
+            id: entry?.id ?? id(),
+            kind,
+            amount: value,
+            categoryId: kind === 'transfer' ? 'transfer' : categoryId,
+            accountId,
+            ...(kind === 'transfer' ? { toAccountId } : {}),
+            ...(kind === 'refund' ? { originalEntryId: original?.id } : {}),
+            date,
+            note,
+            createdAt: entry?.createdAt ?? new Date().toISOString(),
+          },
+          !entry && kind !== 'refund',
+        );
+        if (!saveTemplate || kind === 'refund' || kind === 'transfer')
+          return next;
+        return validateLedger({
+          ...next,
+          templates: [
+            ...next.templates,
+            {
+              id: `template-${id()}`,
+              name: templateName,
+              kind,
+              amount: value,
+              categoryId,
+              accountId,
+              note,
+            },
+          ],
+        });
+      });
       void Haptics.notificationAsync(
         Haptics.NotificationFeedbackType.Success,
       ).catch(() => {});
@@ -77,81 +164,138 @@ export function EntryEditor({
   const remove = async () => {
     if (!entry) return;
     try {
-      await update((current) => ({
-        ...current,
-        entries: current.entries.filter((e) => e.id !== entry.id),
-      }));
+      await update((current) => deleteEntry(current, entry.id));
       onSaved('账单已删除，余额与统计已更新', entry.date);
       onClose();
-    } catch {
-      setError('删除失败，请稍后重试');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '删除失败，请稍后重试');
     }
   };
   return (
     <Sheet
       visible
       onClose={onClose}
-      title={entry ? '编辑账单' : '记一笔'}
+      title={
+        kind === 'refund'
+          ? entry
+            ? '编辑退款'
+            : '记录退款'
+          : entry
+            ? '编辑账单'
+            : '记一笔'
+      }
       dismissible={!saving}
     >
-      <View
-        style={[
-          styles.row,
-          {
-            borderRadius: 15,
-            backgroundColor: t.surfaceAlt,
-            padding: 4,
-            gap: 4,
-          },
-        ]}
-      >
-        {(
-          [
-            ['expense', '支出'],
-            ['income', '收入'],
-            ['transfer', '转账'],
-          ] as const
-        ).map(([value, label]) => (
-          <Button
-            key={value}
-            label={`记${label}`}
-            disabled={saving}
-            variant="plain"
-            onPress={() => {
-              setKind(value);
-              setCategoryId(
-                value === 'income'
-                  ? 'salary'
-                  : value === 'transfer'
-                    ? 'transfer'
-                    : 'food',
-              );
-              setError('');
-            }}
-            style={{
-              flex: 1,
-              minHeight: 39,
-              backgroundColor: kind === value ? t.surface : 'transparent',
-              borderRadius: 12,
-              paddingHorizontal: 6,
-            }}
-          >
-            <Txt
-              color={kind === value ? t.text : t.muted}
-              weight={kind === value ? '600' : '400'}
+      {kind !== 'refund' && (
+        <View
+          style={[
+            styles.row,
+            {
+              borderRadius: 15,
+              backgroundColor: t.surfaceAlt,
+              padding: 4,
+              gap: 4,
+            },
+          ]}
+        >
+          {(
+            [
+              ['expense', '支出'],
+              ['income', '收入'],
+              ['transfer', '转账'],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              key={value}
+              label={`记${label}`}
+              disabled={saving}
+              variant="plain"
+              onPress={() => {
+                setKind(value);
+                const defaults = entryDefault(
+                  data,
+                  value === 'income' ? 'income' : 'expense',
+                );
+                setCategoryId(
+                  value === 'transfer' ? 'transfer' : defaults.categoryId,
+                );
+                if (!entry) setAccountId(defaults.accountId);
+                setError('');
+              }}
+              style={{
+                flex: 1,
+                minHeight: 39,
+                backgroundColor: kind === value ? t.surface : 'transparent',
+                borderRadius: 12,
+                paddingHorizontal: 6,
+              }}
             >
-              {label}
-            </Txt>
-          </Button>
-        ))}
-      </View>
+              <Txt
+                color={kind === value ? t.text : t.muted}
+                weight={kind === value ? '600' : '400'}
+              >
+                {label}
+              </Txt>
+            </Button>
+          ))}
+        </View>
+      )}
+      {kind === 'refund' && original && (
+        <View
+          style={{
+            backgroundColor: t.accentSoft,
+            borderRadius: 17,
+            padding: 15,
+            marginTop: 8,
+            gap: 6,
+          }}
+        >
+          <Txt size={13} weight="500">
+            原支出：
+            {original.note || categoryFor(data, original.categoryId).label}
+          </Txt>
+          <Txt size={12} color={t.muted}>
+            {original.date} · 原金额 ¥{amountInput(original.amount)} · 可退 ¥
+            {amountInput(refundable)}
+          </Txt>
+          <Txt size={11} color={t.muted}>
+            退款抵减原支出所属月份，到账金额计入下方账户。
+          </Txt>
+        </View>
+      )}
+      {!entry && kind !== 'refund' && shortcuts.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingTop: 15 }}
+        >
+          {shortcuts.map((template) => (
+            <Button
+              key={template.id}
+              variant="soft"
+              label={`使用常用${template.name}`}
+              onPress={() => {
+                setAmount(amountInput(template.amount));
+                setCategoryId(template.categoryId);
+                setAccountId(template.accountId);
+                setNote(template.note);
+                setError('');
+              }}
+            >
+              {template.name}
+            </Button>
+          ))}
+        </ScrollView>
+      )}
       <View style={{ paddingVertical: 23 }}>
         <Txt size={11} color={t.muted}>
           {kind === 'expense'
             ? '花了多少'
             : kind === 'income'
               ? '收了多少'
-              : '转账金额'}
+              : kind === 'refund'
+                ? '退回多少'
+                : '转账金额'}
         </Txt>
         <View style={[styles.row, { marginTop: 5, alignItems: 'center' }]}>
           <Txt size={30} color={t.muted}>
@@ -180,7 +324,7 @@ export function EntryEditor({
           />
         </View>
       </View>
-      {kind !== 'transfer' && (
+      {kind !== 'transfer' && kind !== 'refund' && (
         <>
           <Txt size={12} color={t.muted} style={{ marginBottom: 13 }}>
             选择分类
@@ -230,7 +374,9 @@ export function EntryEditor({
           ? '转出账户'
           : kind === 'income'
             ? '收入账户'
-            : '付款账户'}
+            : kind === 'refund'
+              ? '退款到账账户'
+              : '付款账户'}
       </Txt>
       <View
         style={[styles.row, { flexWrap: 'wrap', gap: 7, marginBottom: 21 }]}
@@ -241,7 +387,14 @@ export function EntryEditor({
             label={`账户${a.name}`}
             variant={accountId === a.id ? 'soft' : 'plain'}
             disabled={saving}
-            onPress={() => setAccountId(a.id)}
+            onPress={() => {
+              setAccountId(a.id);
+              if (toAccountId === a.id)
+                setToAccountId(
+                  data.accounts.find((account) => account.id !== a.id)?.id ??
+                    '',
+                );
+            }}
             style={{
               minHeight: 37,
               paddingHorizontal: 13,
@@ -335,6 +488,39 @@ export function EntryEditor({
           />
         </View>
       </View>
+      {!entry && (kind === 'expense' || kind === 'income') && (
+        <View
+          style={{
+            backgroundColor: t.surfaceAlt,
+            borderRadius: 17,
+            padding: 14,
+            marginBottom: 18,
+            gap: 10,
+          }}
+        >
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <Txt size={12}>同时存为常用</Txt>
+            <Switch
+              accessibilityLabel="同时存为常用"
+              value={saveTemplate}
+              onValueChange={setSaveTemplate}
+              disabled={saving}
+              trackColor={{ true: t.accent, false: t.border }}
+            />
+          </View>
+          {saveTemplate && (
+            <TextInput
+              accessibilityLabel="常用名称"
+              placeholder="例如早餐、通勤、咖啡"
+              maxLength={20}
+              value={templateName}
+              onChangeText={setTemplateName}
+              editable={!saving}
+              style={inputStyle}
+            />
+          )}
+        </View>
+      )}
       {!!error && (
         <Txt
           size={12}
@@ -350,8 +536,37 @@ export function EntryEditor({
         onPress={() => void save()}
         style={{ minHeight: 52, borderRadius: 18 }}
       >
-        {saving ? '正在保存…' : entry ? '保存修改' : '记好了'}
+        {saving
+          ? '正在保存…'
+          : entry
+            ? '保存修改'
+            : kind === 'refund'
+              ? '确认退款'
+              : '记好了'}
       </Button>
+      {entry?.kind === 'expense' && remainingRefund(data, entry) > 0 && (
+        <Button
+          variant="soft"
+          disabled={saving}
+          style={{ marginTop: 12 }}
+          onPress={() => {
+            if (
+              amount !== amountInput(entry.amount) ||
+              categoryId !== entry.categoryId ||
+              accountId !== entry.accountId ||
+              date !== entry.date ||
+              note !== entry.note ||
+              kind !== entry.kind
+            ) {
+              setError('请先保存原账单的修改，再记录退款');
+              return;
+            }
+            onRefund(entry);
+          }}
+        >
+          记录退款
+        </Button>
+      )}
       {entry && (
         <View style={{ marginTop: 15 }}>
           {confirmDelete ? (

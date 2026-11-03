@@ -7,8 +7,24 @@ import { type Ledger, csv, localDate, validateLedger } from '../domain/ledger';
 export async function exportLedger(ledger: Ledger, format: 'json' | 'csv') {
   const content =
     format === 'json' ? JSON.stringify(ledger, null, 2) : csv(ledger);
-  const mimeType = format === 'json' ? 'application/json' : 'text/csv';
   const name = `qingzhang-${localDate()}.${format}`;
+  await exportContent(
+    content,
+    name,
+    format === 'json' ? 'application/json' : 'text/csv',
+  );
+}
+
+export async function exportLegacyBackup(content: string) {
+  validateLedger(JSON.parse(content));
+  await exportContent(
+    content,
+    `qingzhang-before-upgrade-v1-${localDate()}.json`,
+    'application/json',
+  );
+}
+
+async function exportContent(content: string, name: string, mimeType: string) {
   if (Platform.OS === 'web') {
     const url = URL.createObjectURL(
       new Blob([content], { type: `${mimeType};charset=utf-8` }),
@@ -27,7 +43,7 @@ export async function exportLedger(ledger: Ledger, format: 'json' | 'csv') {
       mimeType,
       dialogTitle: '导出清账数据',
       UTI:
-        format === 'json'
+        mimeType === 'application/json'
           ? 'public.json'
           : 'public.comma-separated-values-text',
     });

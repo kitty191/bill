@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { dailyExpenseValues } from '../domain/expenseTrend';
@@ -6,14 +6,15 @@ import { ExpenseLineChart } from '../components/ExpenseLineChart';
 import {
   type Ledger,
   categoryTotals,
-  money,
   monthEntries,
   shiftMonth,
   totals,
 } from '../domain/ledger';
 import { useTheme } from '../theme';
+import { useMoney } from '../state/PrivacyContext';
 import {
   Card,
+  Button,
   EmptyState,
   Icon,
   MonthPicker,
@@ -21,8 +22,9 @@ import {
   Txt,
   styles,
 } from '../components/ui';
+import { AnnualStats } from '../components/AnnualStats';
 
-export function StatsScreen({
+function MonthlyStats({
   today,
   ledger,
   month,
@@ -34,10 +36,14 @@ export function StatsScreen({
   onMonth: (offset: number) => void;
 }) {
   const t = useTheme();
+  const money = useMoney();
   const entries = monthEntries(ledger, month);
-  const { expense, income } = totals(entries);
-  const previous = totals(monthEntries(ledger, shiftMonth(month, -1))).expense;
-  const categories = categoryTotals(entries);
+  const { expense, income } = totals(entries, ledger.entries);
+  const previous = totals(
+    monthEntries(ledger, shiftMonth(month, -1)),
+    ledger.entries,
+  ).expense;
+  const categories = categoryTotals(entries, ledger.categories, ledger.entries);
   const daily = useMemo(
     () => dailyExpenseValues(ledger.entries, month, today),
     [ledger.entries, month, today],
@@ -183,7 +189,7 @@ export function StatsScreen({
                 </Txt>
               </View>
             </View>
-            {categories.map((c, i) => (
+            {categories.map((c) => (
               <View key={c.id} style={[styles.row, { marginTop: 16, gap: 12 }]}>
                 <View
                   style={{
@@ -242,8 +248,45 @@ export function StatsScreen({
         color={t.subtle}
         style={{ textAlign: 'center', marginTop: 22 }}
       >
-        账户转账不计入收支统计
+        退款抵减原支出，转账不计入收支统计
       </Txt>
+    </>
+  );
+}
+
+export function StatsScreen(props: React.ComponentProps<typeof MonthlyStats>) {
+  const [mode, setMode] = useState<'month' | 'year'>('month');
+  const [year, setYear] = useState(Number(props.month.slice(0, 4)));
+  const selectedYear = props.month.slice(0, 4);
+  useEffect(() => setYear(Number(selectedYear)), [selectedYear]);
+  return (
+    <>
+      <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
+        <Button
+          label="按月统计"
+          variant={mode === 'month' ? 'soft' : 'plain'}
+          onPress={() => setMode('month')}
+        >
+          按月
+        </Button>
+        <Button
+          label="按年统计"
+          variant={mode === 'year' ? 'soft' : 'plain'}
+          onPress={() => setMode('year')}
+        >
+          按年
+        </Button>
+      </View>
+      {mode === 'month' ? (
+        <MonthlyStats {...props} />
+      ) : (
+        <AnnualStats
+          ledger={props.ledger}
+          today={props.today}
+          year={year}
+          onYear={setYear}
+        />
+      )}
     </>
   );
 }

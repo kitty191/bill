@@ -1,14 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePagerScrollLock } from '../components/SwipePager';
 import { useTheme } from '../theme';
+import { useMoney, usePrivacy } from '../state/PrivacyContext';
+import { backupReminderDue } from '../domain/privacy';
 import {
   type Entry,
   type Ledger,
   accountBalance,
   localDate,
-  money,
   monthEntries,
   totals,
 } from '../domain/ledger';
@@ -33,6 +34,8 @@ export function HomeScreen({
   onEntry,
   onAll,
   onSettings,
+  onTemplate,
+  onBackup,
 }: {
   today: string;
   ledger: Ledger;
@@ -42,14 +45,24 @@ export function HomeScreen({
   onEntry: (entry: Entry) => void;
   onAll: () => void;
   onSettings: () => void;
+  onTemplate: (id: string) => void;
+  onBackup: () => void;
 }) {
   const t = useTheme();
+  const money = useMoney();
+  const privacy = usePrivacy();
+  const [reminderError, setReminderError] = useState('');
+  const templates = ledger.templates.filter(
+    (item) =>
+      !ledger.categories.find((category) => category.id === item.categoryId)
+        ?.hidden,
+  );
   const { lock, unlock } = usePagerScrollLock();
   const entries = useMemo(
     () => monthEntries(ledger, month),
     [ledger.entries, month],
   );
-  const { income, expense } = totals(entries);
+  const { income, expense } = totals(entries, ledger.entries);
   const budget = ledger.monthlyBudget;
   const remaining = budget - expense;
   const totalAssets = useMemo(
@@ -360,6 +373,78 @@ export function HomeScreen({
         </>
       )}
 
+      {ledger.entries.length > 0 &&
+        backupReminderDue(privacy.preferences, privacy.now) && (
+          <Card style={{ marginTop: 20, gap: 10 }}>
+            <View style={styles.row}>
+              <Icon name="bell" color={t.accent} />
+              <Txt size={13} weight="500">
+                该导出一份备份了
+              </Txt>
+            </View>
+            <Txt size={11} color={t.muted}>
+              定期保存 JSON 文件，换手机时也能恢复完整账本。
+            </Txt>
+            <View style={styles.row}>
+              <Button variant="soft" onPress={onBackup}>
+                去备份
+              </Button>
+              <Button
+                variant="plain"
+                disabled={privacy.saving}
+                onPress={() => {
+                  void privacy
+                    .snoozeReminder()
+                    .catch((error) =>
+                      setReminderError(
+                        error instanceof Error
+                          ? error.message
+                          : '提醒设置保存失败',
+                      ),
+                    );
+                }}
+              >
+                明天提醒
+              </Button>
+            </View>
+            {!!reminderError && (
+              <Txt size={11} color={t.danger}>
+                {reminderError}
+              </Txt>
+            )}
+          </Card>
+        )}
+      {templates.length > 0 && (
+        <>
+          <SectionTitle title="常用记账" action="管理" onPress={onSettings} />
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            onTouchStart={lock}
+            onTouchEnd={unlock}
+            onTouchCancel={unlock}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {templates.map((item) => (
+              <Button
+                key={item.id}
+                variant="soft"
+                label={`常用记账${item.name}`}
+                onPress={() => onTemplate(item.id)}
+                style={{ gap: 4, alignItems: 'flex-start' }}
+              >
+                <Txt size={12} weight="500">
+                  {item.name}
+                </Txt>
+                <Txt size={11} color={t.muted}>
+                  ¥{money(item.amount)}
+                </Txt>
+              </Button>
+            ))}
+          </ScrollView>
+        </>
+      )}
       <SectionTitle title="最近账单" action="查看全部" onPress={onAll} />
       <Card style={{ paddingVertical: 0, paddingHorizontal: 18 }}>
         {entries.length ? (

@@ -62,7 +62,7 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
     pending.current = true;
     setSaving(true);
     try {
-      const next = change(current.current);
+      const next = validateLedger(change(current.current));
       await saveLedger(next);
       current.current = next;
       setLedger(next);

@@ -4,12 +4,12 @@ import {
   type Entry,
   type EntryKind,
   type Ledger,
-  allCategories,
-  money,
+  categoryFor,
   monthEntries,
   totals,
 } from '../domain/ledger';
 import { useTheme } from '../theme';
+import { useMoney } from '../state/PrivacyContext';
 import {
   Button,
   Card,
@@ -40,6 +40,7 @@ export function EntriesScreen({
   resetKey: number;
 }) {
   const t = useTheme();
+  const money = useMoney();
   const [filter, setFilter] = useState<EntryKind | 'all'>('all');
   const [query, setQuery] = useState('');
   useEffect(() => {
@@ -51,13 +52,16 @@ export function EntriesScreen({
       monthEntries(ledger, month).filter(
         (e) =>
           (filter === 'all' || e.kind === filter) &&
-          `${e.note} ${allCategories.find((c) => c.id === e.categoryId)?.label} ${ledger.accounts.find((a) => a.id === e.accountId)?.name} ${ledger.accounts.find((a) => a.id === e.toAccountId)?.name ?? ''}`
+          `${e.note} ${categoryFor(ledger, e.categoryId)?.label} ${ledger.accounts.find((a) => a.id === e.accountId)?.name} ${ledger.accounts.find((a) => a.id === e.toAccountId)?.name ?? ''}`
             .toLowerCase()
             .includes(query.trim().toLowerCase()),
       ),
     [ledger, month, query, filter],
   );
-  const { income, expense } = totals(monthEntries(ledger, month));
+  const { income, expense } = totals(
+    monthEntries(ledger, month),
+    ledger.entries,
+  );
   const dates = [...new Set(entries.map((e) => e.date))];
   return (
     <>
@@ -132,6 +136,7 @@ export function EntriesScreen({
             ['expense', '支出'],
             ['income', '收入'],
             ['transfer', '转账'],
+            ['refund', '退款'],
           ] as const
         ).map(([value, label]) => (
           <Button
@@ -174,7 +179,7 @@ export function EntriesScreen({
       )}
       {dates.map((date) => {
         const list = entries.filter((e) => e.date === date);
-        const day = totals(list);
+        const day = totals(list, ledger.entries);
         return (
           <View key={date} style={{ marginTop: 24 }}>
             <View
@@ -190,7 +195,7 @@ export function EntriesScreen({
                 </Txt>
               </Txt>
               <Txt size={10} color={t.muted}>
-                {day.expense > 0 ? `支出 ${money(day.expense)}` : ''}
+                {day.expense > 0 ? `净支出 ${money(day.expense)}` : ''}
                 {day.expense > 0 && day.income > 0 ? '  ·  ' : ''}
                 {day.income > 0 ? `收入 ${money(day.income)}` : ''}
               </Txt>

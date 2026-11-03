@@ -23,6 +23,7 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
+import { usePrivacy } from '../state/PrivacyContext';
 import { IconButton, Txt, styles } from './ui';
 
 export function Sheet({
@@ -39,6 +40,7 @@ export function Sheet({
   dismissible?: boolean;
 }) {
   const t = useTheme();
+  const privacy = usePrivacy();
   const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
   const dismiss = () => {
@@ -64,9 +66,9 @@ export function Sheet({
     });
   return (
     <Modal
-      visible={visible}
+      visible={visible && privacy.phase === 'unlocked'}
       transparent
-      animationType={reduce ? 'none' : 'fade'}
+      animationType={reduce || privacy.phase !== 'unlocked' ? 'none' : 'fade'}
       onRequestClose={dismiss}
       statusBarTranslucent
     >

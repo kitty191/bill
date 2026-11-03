@@ -1,4 +1,4 @@
-export type EntryKind = 'expense' | 'income' | 'transfer';
+export type EntryKind = 'expense' | 'income' | 'transfer' | 'refund';
 export type Account = { id: string; name: string; openingBalance: number };
 export type Entry = {
   id: string;
@@ -7,16 +7,20 @@ export type Entry = {
   categoryId: string;
   accountId: string;
   toAccountId?: string;
+  originalEntryId?: string;
   date: string;
   note: string;
   createdAt: string;
 };
 export type Ledger = {
-  version: 1;
+  version: 2;
   accounts: Account[];
   entries: Entry[];
   monthlyBudget: number;
   showAccountCards: boolean;
+  categories: ManagedCategory[];
+  templates: QuickTemplate[];
+  defaults: Partial<Record<'expense' | 'income', EntryDefault>>;
 };
 export type Category = {
   id: string;
@@ -24,6 +28,83 @@ export type Category = {
   color: string;
   icon: string;
 };
+
+export type ManagedCategory = Category & {
+  kind: 'expense' | 'income';
+  hidden: boolean;
+};
+export type EntryDefault = { categoryId: string; accountId: string };
+export type QuickTemplate = EntryDefault & {
+  id: string;
+  name: string;
+  kind: 'expense' | 'income';
+  amount: number;
+  note: string;
+};
+export const categoryIcons = [
+  'utensils',
+  'coffee',
+  'train',
+  'shopping-bag',
+  'house',
+  'gamepad',
+  'heart',
+  'ellipsis',
+  'briefcase',
+  'gift',
+  'sparkles',
+  'plus',
+  'wallet',
+  'leaf',
+  'calendar',
+];
+export const categoryColors = [
+  '#E99764',
+  '#B18A69',
+  '#6A9FCC',
+  '#BB88B6',
+  '#C8A76B',
+  '#8D8ACB',
+  '#D7838B',
+  '#548D75',
+  '#8B9B93',
+];
+export function defaultCategories(): ManagedCategory[] {
+  return [
+    ...expenseCategories.map((c) => ({
+      ...c,
+      kind: 'expense' as const,
+      hidden: false,
+    })),
+    ...incomeCategories.map((c) => ({
+      ...c,
+      kind: 'income' as const,
+      hidden: false,
+    })),
+  ];
+}
+export function categoryFor(ledger: Ledger, categoryId: string): Category {
+  return categoryId === 'transfer'
+    ? transferCategory
+    : ledger.categories.find((c) => c.id === categoryId)!;
+}
+export function visibleCategories(ledger: Ledger, kind: 'expense' | 'income') {
+  return ledger.categories.filter((c) => c.kind === kind && !c.hidden);
+}
+export function entryDefault(
+  ledger: Ledger,
+  kind: 'expense' | 'income',
+): EntryDefault {
+  const saved = ledger.defaults[kind];
+  return {
+    categoryId:
+      visibleCategories(ledger, kind).find((c) => c.id === saved?.categoryId)
+        ?.id ?? visibleCategories(ledger, kind)[0]!.id,
+    accountId:
+      ledger.accounts.find((a) => a.id === saved?.accountId)?.id ??
+      ledger.accounts[0]!.id,
+  };
+}
 
 export const expenseCategories: Category[] = [
   { id: 'food', label: '餐饮', color: '#E99764', icon: 'utensils' },
@@ -56,9 +137,12 @@ export const MAX_AMOUNT = 999_999_999;
 
 export function emptyLedger(): Ledger {
   return {
-    version: 1,
+    version: 2,
     monthlyBudget: 0,
     showAccountCards: false,
+    categories: defaultCategories(),
+    templates: [],
+    defaults: {},
     accounts: [
       { id: 'wechat', name: '微信', openingBalance: 0 },
       { id: 'alipay', name: '支付宝', openingBalance: 0 },
@@ -141,7 +225,7 @@ function isText(
 export function validateLedger(input: unknown): Ledger {
   invariant(input && typeof input === 'object', '账本格式无效');
   const data = input as Record<string, unknown>;
-  invariant(data.version === 1, '不支持此备份版本');
+  invariant(data.version === 1 || data.version === 2, '不支持此备份版本');
   invariant(
     Array.isArray(data.accounts) &&
       data.accounts.length > 0 &&
@@ -170,6 +254,50 @@ export function validateLedger(input: unknown): Ledger {
     ids.add(x.id);
     return { id: x.id, name: x.name.trim(), openingBalance: x.openingBalance };
   });
+  const categoryIds = new Set<string>();
+  const categoryNames = new Set<string>();
+  const rawCategories =
+    data.version === 1 ? defaultCategories() : data.categories;
+  invariant(
+    Array.isArray(rawCategories) && rawCategories.length <= 100,
+    '分类数据无效',
+  );
+  const categories: ManagedCategory[] = rawCategories.map((raw: unknown) => {
+    invariant(raw && typeof raw === 'object', '分类格式无效');
+    const c = raw as Record<string, unknown>;
+    invariant(
+      isText(c.id, 100, true) && c.id !== 'transfer' && !categoryIds.has(c.id),
+      '分类标识重复或无效',
+    );
+    invariant(c.kind === 'expense' || c.kind === 'income', '分类类型无效');
+    invariant(isText(c.label, 20, true), '分类名称需为 1 至 20 字');
+    const name = c.kind + ':' + c.label.trim();
+    invariant(!categoryNames.has(name), '同类分类名称不能重复');
+    invariant(
+      typeof c.color === 'string' && /^#[0-9a-f]{6}$/i.test(c.color),
+      '分类颜色无效',
+    );
+    invariant(
+      typeof c.icon === 'string' && categoryIcons.includes(c.icon),
+      '分类图标无效',
+    );
+    invariant(typeof c.hidden === 'boolean', '分类显示设置无效');
+    categoryIds.add(c.id);
+    categoryNames.add(name);
+    return {
+      id: c.id,
+      kind: c.kind,
+      label: c.label.trim(),
+      color: c.color,
+      icon: c.icon,
+      hidden: c.hidden,
+    };
+  });
+  for (const kind of ['expense', 'income'])
+    invariant(
+      categories.some((c) => c.kind === kind && !c.hidden),
+      '至少保留一个可用的支出和收入分类',
+    );
   const entryIds = new Set<string>();
   const entries: Entry[] = data.entries.map((a: unknown) => {
     invariant(a && typeof a === 'object', '账单格式无效');
@@ -179,7 +307,10 @@ export function validateLedger(input: unknown): Ledger {
       '账单标识重复或无效',
     );
     invariant(
-      x.kind === 'income' || x.kind === 'expense' || x.kind === 'transfer',
+      x.kind === 'income' ||
+        x.kind === 'expense' ||
+        x.kind === 'transfer' ||
+        (data.version === 2 && x.kind === 'refund'),
       '收支类型无效',
     );
     invariant(isAmount(x.amount) && x.amount > 0, '账单金额无效');
@@ -206,12 +337,16 @@ export function validateLedger(input: unknown): Ledger {
       invariant(x.categoryId === 'transfer', '转账分类无效');
     } else {
       invariant(
-        (x.kind === 'income' ? incomeCategories : expenseCategories).some(
-          (c) => c.id === x.categoryId,
+        categories.some(
+          (c) =>
+            c.id === x.categoryId &&
+            c.kind === (x.kind === 'income' ? 'income' : 'expense'),
         ),
         '请选择有效分类',
       );
     }
+    if (x.kind === 'refund')
+      invariant(isText(x.originalEntryId, 100, true), '请选择退款关联的原支出');
     entryIds.add(x.id);
     return {
       id: x.id,
@@ -225,22 +360,153 @@ export function validateLedger(input: unknown): Ledger {
       ...(x.kind === 'transfer'
         ? { toAccountId: x.toAccountId as string }
         : {}),
+      ...(x.kind === 'refund'
+        ? { originalEntryId: x.originalEntryId as string }
+        : {}),
     };
   });
+  const entryMap = new Map(entries.map((e) => [e.id, e]));
+  const refunded = refundAmounts(entries);
+  for (const refund of entries.filter((e) => e.kind === 'refund')) {
+    const original = entryMap.get(refund.originalEntryId!);
+    invariant(original?.kind === 'expense', '退款缺少原支出，请先删除关联退款');
+    invariant(
+      refund.categoryId === original.categoryId,
+      '退款分类需与原支出一致',
+    );
+    invariant(refund.date >= original.date, '退款日期不能早于原支出');
+    invariant(
+      (refunded.get(original.id) ?? 0) <= original.amount,
+      '累计退款不能超过原支出金额',
+    );
+  }
+  const rawTemplates = data.version === 1 ? [] : data.templates;
+  invariant(
+    Array.isArray(rawTemplates) && rawTemplates.length <= 30,
+    '常用项不能超过 30 个',
+  );
+  const templateIds = new Set<string>();
+  const templates: QuickTemplate[] = rawTemplates.map((raw: unknown) => {
+    invariant(raw && typeof raw === 'object', '常用项格式无效');
+    const x = raw as Record<string, unknown>;
+    invariant(
+      isText(x.id, 100, true) && !templateIds.has(x.id),
+      '常用项标识无效',
+    );
+    invariant(
+      isText(x.name, 20, true) && isText(x.note, 120),
+      '常用项名称或备注无效',
+    );
+    invariant(x.kind === 'expense' || x.kind === 'income', '常用项类型无效');
+    invariant(isAmount(x.amount) && x.amount > 0, '常用项金额无效');
+    invariant(
+      isText(x.accountId, 100) && ids.has(x.accountId),
+      '常用项账户无效',
+    );
+    invariant(
+      isText(x.categoryId, 100) &&
+        categories.some((c) => c.id === x.categoryId && c.kind === x.kind),
+      '常用项分类无效',
+    );
+    templateIds.add(x.id);
+    return {
+      id: x.id,
+      name: x.name.trim(),
+      note: x.note.trim(),
+      kind: x.kind,
+      amount: x.amount,
+      accountId: x.accountId,
+      categoryId: x.categoryId,
+    };
+  });
+  const rawDefaults = data.version === 1 ? {} : data.defaults;
+  invariant(
+    rawDefaults &&
+      typeof rawDefaults === 'object' &&
+      !Array.isArray(rawDefaults),
+    '记账偏好无效',
+  );
+  const defaults: Ledger['defaults'] = {};
+  for (const kind of ['expense', 'income'] as const) {
+    const item = (rawDefaults as Record<string, unknown>)[kind];
+    if (item === undefined) continue;
+    invariant(item && typeof item === 'object', '记账偏好无效');
+    const x = item as Record<string, unknown>;
+    invariant(
+      isText(x.accountId, 100) &&
+        ids.has(x.accountId) &&
+        isText(x.categoryId, 100) &&
+        categories.some((c) => c.id === x.categoryId && c.kind === kind),
+      '记账偏好引用无效',
+    );
+    defaults[kind] = { accountId: x.accountId, categoryId: x.categoryId };
+  }
   return {
-    version: 1,
+    version: 2,
     accounts,
     entries,
     monthlyBudget: data.monthlyBudget,
     showAccountCards: data.showAccountCards ?? false,
+    categories,
+    templates,
+    defaults,
   };
 }
 
-export function upsertEntry(ledger: Ledger, entry: Entry): Ledger {
+export function upsertEntry(
+  ledger: Ledger,
+  entry: Entry,
+  remember = false,
+): Ledger {
+  const entries = [
+    ...ledger.entries.filter((e) => e.id !== entry.id),
+    entry,
+  ].map((e) =>
+    e.kind === 'refund' &&
+    e.originalEntryId === entry.id &&
+    entry.kind === 'expense'
+      ? { ...e, categoryId: entry.categoryId }
+      : e,
+  );
   return validateLedger({
     ...ledger,
-    entries: [...ledger.entries.filter((e) => e.id !== entry.id), entry],
+    entries,
+    defaults:
+      remember && (entry.kind === 'expense' || entry.kind === 'income')
+        ? {
+            ...ledger.defaults,
+            [entry.kind]: {
+              accountId: entry.accountId,
+              categoryId: entry.categoryId,
+            },
+          }
+        : ledger.defaults,
   });
+}
+export function deleteEntry(ledger: Ledger, entryId: string): Ledger {
+  invariant(
+    !ledger.entries.some((e) => e.originalEntryId === entryId),
+    '请先删除这笔支出的关联退款',
+  );
+  return validateLedger({
+    ...ledger,
+    entries: ledger.entries.filter((e) => e.id !== entryId),
+  });
+}
+export function refundAmounts(entries: Entry[]): Map<string, number> {
+  const values = new Map<string, number>();
+  for (const entry of entries)
+    if (entry.kind === 'refund' && entry.originalEntryId)
+      values.set(
+        entry.originalEntryId,
+        (values.get(entry.originalEntryId) ?? 0) + entry.amount,
+      );
+  return values;
+}
+export function remainingRefund(ledger: Ledger, expense: Entry): number {
+  return expense.kind === 'expense'
+    ? expense.amount - (refundAmounts(ledger.entries).get(expense.id) ?? 0)
+    : 0;
 }
 
 export function accountBalance(ledger: Ledger, accountId: string): number {
@@ -255,7 +521,7 @@ export function accountBalance(ledger: Ledger, accountId: string): number {
       return (
         sum +
         (e.accountId === accountId
-          ? e.amount * (e.kind === 'income' ? 1 : -1)
+          ? e.amount * (e.kind === 'income' || e.kind === 'refund' ? 1 : -1)
           : 0)
       );
     },
@@ -272,25 +538,36 @@ export function monthEntries(ledger: Ledger, month: string): Entry[] {
     );
 }
 
-export function totals(entries: Entry[]) {
+// Refunds reduce the original expense's period; account balances use actual refund records.
+export function totals(entries: Entry[], allEntries = entries) {
+  const refunds = refundAmounts(allEntries);
   return entries.reduce(
-    (t, e) => {
-      if (e.kind === 'income') t.income += e.amount;
-      if (e.kind === 'expense') t.expense += e.amount;
-      return t;
+    (total, entry) => {
+      if (entry.kind === 'income') total.income += entry.amount;
+      if (entry.kind === 'expense')
+        total.expense += entry.amount - (refunds.get(entry.id) ?? 0);
+      return total;
     },
     { income: 0, expense: 0 },
   );
 }
-
-export function categoryTotals(entries: Entry[]) {
-  return expenseCategories
-    .map((category) => ({
-      ...category,
-      total: entries
-        .filter((e) => e.kind === 'expense' && e.categoryId === category.id)
-        .reduce((s, e) => s + e.amount, 0),
-    }))
+export function categoryTotals(
+  entries: Entry[],
+  categories: Category[] = expenseCategories,
+  allEntries = entries,
+) {
+  const refunds = refundAmounts(allEntries);
+  const amounts = new Map<string, number>();
+  for (const entry of entries)
+    if (entry.kind === 'expense')
+      amounts.set(
+        entry.categoryId,
+        (amounts.get(entry.categoryId) ?? 0) +
+          entry.amount -
+          (refunds.get(entry.id) ?? 0),
+      );
+  return categories
+    .map((c) => ({ ...c, total: amounts.get(c.id) ?? 0 }))
     .filter((c) => c.total > 0)
     .sort((a, b) => b.total - a.total);
 }
@@ -343,17 +620,29 @@ export function csv(ledger: Ledger): string {
   return (
     '\uFEFF' +
     [
-      ['日期', '类型', '分类', '金额（元）', '账户', '转入账户', '备注'],
+      [
+        '日期',
+        '类型',
+        '分类',
+        '金额（元）',
+        '账户',
+        '转入账户',
+        '备注',
+        '关联原账单',
+      ],
       ...[...ledger.entries]
         .sort((a, b) => b.date.localeCompare(a.date))
         .map((e) => [
           e.date,
-          { income: '收入', expense: '支出', transfer: '转账' }[e.kind],
-          allCategories.find((c) => c.id === e.categoryId)?.label ?? '',
+          { income: '收入', expense: '支出', transfer: '转账', refund: '退款' }[
+            e.kind
+          ],
+          categoryFor(ledger, e.categoryId)?.label ?? '',
           amountInput(e.amount),
           ledger.accounts.find((a) => a.id === e.accountId)?.name ?? '',
           ledger.accounts.find((a) => a.id === e.toAccountId)?.name ?? '',
           e.note,
+          e.originalEntryId ?? '',
         ]),
     ]
       .map((row) => row.map(cell).join(','))
