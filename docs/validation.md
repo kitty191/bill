@@ -17,6 +17,16 @@
 
 ## 安装包构建进展
 
+### v0.1.1 图标更新
+
+- 正式图标为 1024 × 1024 RGB PNG，无透明通道；已配置 iOS / Android 传统图标、Android 自适应图标和 Web favicon。
+- 原生生成的普通、圆形、自适应前景三种图标资源，均已在最终 APK 中按文件 SHA-256 找到对应内容，确认替换了模板机器人图标。
+- Release 构建通过，524 项任务中 50 项执行、474 项复用缓存。APK 版本 0.1.1 / versionCode 2，31,588,718 字节。
+- 签名证书与 v0.1.0 完全一致，包名和数据结构不变，支持保留账本的覆盖安装。APK v2 签名、16 KB ZIP 对齐、ZIP CRC 与内置代码均通过检查。
+- 类型检查、28 项逻辑测试、网页生产构建通过。校验记录见 `downloads/qingzhang-v0.1.1-android-arm64-verification.json`；尚未真机验收。
+
+### v0.1.0 首次构建
+
 - 已补齐经过官方校验的 JDK 17 / 21、Gradle 9.4.1、Android SDK 37.0、Build Tools 37.0.0、NDK 27.1.12297006 和 CMake。
 - 已添加包标识、仓库外的私有预览签名配置，以及可复用 `npm run build:apk`。
 - 针对 JitPack 策略拒绝，将 BlurView 官方固定提交的源码作为本地模块编译，保留原始实现与许可证。
