@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePagerScrollLock } from '../components/SwipePager';
@@ -25,6 +25,7 @@ import {
 } from '../components/ui';
 
 export function HomeScreen({
+  today,
   ledger,
   month,
   onMonth,
@@ -33,6 +34,7 @@ export function HomeScreen({
   onAll,
   onSettings,
 }: {
+  today: string;
   ledger: Ledger;
   month: string;
   onMonth: (offset: number) => void;
@@ -43,15 +45,23 @@ export function HomeScreen({
 }) {
   const t = useTheme();
   const { lock, unlock } = usePagerScrollLock();
-  const entries = monthEntries(ledger, month);
+  const entries = useMemo(
+    () => monthEntries(ledger, month),
+    [ledger.entries, month],
+  );
   const { income, expense } = totals(entries);
   const budget = ledger.monthlyBudget;
   const remaining = budget - expense;
-  const totalAssets = ledger.accounts.reduce(
-    (sum, a) => sum + accountBalance(ledger, a.id),
-    0,
+  const totalAssets = useMemo(
+    () =>
+      ledger.showAccountCards
+        ? ledger.accounts.reduce(
+            (sum, a) => sum + accountBalance(ledger, a.id),
+            0,
+          )
+        : 0,
+    [ledger.accounts, ledger.entries, ledger.showAccountCards],
   );
-  const now = new Date();
   return (
     <>
       <View
@@ -394,7 +404,7 @@ export function HomeScreen({
         color={t.subtle}
         style={{ textAlign: 'center', letterSpacing: 2 }}
       >
-        {now.getFullYear()} · 简单记录，轻盈生活
+        {Number(today.slice(0, 4))} · 简单记录，轻盈生活
       </Txt>
     </>
   );

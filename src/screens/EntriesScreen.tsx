@@ -23,6 +23,7 @@ import {
 } from '../components/ui';
 
 export function EntriesScreen({
+  today,
   ledger,
   month,
   onMonth,
@@ -30,6 +31,7 @@ export function EntriesScreen({
   onAdd,
   resetKey,
 }: {
+  today: string;
   ledger: Ledger;
   month: string;
   onMonth: (offset: number) => void;
@@ -182,7 +184,7 @@ export function EntriesScreen({
               ]}
             >
               <Txt size={13} weight="500">
-                {dateHeading(date)}{' '}
+                {dateHeading(date, today)}{' '}
                 <Txt size={10} color={t.muted}>
                   {date.slice(5).replace('-', '.')}
                 </Txt>

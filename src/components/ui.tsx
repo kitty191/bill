@@ -10,6 +10,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowDownLeft,
   ArrowLeftRight,
@@ -311,14 +312,26 @@ export function Glass({
         style,
       ]}
     >
-      <BlurView
-        pointerEvents="none"
-        intensity={40}
-        tint={t.dark ? 'dark' : 'light'}
-        blurTarget={blurTarget}
-        blurMethod="dimezisBlurViewSdk31Plus"
-        style={StyleSheet.absoluteFill}
-      />
+      {Platform.OS === 'android' ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={
+            t.dark
+              ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']
+              : ['rgba(255,255,255,0.48)', 'rgba(255,255,255,0.12)']
+          }
+          style={StyleSheet.absoluteFill}
+        />
+      ) : (
+        <BlurView
+          pointerEvents="none"
+          intensity={40}
+          tint={t.dark ? 'dark' : 'light'}
+          blurTarget={blurTarget}
+          blurMethod="dimezisBlurViewSdk31Plus"
+          style={StyleSheet.absoluteFill}
+        />
+      )}
       {children}
     </View>
   );
@@ -518,9 +531,8 @@ export function EmptyState({
   );
 }
 
-export function dateHeading(date: string): string {
-  const today = localDate();
-  const yesterday = new Date();
+export function dateHeading(date: string, today = localDate()): string {
+  const yesterday = new Date(`${today}T12:00:00`);
   yesterday.setDate(yesterday.getDate() - 1);
   return date === today
     ? '今天'

@@ -1,7 +1,5 @@
 import React, {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -16,15 +14,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { pagerOffset, pagerProgress, settledPagerIndex } from '../domain/pager';
+import { PagerScrollLock } from './pagerContext';
+export { usePagerScrollLock } from './pagerContext';
 
-const ScrollLock = createContext({ lock: () => {}, unlock: () => {} });
 const IS_WEB = Platform.OS === 'web';
 const PAGER_STYLE = {
   flex: 1,
   direction: 'ltr',
   ...(IS_WEB ? { overscrollBehaviorX: 'contain' } : {}),
 } as const;
-export const usePagerScrollLock = () => useContext(ScrollLock);
 
 /** Page positions match the left-to-right dock order on native and web. */
 export function SwipePager({
@@ -190,7 +188,7 @@ export function SwipePager({
   });
 
   return (
-    <ScrollLock.Provider value={scrollLock}>
+    <PagerScrollLock.Provider value={scrollLock}>
       <View
         style={{ flex: 1 }}
         onLayout={(event) => {
@@ -264,6 +262,6 @@ export function SwipePager({
           </Animated.ScrollView>
         )}
       </View>
-    </ScrollLock.Provider>
+    </PagerScrollLock.Provider>
   );
 }

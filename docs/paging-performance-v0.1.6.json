@@ -1,0 +1,42 @@
+{
+  "recorded_at": "2026-11-03T12:46:11.728660+00:00",
+  "baseline_version": "0.1.5",
+  "optimized_version": "0.1.6",
+  "method": "One Chromium web run per version, 1000 fake records, 9 tab changes, reduced motion enabled. Temporary render counters were removed before production export. Not a native FPS measurement.",
+  "before": {
+    "records": 1000,
+    "pageChanges": 9,
+    "screenRenders": {
+      "HomeScreen": 9,
+      "EntriesScreen": 10,
+      "StatsScreen": 9
+    },
+    "metrics": {
+      "TaskDuration": 6.009413,
+      "ScriptDuration": 5.303447,
+      "LayoutDuration": 0.014047,
+      "RecalcStyleDuration": 0.007223,
+      "LayoutCount": 10
+    },
+    "runtimeErrors": [],
+    "platform": "Chromium web; not native FPS"
+  },
+  "after": {
+    "records": 1000,
+    "pageChanges": 9,
+    "screenRenders": {
+      "HomeScreen": 0,
+      "EntriesScreen": 0,
+      "StatsScreen": 0
+    },
+    "metrics": {
+      "TaskDuration": 1.091555,
+      "ScriptDuration": 0.129784,
+      "LayoutDuration": 0.006311,
+      "RecalcStyleDuration": 0.004793,
+      "LayoutCount": 9
+    },
+    "runtimeErrors": [],
+    "platform": "Chromium web; not native FPS"
+  }
+}

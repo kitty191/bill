@@ -14,6 +14,7 @@
 - 设置：账户名称与初始余额、添加账户、所有月份共用的预算。
 - 数据：完整 JSON 备份与恢复、CSV 导出；导入前校验与确认；存储失败保留输入；损坏数据的备份恢复入口。
 - 外观：跟随系统深浅模式、底部浮动玻璃导航、跟手的分页与导航指示器、记账按钮反馈、可拖动面板、系统减少动态效果适配。
+- 滑动性能：手机端采用原生分页，动画进度在 UI 线程更新；缓存页面与回调，避免切页时重算全部账单。Android 使用轻量半透明玻璃材质，iOS 保留原生模糊。
 
 ## 开发
 
@@ -42,6 +43,7 @@ npm run typecheck
 npm test
 npm run export:web -- --max-workers 2
 npm run test:e2e
+npm run benchmark:paging
 ```
 
 端到端测试使用 Chromium，默认路径 `/usr/bin/chromium`，可通过 `CHROMIUM_PATH` 指定浏览器可执行文件。测试自动启动本机静态服务器；先执行网页导出。测试覆盖真实的新增、转账、编辑、删除、重载、预算、账户管理、导出、恢复、存储失败、窄屏深色流程，以及触摸切页、首尾边界、嵌套滚动和折线图点选。
@@ -67,7 +69,7 @@ EXPO_OFFLINE=1 npx expo export --platform ios --platform android --output-dir /t
 
 见 [产品与设计决策](docs/product.md) 和 [验证记录](docs/validation.md)。截图见 `docs/previews/`。
 
-当前玻璃通过 Expo Blur 实现，并非复刻系统 Liquid Glass 的真实折射。Android 12+ 使用原生模糊，较旧系统使用半透明降级。原生效果和性能仍需真机校准。
+玻璃材质并非复刻系统 Liquid Glass 的真实折射。iOS 使用 Expo Blur 原生模糊；Android 使用半透明底色、渐变和高光，减少滑动时的整屏模糊取样。原生效果和帧率仍需真机校准。网页性能对比见 [测量记录](docs/paging-performance-v0.1.6.json)；网页数据不代表手机帧率。
 
 Git Author 主作者为用户确认的 GitHub 账号 `kitty191`，使用隐私邮箱 `265797658+kitty191@users.noreply.github.com`；云端 Committer 为 `Codex <codex@openai.com>`。两者分别显式指定，不能将机器或全局 Git 配置当作用户身份。
 

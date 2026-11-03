@@ -7,7 +7,6 @@ import {
   type Ledger,
   categoryTotals,
   money,
-  localDate,
   monthEntries,
   shiftMonth,
   totals,
@@ -24,10 +23,12 @@ import {
 } from '../components/ui';
 
 export function StatsScreen({
+  today,
   ledger,
   month,
   onMonth,
 }: {
+  today: string;
   ledger: Ledger;
   month: string;
   onMonth: (offset: number) => void;
@@ -37,7 +38,6 @@ export function StatsScreen({
   const { expense, income } = totals(entries);
   const previous = totals(monthEntries(ledger, shiftMonth(month, -1))).expense;
   const categories = categoryTotals(entries);
-  const today = localDate();
   const daily = useMemo(
     () => dailyExpenseValues(ledger.entries, month, today),
     [ledger.entries, month, today],

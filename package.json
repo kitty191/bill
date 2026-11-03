@@ -1,6 +1,6 @@
 {
   "name": "qingzhang",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "engines": {
     "node": ">=24.3.0 <25",
@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "export:web": "expo export --platform web",
-    "build:apk": "python3 scripts/build_android.py"
+    "build:apk": "python3 scripts/build_android.py",
+    "benchmark:paging": "python3 scripts/benchmark_paging.py"
   },
   "dependencies": {
     "expo": "~58.0.22",
@@ -35,6 +36,7 @@
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
     "react-native-gesture-handler": "~3.3.0",
+    "react-native-pager-view": "9.0.7",
     "react-native-reanimated": "4.7.1",
     "react-native-safe-area-context": "~5.10.1",
     "react-native-svg": "15.16.0",

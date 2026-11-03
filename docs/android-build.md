@@ -35,6 +35,8 @@ npm run build:apk
 
 初始受限网络无法访问 JitPack。Expo Blur 依赖的 BlurView 3.1.0 因此从官方 GitHub 固定提交核实后保存在 `native-deps/blurview/`，构建脚本仅将这个版本替换为本地模块。Java 和资源文件未修改，来源与许可证见该目录的 `UPSTREAM.md`；许可证同时打入 APK。构建无需访问 JitPack，也没有关闭 TLS 或更改依赖校验值。
 
+v0.1.6 使用 SDK 映射的 `react-native-pager-view` 9.0.7，预构建会自动链接其 Android 原生模块；构建时将其 MIT 许可证打入 APK。构建后执行 `python3 scripts/verify_android.py`，检查当前版本、原签名、原生分页代码、内置资源与完整性，并确认临时性能计数器未进入安装包。
+
 React Native 0.88.1 的 Maven 原生 AAR 会重定向到 `repo.reactnative.dev`。受限网络需要允许该官方域名；只允许 Maven Central 不足以完成下载。初次编译曾被 403 策略拒绝，调整联网设置后实际下载恢复，ARM64 Release 构建已成功。
 
 预览包、SHA-256 与校验记录保存在仓库 `downloads/`，Release 页面提供下载入口。签名和 16 KB ZIP 对齐、ZIP 完整性、包名、架构、内置 Hermes 代码均已校验；尚未进行真机安装测试。私有签名文件始终保存在仓库之外。

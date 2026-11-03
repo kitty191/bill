@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -46,6 +53,10 @@ import { StatsScreen } from './src/screens/StatsScreen';
 import { SwipePager } from './src/components/SwipePager';
 
 const PAGE_KEYS: Tab[] = ['home', 'entries', 'stats'];
+const MemoHomeScreen = memo(HomeScreen);
+const MemoEntriesScreen = memo(EntriesScreen);
+const MemoStatsScreen = memo(StatsScreen);
+const BackgroundSurface = Platform.OS === 'android' ? View : BlurTargetView;
 
 export default function App() {
   return (
@@ -102,9 +113,85 @@ function Main() {
     (index: number) => selectTab(PAGE_KEYS[index]!),
     [selectTab],
   );
-  const onMonth = (offset: number) =>
-    setMonth((current) => shiftMonth(current, offset));
-  const onEntry = (entry: Entry) => setEditor({ entry });
+  // Navigation across midnight must still refresh relative dates in memoized pages.
+  const today = localDate();
+  const onMonth = useCallback(
+    (offset: number) => setMonth((current) => shiftMonth(current, offset)),
+    [],
+  );
+  const onEntry = useCallback((entry: Entry) => setEditor({ entry }), []);
+  const openEditor = useCallback(() => setEditor({}), []);
+  const openSettings = useCallback(() => setSettings(true), []);
+  const showAll = useCallback(() => {
+    setEntriesResetKey((value) => value + 1);
+    entriesScroll.current?.scrollTo({ y: 0, animated: false });
+    navigate('entries');
+  }, [navigate]);
+  // Keep the screen elements and callbacks stable while native paging animates.
+  const pages = useMemo(
+    () =>
+      ledger
+        ? PAGE_KEYS.map((key) => ({
+            key,
+            content: (
+              <ScrollView
+                ref={key === 'entries' ? entriesScroll : undefined}
+                testID={`page-${key}-scroll`}
+                nestedScrollEnabled
+                directionalLockEnabled
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  paddingHorizontal: 24,
+                  paddingBottom: Math.max(insets.bottom, 20) + 110,
+                }}
+              >
+                {key === 'home' ? (
+                  <MemoHomeScreen
+                    today={today}
+                    ledger={ledger}
+                    month={month}
+                    onMonth={onMonth}
+                    onAdd={openEditor}
+                    onEntry={onEntry}
+                    onAll={showAll}
+                    onSettings={openSettings}
+                  />
+                ) : key === 'entries' ? (
+                  <MemoEntriesScreen
+                    today={today}
+                    resetKey={entriesResetKey}
+                    ledger={ledger}
+                    month={month}
+                    onMonth={onMonth}
+                    onEntry={onEntry}
+                    onAdd={openEditor}
+                  />
+                ) : (
+                  <MemoStatsScreen
+                    today={today}
+                    ledger={ledger}
+                    month={month}
+                    onMonth={onMonth}
+                  />
+                )}
+              </ScrollView>
+            ),
+          }))
+        : [],
+    [
+      ledger,
+      month,
+      onMonth,
+      onEntry,
+      openEditor,
+      openSettings,
+      showAll,
+      entriesResetKey,
+      insets.bottom,
+      today,
+    ],
+  );
 
   if (loading || !ledger)
     return (
@@ -209,7 +296,7 @@ function Main() {
             borderColor: t.border,
           }}
         >
-          <BlurTargetView ref={blurTarget} style={{ flex: 1 }}>
+          <BackgroundSurface ref={blurTarget} style={{ flex: 1 }}>
             <View
               style={{
                 paddingTop: Math.max(
@@ -255,59 +342,9 @@ function Main() {
               navigationKey={navigationKey}
               progress={pageProgress}
               onIndexChange={onPageChange}
-              pages={PAGE_KEYS.map((key) => ({
-                key,
-                content: (
-                  <ScrollView
-                    ref={key === 'entries' ? entriesScroll : undefined}
-                    testID={`page-${key}-scroll`}
-                    nestedScrollEnabled
-                    directionalLockEnabled
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={{
-                      paddingHorizontal: 24,
-                      paddingBottom: Math.max(insets.bottom, 20) + 110,
-                    }}
-                  >
-                    {key === 'home' ? (
-                      <HomeScreen
-                        ledger={ledger}
-                        month={month}
-                        onMonth={onMonth}
-                        onAdd={() => setEditor({})}
-                        onEntry={onEntry}
-                        onAll={() => {
-                          setEntriesResetKey((value) => value + 1);
-                          entriesScroll.current?.scrollTo({
-                            y: 0,
-                            animated: false,
-                          });
-                          navigate('entries');
-                        }}
-                        onSettings={() => setSettings(true)}
-                      />
-                    ) : key === 'entries' ? (
-                      <EntriesScreen
-                        resetKey={entriesResetKey}
-                        ledger={ledger}
-                        month={month}
-                        onMonth={onMonth}
-                        onEntry={onEntry}
-                        onAdd={() => setEditor({})}
-                      />
-                    ) : (
-                      <StatsScreen
-                        ledger={ledger}
-                        month={month}
-                        onMonth={onMonth}
-                      />
-                    )}
-                  </ScrollView>
-                ),
-              }))}
+              pages={pages}
             />
-          </BlurTargetView>
+          </BackgroundSurface>
           <BottomNavigation
             tab={tab}
             progress={pageProgress}

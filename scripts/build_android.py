@@ -35,6 +35,9 @@ def main():
 
     subprocess.run(['npx', 'expo', 'prebuild', '--platform', 'android', '--no-install', '--no-clean'], cwd=ROOT, env=env, check=True)
     (ROOT / 'android/local.properties').write_text('sdk.dir=' + env['ANDROID_HOME'] + '\n')
+    notices = ROOT / 'android/app/src/main/assets/third-party'
+    notices.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / 'node_modules/react-native-pager-view/LICENSE', notices / 'react-native-pager-view-LICENSE.txt')
 
     # A predownloaded official Gradle archive is usable only with its checksum.
     archive = TOOLS / 'gradle-9.4.1-bin.zip'
