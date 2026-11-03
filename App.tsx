@@ -69,6 +69,7 @@ function Main() {
   const [recovery, setRecovery] = useState<Ledger | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
+  const [navigationKey, setNavigationKey] = useState(0);
   const tabRef = useRef<Tab>('home');
   const pageProgress = useSharedValue(0);
   const [month, setMonth] = useState(localDate().slice(0, 7));
@@ -83,13 +84,24 @@ function Main() {
     const timer = setTimeout(() => setToast(''), 2800);
     return () => clearTimeout(timer);
   }, [toast]);
-  const navigate = useCallback((next: Tab) => {
+  const selectTab = useCallback((next: Tab) => {
     if (tabRef.current === next) return;
     tabRef.current = next;
     Keyboard.dismiss();
     setTab(next);
     void Haptics.selectionAsync().catch(() => {});
   }, []);
+  const navigate = useCallback(
+    (next: Tab) => {
+      setNavigationKey((value) => value + 1);
+      selectTab(next);
+    },
+    [selectTab],
+  );
+  const onPageChange = useCallback(
+    (index: number) => selectTab(PAGE_KEYS[index]!),
+    [selectTab],
+  );
   const onMonth = (offset: number) =>
     setMonth((current) => shiftMonth(current, offset));
   const onEntry = (entry: Entry) => setEditor({ entry });
@@ -240,8 +252,9 @@ function Main() {
             </View>
             <SwipePager
               index={PAGE_KEYS.indexOf(tab)}
+              navigationKey={navigationKey}
               progress={pageProgress}
-              onIndexChange={(index) => navigate(PAGE_KEYS[index]!)}
+              onIndexChange={onPageChange}
               pages={PAGE_KEYS.map((key) => ({
                 key,
                 content: (

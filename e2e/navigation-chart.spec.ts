@@ -31,9 +31,13 @@ async function expectPage(page: Page, key: string, label: string) {
       Math.abs((await page.getByTestId(`page-${key}`).boundingBox())!.x - 1),
     )
     .toBeLessThan(3);
+  await expect(page.getByTestId(`page-${key}`)).not.toHaveAttribute(
+    'aria-hidden',
+    'true',
+  );
 }
 
-test('right swipes advance through pages, left swipes return, and tabs remain synchronized', async ({
+test('left swipes advance through dock order, right swipes return, and tabs stay synchronized', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -49,32 +53,33 @@ test('right swipes advance through pages, left swipes return, and tabs remain sy
   await expect(
     page.getByRole('textbox', { name: '金额', exact: true }),
   ).not.toBeVisible();
-  await swipe(page, 65, 300, 250);
+  await swipe(page, 315, 300, -250);
   await expectPage(page, 'entries', '账单');
   const row = (await page
+    .getByTestId('page-entries')
     .getByRole('button', { name: /手势测试.*查看详情/ })
     .boundingBox())!;
-  await swipe(page, row.x + 32, row.y + row.height / 2, 250);
+  await swipe(page, row.x + row.width - 32, row.y + row.height / 2, -250);
   await expectPage(page, 'stats', '统计');
   await expect(
     page.getByRole('textbox', { name: '金额', exact: true }),
   ).toHaveCount(0);
   await page.setViewportSize({ width: 430, height: 844 });
   await expectPage(page, 'stats', '统计');
-  await swipe(page, 315, 310, -250);
+  await swipe(page, 65, 310, 250);
   await expectPage(page, 'entries', '账单');
   await page.getByRole('tab', { name: '首页', exact: true }).click();
   await expectPage(page, 'home', '首页');
-  await swipe(page, 315, 310, -250);
+  await swipe(page, 65, 310, 250);
   await expectPage(page, 'home', '首页');
   await page.getByRole('tab', { name: '统计', exact: true }).click();
   await expectPage(page, 'stats', '统计');
-  await swipe(page, 65, 310, 250);
+  await swipe(page, 315, 310, -250);
   await expectPage(page, 'stats', '统计');
   expect(errors).toEqual([]);
 });
 
-test('rightward finger movement moves the page and dock highlight right together without mirroring', async ({
+test('leftward finger movement reveals the right-hand page and advances the dock', async ({
   page,
 }) => {
   await page.goto('/');
@@ -91,22 +96,25 @@ test('rightward finger movement moves the page and dock highlight right together
     ).transform,
   }));
   expect(arrangement.order).toEqual([
-    'page-stats',
-    'page-entries',
     'page-home',
+    'page-entries',
+    'page-stats',
   ]);
   expect(arrangement.direction).toBe('ltr');
   expect(arrangement.pageTransform).toBe('none');
-  expect(arrangement.offset).toBeGreaterThan(700);
+  expect(arrangement.offset).toBe(0);
   const indicator = page.getByTestId('dock-indicator');
   const initialX = (await indicator.boundingBox())!.x;
+  expect(
+    (await page.getByTestId('page-entries').boundingBox())!.x,
+  ).toBeGreaterThan(380);
   const session = await page.context().newCDPSession(page);
   try {
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchStart',
-      touchPoints: [{ x: 65, y: 300 }],
+      touchPoints: [{ x: 315, y: 300 }],
     });
-    for (const x of [95, 125, 155, 185]) {
+    for (const x of [285, 255, 225, 195]) {
       await session.send('Input.dispatchTouchEvent', {
         type: 'touchMove',
         touchPoints: [{ x, y: 300 }],
@@ -115,17 +123,21 @@ test('rightward finger movement moves the page and dock highlight right together
     }
     await expect
       .poll(async () => (await page.getByTestId('page-home').boundingBox())!.x)
-      .toBeGreaterThan(30);
+      .toBeLessThan(-30);
     await expect
       .poll(async () => (await indicator.boundingBox())!.x)
       .toBeGreaterThan(initialX + 5);
-    expect(await pager.evaluate((element) => element.scrollLeft)).toBeLessThan(
-      arrangement.offset,
-    );
+    expect(
+      await pager.evaluate((element) => element.scrollLeft),
+    ).toBeGreaterThan(arrangement.offset);
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchMove',
-      touchPoints: [{ x: 315, y: 300 }],
+      touchPoints: [{ x: 65, y: 300 }],
     });
+    // The visible tab changes before release or a momentum-end event.
+    await expect(
+      page.getByRole('tab', { name: '账单', exact: true }),
+    ).toHaveAttribute('aria-selected', 'true');
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchEnd',
       touchPoints: [],
@@ -134,6 +146,52 @@ test('rightward finger movement moves the page and dock highlight right together
   } finally {
     await session.detach();
   }
+});
+
+test('dock highlights reflect the actual page during interrupted animated navigation', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  await expectPage(page, 'home', '首页');
+  const samples = await page.evaluate(async () => {
+    const pager = document.querySelector<HTMLElement>(
+      '[data-testid="page-pager"]',
+    )!;
+    const tabs = [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
+    const samples: { progress: number; selected: number }[] = [];
+    let recording = true;
+    const record = () => {
+      if (!recording) return;
+      samples.push({
+        progress: pager.scrollLeft / pager.clientWidth,
+        selected: tabs.findIndex(
+          (tab) => tab.getAttribute('aria-selected') === 'true',
+        ),
+      });
+      requestAnimationFrame(record);
+    };
+    const pause = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+    requestAnimationFrame(record);
+    tabs[2]!.click();
+    await pause(65);
+    tabs[0]!.click();
+    await pause(45);
+    tabs[1]!.click();
+    await pause(550);
+    recording = false;
+    return samples;
+  });
+  expect(samples.length).toBeGreaterThan(5);
+  expect(
+    samples.every(
+      (sample) => Math.abs(sample.progress - sample.selected) < 0.8,
+    ),
+  ).toBe(true);
+  await expectPage(page, 'entries', '账单');
+  await page.getByRole('tab', { name: '首页', exact: true }).click();
+  await expectPage(page, 'home', '首页');
 });
 
 test('vertical scrolling and horizontal account scrolling keep priority over page swipes', async ({
@@ -233,9 +291,9 @@ test('swiping retains bill filters while View all opens the unfiltered ledger', 
   await expect(
     page.getByTestId('page-entries').getByText('没有找到这些账单'),
   ).toBeVisible();
-  await swipe(page, 65, 300, 250);
-  await expectPage(page, 'stats', '统计');
   await swipe(page, 315, 300, -250);
+  await expectPage(page, 'stats', '统计');
+  await swipe(page, 65, 300, 250);
   await expectPage(page, 'entries', '账单');
   await expect(page.getByRole('textbox', { name: '搜索账单' })).toHaveValue(
     '不存在的内容',

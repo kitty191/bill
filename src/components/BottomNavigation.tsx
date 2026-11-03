@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useAnimatedReaction,
   useReducedMotion,
   useSharedValue,
   withSpring,
@@ -9,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTheme } from '../theme';
 import { Glass, Icon, Txt } from './ui';
+import { scheduleOnRN } from 'react-native-worklets';
 
 export type Tab = 'home' | 'entries' | 'stats';
 const tabs = [
@@ -35,6 +37,16 @@ export function BottomNavigation({
   const t = useTheme();
   const reduce = useReducedMotion();
   const [width, setWidth] = useState(0);
+  const [visibleIndex, setVisibleIndex] = useState(
+    tabs.findIndex(([key]) => key === tab),
+  );
+  useAnimatedReaction(
+    () => Math.max(0, Math.min(tabs.length - 1, Math.round(progress.value))),
+    (next, previous) => {
+      if (next !== previous) scheduleOnRN(setVisibleIndex, next);
+    },
+    [progress],
+  );
   const scale = useSharedValue(1);
   const step = Math.max(0, width - 12) / 3;
   const indicatorStyle = useAnimatedStyle(() => ({
@@ -79,13 +91,13 @@ export function BottomNavigation({
               ]}
             />
           )}
-          {tabs.map(([key, icon, label]) => (
+          {tabs.map(([key, icon, label], index) => (
             <Pressable
               key={key}
               accessibilityRole="tab"
               accessibilityLabel={label}
-              accessibilityState={{ selected: tab === key }}
-              aria-selected={tab === key}
+              accessibilityState={{ selected: visibleIndex === index }}
+              aria-selected={visibleIndex === index}
               onPress={() => onTab(key)}
               style={({ pressed }) => ({
                 flex: 1,
@@ -100,13 +112,13 @@ export function BottomNavigation({
               <Icon
                 name={icon}
                 size={19}
-                color={tab === key ? t.accent : t.muted}
-                strokeWidth={tab === key ? 2 : 1.6}
+                color={visibleIndex === index ? t.accent : t.muted}
+                strokeWidth={visibleIndex === index ? 2 : 1.6}
               />
               <Txt
                 size={9}
-                color={tab === key ? t.accent : t.muted}
-                weight={tab === key ? '600' : '400'}
+                color={visibleIndex === index ? t.accent : t.muted}
+                weight={visibleIndex === index ? '600' : '400'}
               >
                 {label}
               </Txt>

@@ -15,7 +15,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { pagerOffset, pagerProgress } from '../domain/pager';
+import { pagerOffset, pagerProgress, settledPagerIndex } from '../domain/pager';
 
 const ScrollLock = createContext({ lock: () => {}, unlock: () => {} });
 const IS_WEB = Platform.OS === 'web';
@@ -26,15 +26,16 @@ const PAGER_STYLE = {
 } as const;
 export const usePagerScrollLock = () => useContext(ScrollLock);
 
-/** Reverse the actual page order, never the view or its touch coordinates.
- * Native and web use the same positive offsets and logical tab mapping. */
+/** Page positions match the left-to-right dock order on native and web. */
 export function SwipePager({
   index,
+  navigationKey,
   onIndexChange,
   progress,
   pages,
 }: {
   index: number;
+  navigationKey: number;
   onIndexChange: (index: number) => void;
   progress: SharedValue<number>;
   pages: { key: string; content: React.ReactNode }[];
@@ -43,6 +44,7 @@ export function SwipePager({
   const ref = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const knownIndex = useRef(index);
   const previousWidth = useRef(0);
+  const previousNavigation = useRef(navigationKey);
   const initialOffset = useRef<{ x: number; y: number } | undefined>(undefined);
   const initialized = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,8 +107,8 @@ export function SwipePager({
       if (lockedRef.current) return;
       const position = pagerProgress(node.scrollLeft, count, width);
       const outside =
-        (position <= 0.01 && dx < 0) ||
-        (position >= count - 1 - 0.01 && dx > 0);
+        (position <= 0.01 && dx > 0) ||
+        (position >= count - 1 - 0.01 && dx < 0);
       if (outside && event.cancelable) event.preventDefault();
     };
     node.addEventListener('touchstart', start, {
@@ -123,22 +125,23 @@ export function SwipePager({
   const settled = useCallback(
     (value: number) => {
       if (timer.current) clearTimeout(timer.current);
-      const next = Math.max(0, Math.min(count - 1, Math.round(value)));
+      // A delayed native event can belong to the previous fling. Only commit
+      // the page actually at rest, using the same position as the entire dock.
+      if (Math.abs(value - progress.value) >= 0.01) return;
+      const next = settledPagerIndex(progress.value);
+      if (next === null) return;
       if (next !== knownIndex.current) {
         knownIndex.current = next;
         onIndexChange(next);
       }
     },
-    [count, onIndexChange],
+    [onIndexChange, progress],
   );
 
-  const webScroll = useCallback(
-    (value: number) => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => settled(value), 140);
-    },
-    [settled],
-  );
+  const checkStopped = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => settled(progress.value), 100);
+  }, [settled, progress]);
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
@@ -149,8 +152,10 @@ export function SwipePager({
   useLayoutEffect(() => {
     if (!width) return;
     const resized = width !== previousWidth.current;
+    const requested = navigationKey !== previousNavigation.current;
+    previousNavigation.current = navigationKey;
     previousWidth.current = width;
-    if (!resized && knownIndex.current === index) return;
+    if (!resized && !requested && knownIndex.current === index) return;
     if (timer.current) clearTimeout(timer.current);
     knownIndex.current = index;
     if (resized || reduce) progress.value = index;
@@ -158,14 +163,22 @@ export function SwipePager({
       x: pagerOffset(index, count, width),
       animated: !resized && !reduce,
     });
-  }, [index, width, count, reduce, progress]);
+  }, [index, navigationKey, width, count, reduce, progress]);
 
   const handler = useAnimatedScrollHandler({
     onScroll(event) {
       if (!width) return;
       const value = pagerProgress(event.contentOffset.x, count, width);
       progress.value = value;
-      if (IS_WEB) scheduleOnRN(webScroll, value);
+      if (Math.abs(value - Math.round(value)) < 0.01)
+        scheduleOnRN(settled, value);
+      // Browsers omit momentum events; Android can delay them while snapping.
+      // Both also settle after the live position reaches a page boundary.
+      if (IS_WEB || Math.abs(value - Math.round(value)) < 0.01)
+        scheduleOnRN(checkStopped);
+    },
+    onEndDrag() {
+      scheduleOnRN(checkStopped);
     },
     onMomentumEnd(event) {
       if (width)
@@ -229,8 +242,7 @@ export function SwipePager({
               direction: 'ltr',
             }}
           >
-            {[...pages].reverse().map((page, physicalIndex) => {
-              const pageIndex = count - 1 - physicalIndex;
+            {pages.map((page, pageIndex) => {
               return (
                 <View
                   key={page.key}
