@@ -24,6 +24,8 @@
 - 类型检查、34 项逻辑测试和网页生产构建通过。新增测试覆盖按日累计、收入 / 转账排除、月长 / 闰年、未来日期、单日 / 全零曲线和金额轴。
 - Chromium 11 项端到端测试全部通过。新增真实触摸场景覆盖双向切页、底部导航同步、窗口变化、首尾边界、账单拖动不误开编辑、纵向滚动与账户横向滚动独立、筛选保留与重置、折线图点选和月份切换。
 - 已检查浅色与深色的实际网页截图，见 `docs/previews/stats-line-chart.png` 和 `docs/previews/stats-line-chart-dark.png`。原生手势、触感与帧率仍待真机验收。
+- Android Release 构建成功，用时 5 分 17 秒，524 项任务中 43 项执行、481 项复用缓存。APK 版本 0.1.2 / versionCode 3，31,599,550 字节；签名与前两个版本一致，可覆盖安装并保留账本。
+- APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64 架构、内置 Hermes 代码、图标资源及权限检查通过。校验记录见 `downloads/qingzhang-v0.1.2-android-arm64-verification.json`；未进行真机安装验收。
 
 ### v0.1.1 图标更新
 
