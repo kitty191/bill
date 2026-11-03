@@ -1,0 +1,36 @@
+{
+  "same_signer_as": "0.1.3",
+  "launcher_icon_sha256": "a375af53a9a46a72f85cfae406fa2d7223717b96daef903521f81604c111c129",
+  "new_launcher_resources_verified": {
+    "ic_launcher.webp": [
+      "res/sK.webp"
+    ],
+    "ic_launcher_round.webp": [
+      "res/-6.webp"
+    ],
+    "ic_launcher_foreground.webp": [
+      "res/5c.webp"
+    ]
+  },
+  "file": "qingzhang-v0.1.4-android-arm64.apk",
+  "bytes": 31601406,
+  "sha256": "8d750b37b8ab1535e23813e3d3e4780df2080ced7a1d2daf8e74b171683b353a",
+  "package": "com.kitty191.qingzhang",
+  "version": "0.1.4",
+  "version_code": 5,
+  "min_android_api": 24,
+  "architectures": [
+    "arm64-v8a"
+  ],
+  "debuggable": false,
+  "signature_verified": true,
+  "signer_certificate_sha256": "c8d3e0af3a906dced3c0c0ed07f556769ae6bb721d9f13a0dca2e1a937cbed4f",
+  "zip_alignment_16k_verified": true,
+  "zip_crc_verified": true,
+  "standalone_bundles": [
+    "assets/index.android.bundle"
+  ],
+  "source_commit": "8f794b0aa7fd88dbb8c2f076ca34a03e454d3142",
+  "verified_at": "2026-11-03T15:42:42.439211+08:00",
+  "device_installation_tested": false
+}
