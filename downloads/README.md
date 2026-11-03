@@ -1,8 +1,9 @@
 # 清账 Android 预览版
 
-[下载 v0.1.5 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.1.5-android-arm64.apk) · [版本说明](https://github.com/kitty191/bill/releases/tag/v0.1.5-android-preview)
+[下载 v0.1.6 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.1.6-android-arm64.apk) · [版本说明](https://github.com/kitty191/bill/releases/tag/v0.1.6-android-preview)
 
-- 版本：0.1.5，versionCode 6，31,604,818 字节，约 30 MB。
+- 版本：0.1.6，versionCode 7，32,221,347 字节，约 31 MB。
+- 滑动优化：原生分页、页面缓存与 UI 线程进度；Android 采用轻量半透明玻璃，减少整屏模糊绘制。网页模拟账单对比中，9 次切页的重复渲染由 28 次降为 0 次，实际手机帧率仍待实机验收。
 - 首页账户卡片与总资产默认隐藏，可在「设置 → 首页显示 → 首页显示账户卡片」中打开或关闭；选择会保存，关闭不删除账户或账单。
 - 修正反向页面顺序：首页、账单、统计与 dock 一样从左到右排列；手指左滑进入右侧页面，右滑返回。滑块、图标与文字高亮跟随实际位置，快速改选可中断切页，各页保留滚动位置。
 - 每日支出改为折线图，轻触查看当天金额，支持浅色和深色模式。
@@ -18,7 +19,7 @@ APK 使用仓库外保存的私有预览密钥签名，已通过 APK v2 签名�
 SHA-256：
 
 ```text
-3576907e0f1383c4301b0f1609a26bdc5b9d6f899960e073e1d338b54fec7278
+509e5c180559b97c6cb2ba414fb0ec6452373b03b0a6657fc2aa4abb4dcee124
 ```
 
-完整信息见 [构建校验记录](qingzhang-v0.1.5-android-arm64-verification.json)。APK 和 [校验和文件](qingzhang-v0.1.5-android-arm64.apk.sha256) 已保存在此目录；签名密钥不会上传。旧版的安装包和校验记录保留供追溯。
+完整信息见 [构建校验记录](qingzhang-v0.1.6-android-arm64-verification.json)。APK 和 [校验和文件](qingzhang-v0.1.6-android-arm64.apk.sha256) 已保存在此目录；签名密钥不会上传。旧版的安装包和校验记录保留供追溯。

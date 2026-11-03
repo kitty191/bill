@@ -30,7 +30,7 @@ npm run web
 
 当前技术栈：Expo SDK 58、React Native 0.88、React 19.3、TypeScript 6、Reanimated 4、SQLite。版本以 `package-lock.json` 为准。
 
-Android 预览版：[下载 v0.1.5 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.1.5-android-arm64.apk)，约 30 MB，支持 ARM64 系统的 Android 7.0 及以上手机，内含应用代码，无需 Expo Go 或开发服务器。新版按原生录屏修正反向页序与 dock 高亮不同步，包含账户卡片开关和每日支出折线图。沿用原签名，可从旧版直接覆盖安装并保留账本，无需依次安装中间版本。该包已通过签名与完整性检查，仍待真机验收。详见 [下载说明](downloads/README.md)。
+Android 预览版：[下载 v0.1.6 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.1.6-android-arm64.apk)，约 31 MB，支持 ARM64 系统的 Android 7.0 及以上手机，内含应用代码，无需 Expo Go 或开发服务器。新版采用原生分页、缓存页面并降低 Android 玻璃绘制开销，保留账户开关、每日支出折线图与 dock 同步。沿用原签名，可直接覆盖安装旧版并保留账本。该包已通过签名与完整性检查，实际帧率仍待真机验收。详见 [下载说明](downloads/README.md)。
 
 独立 APK 构建入口为 `npm run build:apk`，工具链、私有签名配置和网络前提见 [Android 构建说明](docs/android-build.md)。IPA 尚未生成，另需 macOS / 远程构建服务及 Apple 签名。
 
@@ -47,6 +47,8 @@ npm run benchmark:paging
 ```
 
 端到端测试使用 Chromium，默认路径 `/usr/bin/chromium`，可通过 `CHROMIUM_PATH` 指定浏览器可执行文件。测试自动启动本机静态服务器；先执行网页导出。测试覆盖真实的新增、转账、编辑、删除、重载、预算、账户管理、导出、恢复、存储失败、窄屏深色流程，以及触摸切页、首尾边界、嵌套滚动和折线图点选。
+
+切页基准使用 1000 条模拟账单，检查 9 次切页期间静态页面的渲染次数，结果默认写入 `/tmp/qingzhang-paging-benchmark.json`。它会短暂插入计数代码并恢复源文件，请勿与源文件编辑并行运行；该基准不测量原生设备帧率。
 
 原生 JavaScript / 资源导出：
 
