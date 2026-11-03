@@ -74,6 +74,68 @@ test('right swipes advance through pages, left swipes return, and tabs remain sy
   expect(errors).toEqual([]);
 });
 
+test('rightward finger movement moves the page and dock highlight right together without mirroring', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expectPage(page, 'home', '首页');
+  const pager = page.getByTestId('page-pager');
+  const arrangement = await pager.evaluate((element) => ({
+    order: [...element.querySelectorAll('[data-testid]')]
+      .map((page) => page.getAttribute('data-testid'))
+      .filter((id) => /^page-(home|entries|stats)$/.test(id!)),
+    direction: getComputedStyle(element).direction,
+    offset: element.scrollLeft,
+    pageTransform: getComputedStyle(
+      element.querySelector('[data-testid="page-home"]')!,
+    ).transform,
+  }));
+  expect(arrangement.order).toEqual([
+    'page-stats',
+    'page-entries',
+    'page-home',
+  ]);
+  expect(arrangement.direction).toBe('ltr');
+  expect(arrangement.pageTransform).toBe('none');
+  expect(arrangement.offset).toBeGreaterThan(700);
+  const indicator = page.getByTestId('dock-indicator');
+  const initialX = (await indicator.boundingBox())!.x;
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: 65, y: 300 }],
+    });
+    for (const x of [95, 125, 155, 185]) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y: 300 }],
+      });
+      await page.waitForTimeout(20);
+    }
+    await expect
+      .poll(async () => (await page.getByTestId('page-home').boundingBox())!.x)
+      .toBeGreaterThan(30);
+    await expect
+      .poll(async () => (await indicator.boundingBox())!.x)
+      .toBeGreaterThan(initialX + 5);
+    expect(await pager.evaluate((element) => element.scrollLeft)).toBeLessThan(
+      arrangement.offset,
+    );
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x: 315, y: 300 }],
+    });
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await expectPage(page, 'entries', '账单');
+  } finally {
+    await session.detach();
+  }
+});
+
 test('vertical scrolling and horizontal account scrolling keep priority over page swipes', async ({
   page,
 }) => {

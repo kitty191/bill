@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,18 +15,19 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { pagerOffset, pagerProgress } from '../domain/pager';
 
 const ScrollLock = createContext({ lock: () => {}, unlock: () => {} });
 const IS_WEB = Platform.OS === 'web';
-const WEB_PAGER_STYLE = {
+const PAGER_STYLE = {
   flex: 1,
-  direction: 'rtl',
-  overscrollBehaviorX: 'contain',
+  direction: 'ltr',
+  ...(IS_WEB ? { overscrollBehaviorX: 'contain' } : {}),
 } as const;
 export const usePagerScrollLock = () => useContext(ScrollLock);
 
-/** Native inverted paging and browser RTL scrolling both make a rightward
- * swipe go forward. Page content keeps its ordinary reading/scroll direction. */
+/** Reverse the actual page order, never the view or its touch coordinates.
+ * Native and web use the same positive offsets and logical tab mapping. */
 export function SwipePager({
   index,
   onIndexChange,
@@ -41,6 +43,8 @@ export function SwipePager({
   const ref = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const knownIndex = useRef(index);
   const previousWidth = useRef(0);
+  const initialOffset = useRef<{ x: number; y: number } | undefined>(undefined);
+  const initialized = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [locked, setLocked] = useState(false);
@@ -99,7 +103,7 @@ export function SwipePager({
         dy = touch.clientY - startY;
       if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy)) return;
       if (lockedRef.current) return;
-      const position = -node.scrollLeft / width;
+      const position = pagerProgress(node.scrollLeft, count, width);
       const outside =
         (position <= 0.01 && dx < 0) ||
         (position >= count - 1 - 0.01 && dx > 0);
@@ -142,7 +146,7 @@ export function SwipePager({
     [],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!width) return;
     const resized = width !== previousWidth.current;
     previousWidth.current = width;
@@ -150,25 +154,16 @@ export function SwipePager({
     if (timer.current) clearTimeout(timer.current);
     knownIndex.current = index;
     if (resized || reduce) progress.value = index;
-    const frame = requestAnimationFrame(() =>
-      ref.current?.scrollTo({
-        x: (IS_WEB ? -1 : 1) * index * width,
-        animated: !resized && !reduce,
-      }),
-    );
-    return () => cancelAnimationFrame(frame);
-  }, [index, width, reduce, progress]);
+    ref.current?.scrollTo({
+      x: pagerOffset(index, count, width),
+      animated: !resized && !reduce,
+    });
+  }, [index, width, count, reduce, progress]);
 
   const handler = useAnimatedScrollHandler({
     onScroll(event) {
       if (!width) return;
-      const value = Math.max(
-        0,
-        Math.min(
-          count - 1,
-          ((IS_WEB ? -1 : 1) * event.contentOffset.x) / width,
-        ),
-      );
+      const value = pagerProgress(event.contentOffset.x, count, width);
       progress.value = value;
       if (IS_WEB) scheduleOnRN(webScroll, value);
     },
@@ -176,7 +171,7 @@ export function SwipePager({
       if (width)
         scheduleOnRN(
           settled,
-          ((IS_WEB ? -1 : 1) * event.contentOffset.x) / width,
+          pagerProgress(event.contentOffset.x, count, width),
         );
     },
   });
@@ -187,6 +182,11 @@ export function SwipePager({
         style={{ flex: 1 }}
         onLayout={(event) => {
           const { width: nextWidth, height } = event.nativeEvent.layout;
+          if (!initialOffset.current && nextWidth > 0)
+            initialOffset.current = {
+              x: pagerOffset(knownIndex.current, count, nextWidth),
+              y: 0,
+            };
           setViewport((current) =>
             current.width === nextWidth && current.height === height
               ? current
@@ -194,50 +194,63 @@ export function SwipePager({
           );
         }}
       >
-        <Animated.ScrollView
-          ref={ref}
-          testID="page-pager"
-          horizontal
-          pagingEnabled
-          directionalLockEnabled
-          keyboardDismissMode="on-drag"
-          nestedScrollEnabled
-          decelerationRate="fast"
-          disableIntervalMomentum
-          scrollEnabled={!locked}
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={handler}
-          style={
-            IS_WEB ? WEB_PAGER_STYLE : { flex: 1, transform: [{ scaleX: -1 }] }
-          }
-          contentContainerStyle={{
-            width: width * count,
-            height: viewport.height,
-            ...(IS_WEB ? { direction: 'rtl' as const } : {}),
-          }}
-        >
-          {pages.map((page, pageIndex) => (
-            <View
-              key={page.key}
-              testID={`page-${page.key}`}
-              accessibilityElementsHidden={pageIndex !== index}
-              importantForAccessibility={
-                pageIndex === index ? 'auto' : 'no-hide-descendants'
-              }
-              aria-hidden={pageIndex !== index}
-              style={{
-                width,
-                height: viewport.height,
-                ...(IS_WEB
-                  ? { direction: 'ltr' as const }
-                  : { transform: [{ scaleX: -1 }] }),
-              }}
-            >
-              {page.content}
-            </View>
-          ))}
-        </Animated.ScrollView>
+        {width > 0 && (
+          <Animated.ScrollView
+            ref={ref}
+            testID="page-pager"
+            horizontal
+            pagingEnabled
+            directionalLockEnabled
+            keyboardDismissMode="on-drag"
+            nestedScrollEnabled
+            decelerationRate="fast"
+            disableIntervalMomentum
+            scrollEnabled={!locked}
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={handler}
+            contentOffset={initialOffset.current}
+            onContentSizeChange={(contentWidth) => {
+              // Android must know the content extent before the initial offset
+              // can be applied. Also initializes browsers, which ignore contentOffset.
+              if (initialized.current || contentWidth < width * count - 1)
+                return;
+              initialized.current = true;
+              progress.value = knownIndex.current;
+              ref.current?.scrollTo({
+                x: pagerOffset(knownIndex.current, count, width),
+                animated: false,
+              });
+            }}
+            style={PAGER_STYLE}
+            contentContainerStyle={{
+              width: width * count,
+              height: viewport.height,
+              direction: 'ltr',
+            }}
+          >
+            {[...pages].reverse().map((page, physicalIndex) => {
+              const pageIndex = count - 1 - physicalIndex;
+              return (
+                <View
+                  key={page.key}
+                  testID={`page-${page.key}`}
+                  accessibilityElementsHidden={pageIndex !== index}
+                  importantForAccessibility={
+                    pageIndex === index ? 'auto' : 'no-hide-descendants'
+                  }
+                  aria-hidden={pageIndex !== index}
+                  style={{
+                    width,
+                    height: viewport.height,
+                  }}
+                >
+                  {page.content}
+                </View>
+              );
+            })}
+          </Animated.ScrollView>
+        )}
       </View>
     </ScrollLock.Provider>
   );

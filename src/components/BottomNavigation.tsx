@@ -63,6 +63,7 @@ export function BottomNavigation({
         >
           {width > 0 && (
             <Animated.View
+              testID="dock-indicator"
               pointerEvents="none"
               style={[
                 {
