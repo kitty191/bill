@@ -67,7 +67,8 @@ def main():
         gradle += ['-Djavax.net.ssl.trustStore=' + str(trust)]
         env['JAVA_TOOL_OPTIONS'] = (env.get('JAVA_TOOL_OPTIONS', '') + ' -Djavax.net.ssl.trustStore=' + str(trust)).strip()
     subprocess.run(gradle, cwd=ROOT / 'android', env=env, check=True)
-    output = ROOT / 'downloads/qingzhang-v0.1.0-android-arm64.apk'
+    version = json.loads((ROOT / 'app.json').read_text())['expo']['version']
+    output = ROOT / f'downloads/qingzhang-v{version}-android-arm64.apk'
     output.parent.mkdir(exist_ok=True)
     shutil.copy2(ROOT / 'android/app/build/outputs/apk/release/app-release.apk', output)
     digest = hashlib.file_digest(output.open('rb'), 'sha256').hexdigest()

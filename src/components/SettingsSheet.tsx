@@ -17,6 +17,7 @@ import { exportLedger, importLedger } from '../storage/backup';
 import { useTheme } from '../theme';
 import { Sheet } from './Sheet';
 import { Button, Icon, SectionTitle, Txt, styles } from './ui';
+import appConfig from '../../app.json';
 
 export function SettingsSheet({
   onClose,
@@ -386,7 +387,7 @@ export function SettingsSheet({
           清账
         </Txt>
         <Txt size={10} color={t.subtle}>
-          简单记录，轻盈生活 · v0.1.0
+          简单记录，轻盈生活 · v{appConfig.expo.version}
         </Txt>
         <Txt size={10} color={t.subtle}>
           浅色与深色外观跟随系统
