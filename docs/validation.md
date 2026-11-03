@@ -28,6 +28,8 @@
 - 切页基准通过：1000 条模拟账单，9 次切页，首页 / 账单 / 统计各 0 次重复渲染，无运行异常；见 `docs/paging-performance-v0.2.0.json`。此结果不是手机帧率测量。
 - 已查看实际网页的年度图表、分类编辑及隐私设置截图，见 `docs/previews/*v0.2.0*.png`。数据为测试生成的账本；用户私人录屏未上传。
 - 应用锁只在独立手机构建可启用；原生识别、后台返回解锁、保留编辑草稿、SQLite 升级事务和实际安装仍需设备验收。提醒为应用内提示，JSON 分享面板不能证明文件最终已保存。
+- 最终源码提交：`f772ec7c63c86dc8867716a35dd72a9d2d1f2470`。iOS / 网页生产导出和 Android Release 构建通过；版本 0.2.0 / versionCode 8，32,524,963 字节，沿用旧签名。
+- APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、非 Debuggable、内置 Hermes、图标、原生分页 / 认证 / SecureStore 模块与权限检查通过；详见 `downloads/qingzhang-v0.2.0-android-arm64-verification.json`。临时性能计数器未进入安装包。
 
 ### v0.1.6 滑动性能优化
 
