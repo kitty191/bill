@@ -28,6 +28,7 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
   const current = useRef(preferences);
   const pending = useRef(false);
   const authenticating = useRef(false);
+  const backgroundedDuringAuthentication = useRef(false);
   const [phase, setPhase] = useState<PrivacyState['phase']>('loading');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -55,6 +56,8 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
     const subscription = AppState.addEventListener('change', (state) => {
       setActive(state === 'active');
       if (state === 'active') setNow(Date.now());
+      if (state === 'background' && authenticating.current)
+        backgroundedDuringAuthentication.current = true;
       if (
         state === 'background' &&
         current.current.appLockEnabled &&
@@ -119,14 +122,25 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
       if (!supportsAppLock) throw new Error('应用锁仅在手机独立安装版可用');
       if (authenticating.current) throw new Error('正在验证身份');
       authenticating.current = true;
+      backgroundedDuringAuthentication.current = false;
       setAuthBusy(true);
+      let verified = false;
       try {
         if (!(await authenticateDevice(enabled)))
           throw new Error('验证已取消，设置保持原状');
         await save((value) => ({ ...value, appLockEnabled: enabled }), true);
+        verified = true;
       } finally {
         authenticating.current = false;
         setAuthBusy(false);
+        if (
+          current.current.appLockEnabled &&
+          (AppState.currentState === 'background' ||
+            (backgroundedDuringAuthentication.current && !verified))
+        ) {
+          setPhase('locked');
+          setLockEpoch((value) => value + 1);
+        }
       }
     },
     [save],
