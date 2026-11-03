@@ -1,5 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+  ScrollView,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { BlurTargetView } from 'expo-blur';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,9 +15,9 @@ import {
 } from 'react-native-safe-area-context';
 import Animated, {
   FadeIn,
-  FadeInDown,
   FadeOut,
   useReducedMotion,
+  useSharedValue,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import {
@@ -37,6 +43,9 @@ import { SettingsSheet } from './src/components/SettingsSheet';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { EntriesScreen } from './src/screens/EntriesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
+import { SwipePager } from './src/components/SwipePager';
+
+const PAGE_KEYS: Tab[] = ['home', 'entries', 'stats'];
 
 export default function App() {
   return (
@@ -60,22 +69,27 @@ function Main() {
   const [recovery, setRecovery] = useState<Ledger | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
+  const tabRef = useRef<Tab>('home');
+  const pageProgress = useSharedValue(0);
   const [month, setMonth] = useState(localDate().slice(0, 7));
+  const [entriesResetKey, setEntriesResetKey] = useState(0);
+  const entriesScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [editor, setEditor] = useState<{ entry?: Entry } | null>(null);
   const [settings, setSettings] = useState(false);
   const [toast, setToast] = useState('');
-  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const blurTarget = useRef<React.ComponentRef<typeof View>>(null);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2800);
     return () => clearTimeout(timer);
   }, [toast]);
-  const navigate = (next: typeof tab) => {
+  const navigate = useCallback((next: Tab) => {
+    if (tabRef.current === next) return;
+    tabRef.current = next;
+    Keyboard.dismiss();
     setTab(next);
-    scroll.current?.scrollTo({ y: 0, animated: false });
     void Haptics.selectionAsync().catch(() => {});
-  };
+  }, []);
   const onMonth = (offset: number) =>
     setMonth((current) => shiftMonth(current, offset));
   const onEntry = (entry: Entry) => setEditor({ entry });
@@ -184,25 +198,17 @@ function Main() {
           }}
         >
           <BlurTargetView ref={blurTarget} style={{ flex: 1 }}>
-            <ScrollView
-              ref={scroll}
-              contentContainerStyle={{
+            <View
+              style={{
                 paddingTop: Math.max(
                   insets.top,
                   Platform.OS === 'web' ? 26 : 12,
                 ),
                 paddingHorizontal: 24,
-                paddingBottom: Math.max(insets.bottom, 20) + 110,
+                paddingBottom: 27,
               }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
             >
-              <View
-                style={[
-                  styles.row,
-                  { justifyContent: 'space-between', marginBottom: 27 },
-                ]}
-              >
+              <View style={[styles.row, { justifyContent: 'space-between' }]}>
                 <View style={[styles.row, { gap: 8 }]}>
                   <View
                     style={{
@@ -231,42 +237,67 @@ function Main() {
                   style={{ width: 38, height: 38, borderRadius: 19 }}
                 />
               </View>
-              <Animated.View
-                key={tab}
-                entering={reduce ? undefined : FadeInDown.duration(220)}
-              >
-                {tab === 'home' && (
-                  <HomeScreen
-                    ledger={ledger}
-                    month={month}
-                    onMonth={onMonth}
-                    onAdd={() => setEditor({})}
-                    onEntry={onEntry}
-                    onAll={() => navigate('entries')}
-                    onSettings={() => setSettings(true)}
-                  />
-                )}
-                {tab === 'entries' && (
-                  <EntriesScreen
-                    ledger={ledger}
-                    month={month}
-                    onMonth={onMonth}
-                    onEntry={onEntry}
-                    onAdd={() => setEditor({})}
-                  />
-                )}
-                {tab === 'stats' && (
-                  <StatsScreen
-                    ledger={ledger}
-                    month={month}
-                    onMonth={onMonth}
-                  />
-                )}
-              </Animated.View>
-            </ScrollView>
+            </View>
+            <SwipePager
+              index={PAGE_KEYS.indexOf(tab)}
+              progress={pageProgress}
+              onIndexChange={(index) => navigate(PAGE_KEYS[index]!)}
+              pages={PAGE_KEYS.map((key) => ({
+                key,
+                content: (
+                  <ScrollView
+                    ref={key === 'entries' ? entriesScroll : undefined}
+                    testID={`page-${key}-scroll`}
+                    nestedScrollEnabled
+                    directionalLockEnabled
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{
+                      paddingHorizontal: 24,
+                      paddingBottom: Math.max(insets.bottom, 20) + 110,
+                    }}
+                  >
+                    {key === 'home' ? (
+                      <HomeScreen
+                        ledger={ledger}
+                        month={month}
+                        onMonth={onMonth}
+                        onAdd={() => setEditor({})}
+                        onEntry={onEntry}
+                        onAll={() => {
+                          setEntriesResetKey((value) => value + 1);
+                          entriesScroll.current?.scrollTo({
+                            y: 0,
+                            animated: false,
+                          });
+                          navigate('entries');
+                        }}
+                        onSettings={() => setSettings(true)}
+                      />
+                    ) : key === 'entries' ? (
+                      <EntriesScreen
+                        resetKey={entriesResetKey}
+                        ledger={ledger}
+                        month={month}
+                        onMonth={onMonth}
+                        onEntry={onEntry}
+                        onAdd={() => setEditor({})}
+                      />
+                    ) : (
+                      <StatsScreen
+                        ledger={ledger}
+                        month={month}
+                        onMonth={onMonth}
+                      />
+                    )}
+                  </ScrollView>
+                ),
+              }))}
+            />
           </BlurTargetView>
           <BottomNavigation
             tab={tab}
+            progress={pageProgress}
             onTab={navigate}
             bottom={Math.max(insets.bottom, 18)}
             onAdd={() => {

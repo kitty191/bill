@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withSpring,
-  withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useTheme } from '../theme';
 import { Glass, Icon, Txt } from './ui';
@@ -24,26 +24,21 @@ export function BottomNavigation({
   onTab,
   onAdd,
   bottom,
+  progress,
 }: {
   tab: Tab;
   onTab: (tab: Tab) => void;
   onAdd: () => void;
   bottom: number;
+  progress: SharedValue<number>;
 }) {
   const t = useTheme();
   const reduce = useReducedMotion();
   const [width, setWidth] = useState(0);
-  const position = useSharedValue(0);
   const scale = useSharedValue(1);
   const step = Math.max(0, width - 12) / 3;
-  useEffect(() => {
-    const target = tabs.findIndex((item) => item[0] === tab) * step;
-    position.value = reduce
-      ? withTiming(target, { duration: 0 })
-      : withSpring(target, spring);
-  }, [tab, step, reduce, position]);
   const indicatorStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: position.value }],
+    transform: [{ translateX: progress.value * step }],
   }));
   const addStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -89,6 +84,7 @@ export function BottomNavigation({
               accessibilityRole="tab"
               accessibilityLabel={label}
               accessibilityState={{ selected: tab === key }}
+              aria-selected={tab === key}
               onPress={() => onTab(key)}
               style={({ pressed }) => ({
                 flex: 1,

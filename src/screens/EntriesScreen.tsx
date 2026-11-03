@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import {
   type Entry,
@@ -28,16 +28,22 @@ export function EntriesScreen({
   onMonth,
   onEntry,
   onAdd,
+  resetKey,
 }: {
   ledger: Ledger;
   month: string;
   onMonth: (offset: number) => void;
   onEntry: (entry: Entry) => void;
   onAdd: () => void;
+  resetKey: number;
 }) {
   const t = useTheme();
   const [filter, setFilter] = useState<EntryKind | 'all'>('all');
   const [query, setQuery] = useState('');
+  useEffect(() => {
+    setFilter('all');
+    setQuery('');
+  }, [resetKey]);
   const entries = useMemo(
     () =>
       monthEntries(ledger, month).filter(

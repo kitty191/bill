@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { dailyExpenseValues } from '../domain/expenseTrend';
+import { ExpenseLineChart } from '../components/ExpenseLineChart';
 import {
   type Ledger,
   categoryTotals,
   money,
+  localDate,
   monthEntries,
   shiftMonth,
   totals,
@@ -34,17 +37,11 @@ export function StatsScreen({
   const { expense, income } = totals(entries);
   const previous = totals(monthEntries(ledger, shiftMonth(month, -1))).expense;
   const categories = categoryTotals(entries);
-  const days = new Date(
-    Number(month.slice(0, 4)),
-    Number(month.slice(5)),
-    0,
-  ).getDate();
-  const daily = Array.from({ length: days }, (_, i) =>
-    entries
-      .filter((e) => e.kind === 'expense' && Number(e.date.slice(8)) === i + 1)
-      .reduce((sum, e) => sum + e.amount, 0),
+  const today = localDate();
+  const daily = useMemo(
+    () => dailyExpenseValues(ledger.entries, month, today),
+    [ledger.entries, month, today],
   );
-  const peak = Math.max(...daily, 1);
   const totalDays = new Set(entries.map((e) => e.date)).size;
   const circumference = 2 * Math.PI * 66;
   let running = 0;
@@ -238,64 +235,7 @@ export function StatsScreen({
       </Card>
       <SectionTitle title="每日支出" />
       <Card>
-        <View
-          style={[
-            styles.row,
-            { justifyContent: 'space-between', marginBottom: 19 },
-          ]}
-        >
-          <Txt size={11} color={t.muted}>
-            每日花费，清晰有度
-          </Txt>
-          <Txt size={11} color={t.accent}>
-            最高 ¥{money(Math.max(...daily))}
-          </Txt>
-        </View>
-        <View
-          accessible
-          accessibilityLabel={`${Number(month.slice(5))}月每日支出柱状图，最高 ${money(Math.max(...daily))} 元`}
-          style={{
-            height: 115,
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            gap: 3,
-            borderBottomWidth: 1,
-            borderColor: t.border,
-            paddingBottom: 1,
-          }}
-        >
-          {daily.map((value, i) => (
-            <View
-              key={i}
-              style={{
-                flex: 1,
-                height: Math.max((value / peak) * 105, 3),
-                backgroundColor:
-                  value === peak
-                    ? t.accent
-                    : value
-                      ? t.dark
-                        ? '#5B7D63'
-                        : '#BED0BA'
-                      : t.surfaceAlt,
-                borderTopLeftRadius: 3,
-                borderTopRightRadius: 3,
-              }}
-            />
-          ))}
-        </View>
-        <View
-          style={[
-            styles.row,
-            { justifyContent: 'space-between', marginTop: 10 },
-          ]}
-        >
-          {[1, 8, 15, 22, days].map((day) => (
-            <Txt key={day} size={9} color={t.muted}>
-              {day} 日
-            </Txt>
-          ))}
-        </View>
+        <ExpenseLineChart values={daily} month={month} />
       </Card>
       <Txt
         size={10}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { usePagerScrollLock } from '../components/SwipePager';
 import { useTheme } from '../theme';
 import {
   type Entry,
@@ -41,6 +42,7 @@ export function HomeScreen({
   onSettings: () => void;
 }) {
   const t = useTheme();
+  const { lock, unlock } = usePagerScrollLock();
   const entries = monthEntries(ledger, month);
   const { income, expense } = totals(entries);
   const budget = ledger.monthlyBudget;
@@ -291,7 +293,12 @@ export function HomeScreen({
         onPress={onSettings}
       />
       <ScrollView
+        testID="account-carousel"
         horizontal
+        nestedScrollEnabled
+        onTouchStart={lock}
+        onTouchEnd={unlock}
+        onTouchCancel={unlock}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 10, paddingBottom: 3 }}
       >

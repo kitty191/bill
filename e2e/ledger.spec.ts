@@ -166,7 +166,9 @@ test('editing a date moves a record to the correct month', async ({ page }) => {
   await page.getByRole('button', { name: /跨月记录.*查看详情/ }).click();
   await page.getByRole('textbox', { name: '记账日期' }).fill('2026-02-28');
   await page.getByRole('button', { name: '保存修改' }).click();
-  await expect(page.getByText('2026 年 2 月', { exact: true })).toBeVisible();
+  await expect(
+    page.getByTestId('page-home').getByText('2026 年 2 月', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByTestId('month-expense')).toHaveText('16.80');
   await page.getByRole('button', { name: '下个月', exact: true }).click();
   await expect(page.getByTestId('month-expense')).toHaveText('0.00');
