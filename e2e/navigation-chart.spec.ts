@@ -79,6 +79,12 @@ test('vertical scrolling and horizontal account scrolling keep priority over pag
 }) => {
   await page.goto('/');
   await expectPage(page, 'home', '首页');
+  await page.getByRole('button', { name: '打开设置' }).click();
+  await page.getByRole('switch', { name: '首页显示账户卡片' }).check();
+  await expect(
+    page.getByRole('switch', { name: '首页显示账户卡片' }),
+  ).toBeEnabled();
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
   await swipe(page, 200, 520, 0, -240);
   await expect
     .poll(() =>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Switch, TextInput, View } from 'react-native';
 import { useLedger } from '../state/LedgerProvider';
 import {
   type Account,
@@ -104,7 +104,12 @@ export function SettingsSheet({
         : confirmation === 'demo'
           ? demoLedger()
           : imported!;
-    await update(() => next);
+    await update((current) => ({
+      ...next,
+      ...(confirmation !== 'import'
+        ? { showAccountCards: current.showAccountCards }
+        : {}),
+    }));
     setBudget(next.monthlyBudget ? amountInput(next.monthlyBudget) : '');
     setConfirmation(null);
     setImported(null);
@@ -147,6 +152,41 @@ export function SettingsSheet({
           </Txt>
         </View>
       )}
+      <SectionTitle title="首页显示" />
+      <View
+        style={[
+          styles.row,
+          {
+            backgroundColor: t.surfaceAlt,
+            borderRadius: 18,
+            padding: 15,
+            gap: 16,
+          },
+        ]}
+      >
+        <View style={{ flex: 1, gap: 4 }}>
+          <Txt size={13} weight="500">
+            首页显示账户卡片
+          </Txt>
+          <Txt size={10} color={t.muted}>
+            关闭后隐藏账户与总资产，账单记录不受影响
+          </Txt>
+        </View>
+        <Switch
+          accessibilityLabel="首页显示账户卡片"
+          accessibilityHint="控制首页账户卡片与总资产的显示"
+          value={ledger.showAccountCards}
+          disabled={disabled}
+          trackColor={{ false: t.border, true: t.accent }}
+          thumbColor="#FFFFFF"
+          ios_backgroundColor={t.border}
+          onValueChange={(value) =>
+            void perform(() =>
+              update((current) => ({ ...current, showAccountCards: value })),
+            )
+          }
+        />
+      </View>
       <SectionTitle title="月度预算" />
       <View style={styles.row}>
         <TextInput

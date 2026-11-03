@@ -287,61 +287,68 @@ export function HomeScreen({
         )}
       </Card>
 
-      <SectionTitle
-        title="我的账户"
-        action={`总资产 ¥${money(totalAssets)}`}
-        onPress={onSettings}
-      />
-      <ScrollView
-        testID="account-carousel"
-        horizontal
-        nestedScrollEnabled
-        onTouchStart={lock}
-        onTouchEnd={unlock}
-        onTouchCancel={unlock}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 10, paddingBottom: 3 }}
-      >
-        {ledger.accounts.map((account, i) => (
-          <Button
-            key={account.id}
-            label={`管理${account.name}账户`}
-            variant="plain"
+      {ledger.showAccountCards && (
+        <>
+          <SectionTitle
+            title="我的账户"
+            action={`总资产 ¥${money(totalAssets)}`}
             onPress={onSettings}
-            style={{
-              backgroundColor: t.surface,
-              borderRadius: 19,
-              alignItems: 'flex-start',
-              padding: 16,
-              minWidth: 128,
-              gap: 9,
-            }}
+          />
+          <ScrollView
+            testID="account-carousel"
+            horizontal
+            nestedScrollEnabled
+            onTouchStart={lock}
+            onTouchEnd={unlock}
+            onTouchCancel={unlock}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingBottom: 3 }}
           >
-            <View style={styles.row}>
-              <View
+            {ledger.accounts.map((account, i) => (
+              <Button
+                key={account.id}
+                label={`管理${account.name}账户`}
+                variant="plain"
+                onPress={onSettings}
                 style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: ['#80A28C', '#7FA0BB', '#B3A586', '#A697BB'][
-                    i % 4
-                  ],
+                  backgroundColor: t.surface,
+                  borderRadius: 19,
+                  alignItems: 'flex-start',
+                  padding: 16,
+                  minWidth: 128,
+                  gap: 9,
                 }}
-              />
-              <Txt size={11} color={t.muted}>
-                {account.name}
-              </Txt>
-            </View>
-            <Txt
-              size={17}
-              weight="500"
-              style={{ fontVariant: ['tabular-nums'] }}
-            >
-              {money(accountBalance(ledger, account.id))}
-            </Txt>
-          </Button>
-        ))}
-      </ScrollView>
+              >
+                <View style={styles.row}>
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: [
+                        '#80A28C',
+                        '#7FA0BB',
+                        '#B3A586',
+                        '#A697BB',
+                      ][i % 4],
+                    }}
+                  />
+                  <Txt size={11} color={t.muted}>
+                    {account.name}
+                  </Txt>
+                </View>
+                <Txt
+                  size={17}
+                  weight="500"
+                  style={{ fontVariant: ['tabular-nums'] }}
+                >
+                  {money(accountBalance(ledger, account.id))}
+                </Txt>
+              </Button>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       <SectionTitle title="最近账单" action="查看全部" onPress={onAll} />
       <Card style={{ paddingVertical: 0, paddingHorizontal: 18 }}>

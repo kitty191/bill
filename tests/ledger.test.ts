@@ -43,6 +43,20 @@ describe('integer money', () => {
 describe('ledger integrity and balance', () => {
   it('starts with no sample entries', () =>
     expect(emptyLedger().entries).toEqual([]));
+  it('opens older ledgers with account cards hidden and preserves financial data', () => {
+    const current = demoLedger(new Date(2026, 10, 2));
+    const { showAccountCards, ...legacy } = current;
+    const loaded = validateLedger(JSON.parse(JSON.stringify(legacy)));
+    expect(loaded.showAccountCards).toBe(false);
+    expect(loaded.entries).toEqual(current.entries);
+    expect(loaded.accounts).toEqual(current.accounts);
+    expect(loaded.monthlyBudget).toBe(current.monthlyBudget);
+    expect(
+      validateLedger(
+        JSON.parse(JSON.stringify({ ...loaded, showAccountCards: true })),
+      ).showAccountCards,
+    ).toBe(true);
+  });
   it('recalculates balance and statistics after editing and deleting', () => {
     let ledger = upsertEntry(emptyLedger(), expense);
     expect(accountBalance(ledger, 'wechat')).toBe(-1234);
@@ -109,6 +123,9 @@ describe('ledger integrity and balance', () => {
     expect(() =>
       validateLedger({ ...emptyLedger(), monthlyBudget: -1 }),
     ).toThrow();
+    expect(() =>
+      validateLedger({ ...emptyLedger(), showAccountCards: 'false' }),
+    ).toThrow('账户显示设置无效');
     expect(() => validateLedger(null)).toThrow();
   });
   it('round trips a complete backup with exactly preserved values', () => {

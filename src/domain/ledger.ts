@@ -16,6 +16,7 @@ export type Ledger = {
   accounts: Account[];
   entries: Entry[];
   monthlyBudget: number;
+  showAccountCards: boolean;
 };
 export type Category = {
   id: string;
@@ -57,6 +58,7 @@ export function emptyLedger(): Ledger {
   return {
     version: 1,
     monthlyBudget: 0,
+    showAccountCards: false,
     accounts: [
       { id: 'wechat', name: '微信', openingBalance: 0 },
       { id: 'alipay', name: '支付宝', openingBalance: 0 },
@@ -151,6 +153,11 @@ export function validateLedger(input: unknown): Ledger {
     '账单数据无效或超过 50,000 条',
   );
   invariant(isAmount(data.monthlyBudget), '预算金额无效');
+  invariant(
+    data.showAccountCards === undefined ||
+      typeof data.showAccountCards === 'boolean',
+    '账户显示设置无效',
+  );
   const ids = new Set<string>();
   const accounts: Account[] = data.accounts.map((a: unknown) => {
     invariant(a && typeof a === 'object', '账户格式无效');
@@ -220,7 +227,13 @@ export function validateLedger(input: unknown): Ledger {
         : {}),
     };
   });
-  return { version: 1, accounts, entries, monthlyBudget: data.monthlyBudget };
+  return {
+    version: 1,
+    accounts,
+    entries,
+    monthlyBudget: data.monthlyBudget,
+    showAccountCards: data.showAccountCards ?? false,
+  };
 }
 
 export function upsertEntry(ledger: Ledger, entry: Entry): Ledger {
