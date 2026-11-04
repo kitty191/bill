@@ -1,9 +1,10 @@
 # 清账 Android 预览版
 
-[下载 v0.2.0 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.2.0-android-arm64.apk) · [版本说明](https://github.com/kitty191/bill/releases/tag/v0.2.0-android-preview)
+[下载 v0.2.1 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.2.1-android-arm64.apk) · [版本说明](https://github.com/kitty191/bill/releases/tag/v0.2.1-android-preview)
 
-- 版本：0.2.0，versionCode 8，32,524,963 字节，约 31.0 MB。
-- 新增快捷记账与常用项、自定义分类、关联退款、年度统计、金额隐藏、系统生物识别应用锁和可选备份提醒。管理功能集中在设置子页面，主导航仍为首页、账单、统计。
+- 版本：0.2.1，versionCode 9，32,528,411 字节，约 31.0 MB。
+- 修复「首页显示账户卡片」开关卡顿：点击即时响应，后台串行保存，快速连点保留最新选择，不再因这个设置而禁用整页；失败时回退并提示。
+- 保留快捷记账与常用项、自定义分类、关联退款、年度统计、金额隐藏、系统生物识别应用锁和可选备份提醒。管理功能集中在设置子页面，主导航仍为首页、账单、统计。
 - 退款支持部分 / 多次退回，减少原支出月份的净支出、增加实际到账账户余额，不计入收入。
 - 应用锁需在系统中设置指纹 / 面容，仅独立手机构建可用。当前 APK 为 Android 版；Face ID 需独立 iOS 构建。
 - 保留原生分页和缓存优化；1000 条模拟账单、9 次切页的网页测试中三个页面均 0 次重复渲染，手机帧率仍待实机验收。
@@ -14,14 +15,14 @@
 
 下载后使用系统安装器打开，按系统提示允许当前来源安装。数据保存在本机；更新前可从应用设置导出 JSON 备份，卸载前请务必保存。
 
-APK 使用仓库外的私有预览密钥签名，已通过原签名、APK v2 签名、ZIP CRC 和 16 KB ZIP 对齐检查，确认包含原生认证、SecureStore 与分页模块。68 项单元测试、24 项网页交互测试通过，尚未进行真机安装、指纹 / Face ID 和后台解锁验收。应用锁不等于账本加密，备份文件仍包含真实财务记录。
+APK 使用仓库外的私有预览密钥签名，已通过原签名、APK v2 签名、ZIP CRC 和 16 KB ZIP 对齐检查，确认包含原生认证、SecureStore 与分页模块。78 项单元测试、25 项网页交互测试通过，尚未进行真机安装、指纹 / Face ID 和后台解锁验收。应用锁不等于账本加密，备份文件仍包含真实财务记录。
 
 IPA 另需 Apple 构建与签名，目前没有可下载的 iOS 安装包。
 
 SHA-256：
 
 ```text
-857fdaa87497bd4c20b687dc890247dbf99ec849c14d2ff7484cab578b9daea9
+8202767ef3ca05d10fc558fb7a7e203899222eddff54f441347fe9e577579ded
 ```
 
-完整信息见 [构建校验记录](qingzhang-v0.2.0-android-arm64-verification.json)。APK 和 [校验和文件](qingzhang-v0.2.0-android-arm64.apk.sha256) 保存在本目录，签名密钥不会上传。旧版安装包和校验记录保留供追溯。
+完整信息见 [构建校验记录](qingzhang-v0.2.1-android-arm64-verification.json)。APK 和 [校验和文件](qingzhang-v0.2.1-android-arm64.apk.sha256) 保存在本目录，签名密钥不会上传。旧版安装包和校验记录保留供追溯。
