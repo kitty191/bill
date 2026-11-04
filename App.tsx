@@ -54,6 +54,7 @@ import { SwipePager } from './src/components/SwipePager';
 import { PrivacyProvider } from './src/state/PrivacyProvider';
 import { PrivacyGuard } from './src/components/PrivacyGuard';
 import { usePrivacy } from './src/state/PrivacyContext';
+import { useLocalDate } from './src/state/useLocalDate';
 
 const PAGE_KEYS: Tab[] = ['home', 'entries', 'stats'];
 const MemoHomeScreen = memo(HomeScreen);
@@ -138,8 +139,7 @@ function Main() {
     (index: number) => selectTab(PAGE_KEYS[index]!),
     [selectTab],
   );
-  // Navigation across midnight must still refresh relative dates in memoized pages.
-  const today = localDate();
+  const today = useLocalDate();
   const onMonth = useCallback(
     (offset: number) => setMonth((current) => shiftMonth(current, offset)),
     [],

@@ -64,6 +64,14 @@ export function HomeScreen({
     [ledger.entries, month],
   );
   const { income, expense } = totals(entries, ledger.entries);
+  const todayExpense = useMemo(
+    () =>
+      totals(
+        ledger.entries.filter((entry) => entry.date === today),
+        ledger.entries,
+      ).expense,
+    [ledger.entries, today],
+  );
   const budget = budgetForMonth(ledger, month);
   const remaining = budget - expense;
   const totalAssets = useMemo(
@@ -175,6 +183,19 @@ export function HomeScreen({
             style={{ letterSpacing: -1.5, fontVariant: ['tabular-nums'] }}
           >
             {money(expense)}
+          </Txt>
+        </View>
+        <View style={[styles.row, { marginTop: 11, gap: 9, flexWrap: 'wrap' }]}>
+          <Txt size={12} color={t.dark ? '#B6C9B8' : '#6B826B'}>
+            今日支出
+          </Txt>
+          <Txt
+            testID="today-expense"
+            size={18}
+            weight="500"
+            style={{ fontVariant: ['tabular-nums'] }}
+          >
+            ¥{money(todayExpense)}
           </Txt>
         </View>
         <View
