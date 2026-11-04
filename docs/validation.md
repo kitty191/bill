@@ -28,6 +28,7 @@
 - 补充原生 Modal 隐藏 / 卸载后再显示的组件测试：未确认计算式由记账表单持有，面板重建后仍能继续计算，且不会自动写入账本。
 - 已查看窄屏深色的计算器与日历实际截图，见 `docs/previews/calculator-v0.3.0-dark.png` 和 `calendar-v0.3.0-dark.png`。没有上传用户私人录屏。
 - 云端结果不能代替原生真机的键盘、文件分享、SQLite 升级、手势和帧率验收；生物识别仍为接口模拟测试。
+- iOS 代码导出、Android Release 构建通过。版本 0.3.0 / versionCode 10，32,555,299 字节，源码提交 `0d3bb6c99f154cb75237cbbcb91ad2ba0d58090a`。原签名、APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64 架构、独立 Hermes / 原生模块、权限和临时性能计数器缺席检查通过，见 `downloads/qingzhang-v0.3.0-android-arm64-verification.json`。
 
 ### v0.2.1 账户显示开关响应修复
 
