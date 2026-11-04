@@ -27,6 +27,7 @@
 - 完整 46 项 Chromium 交互回归通过；最终预览 / 样式调整后新增 7 项流程另行通过，核对金额隐藏、恢复后返回旧版本、导出内容、清理、损坏主记录恢复、默认关闭 / 重启、取消确认、实付金额、原账期身份、跳过月底和写入失败不推进账期。
 - 已查看实际界面截图：`docs/previews/snapshots-v0.4.0-light.png` 和 `recurring-v0.4.0-dark.png`，使用生成账本，未上传私人录屏。
 - 1000 条账单、9 次切页，三个页面均 0 次重复渲染，无运行错误，见 `docs/paging-performance-v0.4.0.json`；此结果不是原生帧率测量。
+- iOS 代码导出、Android Release 构建通过。版本 0.4.0 / versionCode 14，32,593,783 字节，源码提交 `7d6de42c1fe3e508a36e98ec159b59c34d6f64cf`。沿用 v0.3.3 签名，APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、独立 Hermes / 原生模块、权限、图标和临时性能计数器缺席检查通过，见 `downloads/qingzhang-v0.4.0-android-arm64-verification.json`。
 - 本轮未进行原生真机安装、SQLite 桥、文件分享、后台唤醒和触摸验收。
 
 ### v0.3.3 今日明细与快捷修改
