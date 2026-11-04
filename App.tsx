@@ -48,7 +48,10 @@ import { BottomNavigation, type Tab } from './src/components/BottomNavigation';
 import { EntryEditor } from './src/components/EntryEditor';
 import { SettingsSheet } from './src/components/SettingsSheet';
 import { HomeScreen } from './src/screens/HomeScreen';
-import { EntriesScreen } from './src/screens/EntriesScreen';
+import {
+  EntriesScreen,
+  type EntriesListHandle,
+} from './src/screens/EntriesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { SwipePager } from './src/components/SwipePager';
 import { PrivacyProvider } from './src/state/PrivacyProvider';
@@ -108,7 +111,7 @@ function Main() {
     key: number;
     date?: string;
   }>({ key: 0 });
-  const entriesScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const entriesScroll = useRef<EntriesListHandle>(null);
   const [editor, setEditor] = useState<{
     entry?: Entry;
     refundOf?: Entry;
@@ -192,14 +195,14 @@ function Main() {
   const openRecurringSettings = useCallback(() => setSettings('recurring'), []);
   const showAll = useCallback(() => {
     setEntriesTarget((value) => ({ key: value.key + 1 }));
-    entriesScroll.current?.scrollTo({ y: 0, animated: false });
+    entriesScroll.current?.scrollToTop();
     navigate('entries');
   }, [navigate]);
   const showToday = useCallback(() => {
     const date = localDate();
     setMonth(date.slice(0, 7));
     setEntriesTarget((value) => ({ key: value.key + 1, date }));
-    entriesScroll.current?.scrollTo({ y: 0, animated: false });
+    entriesScroll.current?.scrollToTop();
     navigate('entries');
   }, [navigate]);
   const quickEntry =
@@ -227,56 +230,57 @@ function Main() {
       ledger
         ? PAGE_KEYS.map((key) => ({
             key,
-            content: (
-              <ScrollView
-                ref={key === 'entries' ? entriesScroll : undefined}
-                testID={`page-${key}-scroll`}
-                nestedScrollEnabled
-                directionalLockEnabled
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{
-                  paddingHorizontal: 24,
-                  paddingBottom: Math.max(insets.bottom, 20) + 110,
-                }}
-              >
-                {key === 'home' ? (
-                  <MemoHomeScreen
-                    today={today}
-                    ledger={ledger}
-                    month={month}
-                    onMonth={onMonth}
-                    onAdd={openEditor}
-                    onEntry={onEntry}
-                    onAll={showAll}
-                    onToday={showToday}
-                    onSettings={openSettings}
-                    onTemplate={openTemplate}
-                    onBackup={openBackup}
-                    onRecurring={openRecurring}
-                    onRecurringSettings={openRecurringSettings}
-                  />
-                ) : key === 'entries' ? (
-                  <MemoEntriesScreen
-                    today={today}
-                    resetKey={entriesTarget.key}
-                    focusDate={entriesTarget.date}
-                    ledger={ledger}
-                    month={month}
-                    onMonth={onMonth}
-                    onEntry={onEntry}
-                    onAdd={openEditor}
-                  />
-                ) : (
-                  <MemoStatsScreen
-                    today={today}
-                    ledger={ledger}
-                    month={month}
-                    onMonth={onMonth}
-                  />
-                )}
-              </ScrollView>
-            ),
+            content:
+              key === 'entries' ? (
+                <MemoEntriesScreen
+                  today={today}
+                  resetKey={entriesTarget.key}
+                  focusDate={entriesTarget.date}
+                  listRef={entriesScroll}
+                  ledger={ledger}
+                  month={month}
+                  onMonth={onMonth}
+                  onEntry={onEntry}
+                  onAdd={openEditor}
+                />
+              ) : (
+                <ScrollView
+                  testID={`page-${key}-scroll`}
+                  nestedScrollEnabled
+                  directionalLockEnabled
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{
+                    paddingHorizontal: 24,
+                    paddingBottom: Math.max(insets.bottom, 20) + 110,
+                  }}
+                >
+                  {key === 'home' ? (
+                    <MemoHomeScreen
+                      today={today}
+                      ledger={ledger}
+                      month={month}
+                      onMonth={onMonth}
+                      onAdd={openEditor}
+                      onEntry={onEntry}
+                      onAll={showAll}
+                      onToday={showToday}
+                      onSettings={openSettings}
+                      onTemplate={openTemplate}
+                      onBackup={openBackup}
+                      onRecurring={openRecurring}
+                      onRecurringSettings={openRecurringSettings}
+                    />
+                  ) : (
+                    <MemoStatsScreen
+                      today={today}
+                      ledger={ledger}
+                      month={month}
+                      onMonth={onMonth}
+                    />
+                  )}
+                </ScrollView>
+              ),
           }))
         : [],
     [

@@ -27,10 +27,10 @@ export async function saveLedger(ledger: Ledger): Promise<void> {
   let older = false;
   let before4 = false;
   try {
-    legacy = current !== null && JSON.parse(current).version === 1;
-    older = current !== null && [1, 2].includes(JSON.parse(current).version);
-    before4 =
-      current !== null && [1, 2, 3].includes(JSON.parse(current).version);
+    const version = current ? JSON.parse(current).version : undefined;
+    legacy = version === 1;
+    older = [1, 2].includes(version);
+    before4 = [1, 2, 3].includes(version);
   } catch {
     /* Recovery is explicitly confirmed. */
   }

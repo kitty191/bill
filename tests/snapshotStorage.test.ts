@@ -1,4 +1,5 @@
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import { writeFileSync } from 'node:fs';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyLedger, type Ledger } from '../src/domain/ledger';
 import {
@@ -7,7 +8,11 @@ import {
   validateSnapshots,
 } from '../src/domain/snapshots';
 
-const faults = vi.hoisted(() => ({ failSnapshot: false, failLedger: false }));
+const faults = vi.hoisted(() => ({
+  failSnapshot: false,
+  failLedger: false,
+  writes: [] as { sql: string; bytes: number }[],
+}));
 let database: DatabaseSync;
 vi.mock('expo-sqlite', () => ({
   openDatabaseAsync: async () => {
@@ -18,10 +23,21 @@ vi.mock('expo-sqlite', () => ({
       },
       getFirstAsync: async (sql: string, ...args: SQLInputValue[]) =>
         database.prepare(sql).get(...args) ?? null,
+      getAllAsync: async (sql: string, ...args: SQLInputValue[]) =>
+        database.prepare(sql).all(...args),
       runAsync: async (sql: string, ...args: SQLInputValue[]) => {
+        faults.writes.push({
+          sql,
+          bytes: args.reduce<number>(
+            (sum, arg) =>
+              sum + (typeof arg === 'string' ? Buffer.byteLength(arg) : 0),
+            0,
+          ),
+        });
         if (
           faults.failSnapshot &&
-          sql.startsWith('INSERT INTO local_snapshots')
+          (sql.startsWith('INSERT INTO local_snapshots') ||
+            sql.startsWith('INSERT INTO snapshot_versions'))
         )
           throw new Error('快照空间不足');
         if (faults.failLedger && sql.startsWith('INSERT INTO ledger'))
@@ -65,7 +81,7 @@ beforeEach(async () => {
   });
   await native.loadLedger();
   database.exec(
-    'DELETE FROM ledger; DELETE FROM local_snapshots; DELETE FROM upgrade_backup; DELETE FROM upgrade_backup_v4; DELETE FROM legacy_backup;',
+    'DELETE FROM ledger; DELETE FROM local_snapshots; DELETE FROM snapshot_versions; DELETE FROM upgrade_backup; DELETE FROM upgrade_backup_v4; DELETE FROM legacy_backup;',
   );
 });
 afterAll(() => {
@@ -75,6 +91,102 @@ afterAll(() => {
 const changed = (amount: number): Ledger => ({
   ...emptyLedger(),
   monthlyBudget: amount,
+});
+it('measures actual SQLite writes for a 10000-record book with five snapshots', async () => {
+  const ledger: Ledger = {
+    ...emptyLedger(),
+    entries: Array.from({ length: 10000 }, (_, index) => ({
+      id: `large-${index}`,
+      kind: 'expense',
+      amount: 100,
+      categoryId: 'food',
+      accountId: 'wechat',
+      date: '2026-11-01',
+      note: `性能-${index}`,
+      createdAt: '2026-11-01T04:00:00Z',
+    })),
+  };
+  for (let index = 0; index < 6; index++)
+    await native.saveLedger({ ...ledger, monthlyBudget: index * 100 });
+  faults.writes = [];
+  const start = performance.now();
+  await native.saveLedger({ ...ledger, monthlyBudget: 700 });
+  const report = {
+    records: ledger.entries.length,
+    retainedSnapshots: (await native.loadSnapshots()).length,
+    saveAndReadHistoryMs: performance.now() - start,
+    writeParameterBytes: faults.writes.reduce(
+      (sum, item) => sum + item.bytes,
+      0,
+    ),
+    writes: faults.writes,
+    platform:
+      'Node SQLite in memory through the app storage adapter; not Expo native bridge timing',
+  };
+  expect((await native.loadLedger()).entries).toHaveLength(10000);
+  expect(report.retainedSnapshots).toBe(5);
+  expect(report.writeParameterBytes).toBeLessThan(
+    Buffer.byteLength(JSON.stringify(ledger)) * 2 + 1000,
+  );
+  if (process.env.QINGZHANG_STORAGE_BENCHMARK)
+    writeFileSync(
+      process.env.QINGZHANG_STORAGE_BENCHMARK,
+      JSON.stringify(report, null, 2) + '\n',
+    );
+});
+describe('legacy snapshot row migration', () => {
+  const history = [300, 200, 100].map((amount) => ({
+    id: `old-${amount}`,
+    createdAt: '2026-11-04T04:00:00Z',
+    payload: JSON.stringify(changed(amount)),
+  }));
+  async function seedLegacy() {
+    database
+      .prepare('INSERT INTO ledger (id, payload) VALUES (1, ?)')
+      .run(JSON.stringify(changed(400)));
+    database
+      .prepare('INSERT INTO local_snapshots (id, payload) VALUES (1, ?)')
+      .run(JSON.stringify(history));
+  }
+  it('preserves exact old IDs and ordering even when timestamps are equal', async () => {
+    await seedLegacy();
+    expect(await native.loadSnapshots()).toEqual(history);
+    await native.saveLedger(changed(500));
+    const migrated = await native.loadSnapshots();
+    expect(migrated.slice(1)).toEqual(history);
+    expect(JSON.parse(migrated[0]!.payload).monthlyBudget).toBe(400);
+    expect(
+      database.prepare('SELECT payload FROM local_snapshots').get(),
+    ).toBeUndefined();
+  });
+  it('rolls the migration back with the main record on failure and retries without dropping versions', async () => {
+    await seedLegacy();
+    faults.failLedger = true;
+    await expect(native.saveLedger(changed(500))).rejects.toThrow(
+      '账本写入失败',
+    );
+    expect(await native.loadSnapshots()).toEqual(history);
+    expect(
+      database.prepare('SELECT COUNT(*) AS count FROM snapshot_versions').get(),
+    ).toEqual({ count: 0 });
+    expect((await native.loadLedger()).monthlyBudget).toBe(400);
+    faults.failLedger = false;
+    await native.saveLedger(changed(500));
+    expect((await native.loadSnapshots()).slice(1)).toEqual(history);
+  });
+  it('lets a valid main ledger load and history be cleared when the old index is corrupt', async () => {
+    await seedLegacy();
+    database.prepare('UPDATE local_snapshots SET payload = ?').run('{broken');
+    expect((await native.loadLedger()).monthlyBudget).toBe(400);
+    await expect(native.saveLedger(changed(500))).rejects.toThrow(
+      '自动快照保存失败',
+    );
+    expect((await native.loadLedger()).monthlyBudget).toBe(400);
+    await native.clearSnapshots();
+    expect(await native.loadSnapshots()).toEqual([]);
+    await native.saveLedger(changed(500));
+    expect((await native.loadLedger()).monthlyBudget).toBe(500);
+  });
 });
 
 describe.each([

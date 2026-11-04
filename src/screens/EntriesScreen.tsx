@@ -1,5 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Keyboard, TextInput, View } from 'react-native';
+import React, {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Keyboard,
+  SectionList,
+  StyleSheet,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type Entry,
   type EntryKind,
@@ -8,7 +24,8 @@ import {
 } from '../domain/ledger';
 import { useTheme } from '../theme';
 import {
-  filteredEntries,
+  buildEntryIndex,
+  filterEntryIndex,
   emptyFilters,
   entryGroups,
 } from '../domain/entryFilters';
@@ -26,6 +43,12 @@ import {
   styles,
 } from '../components/ui';
 
+export type EntriesListHandle = { scrollToTop: () => void };
+type EntrySection = ReturnType<typeof entryGroups>[number] & {
+  key: string;
+  data: Entry[];
+};
+
 export function EntriesScreen({
   today,
   ledger,
@@ -35,6 +58,7 @@ export function EntriesScreen({
   onAdd,
   resetKey,
   focusDate,
+  listRef,
 }: {
   today: string;
   ledger: Ledger;
@@ -44,15 +68,51 @@ export function EntriesScreen({
   onAdd: () => void;
   resetKey: number;
   focusDate?: string;
+  listRef: React.Ref<EntriesListHandle>;
 }) {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const profile = `${width}:${fontScale}`;
+  const [geometry, setGeometry] = useState({
+    profile,
+    header: 0,
+    row: 0,
+    section: 0,
+  });
+  const measure = useCallback(
+    (part: 'header' | 'row' | 'section', height: number) => {
+      setGeometry((current) => {
+        const base =
+          current.profile === profile
+            ? current
+            : { profile, header: 0, row: 0, section: 0 };
+        if (
+          (part !== 'header' && base[part] > 0) ||
+          Math.abs(base[part] - height) < 0.01
+        )
+          return base;
+        return { ...base, [part]: height };
+      });
+    },
+    [profile],
+  );
+  const list = useRef<SectionList<Entry, EntrySection>>(null);
+  const scrollToTop = useCallback(
+    () =>
+      list.current?.getScrollResponder()?.scrollTo({ y: 0, animated: false }),
+    [],
+  );
+  useImperativeHandle(listRef, () => ({ scrollToTop }), [scrollToTop]);
   const money = useMoney();
   const [filter, setFilter] = useState<EntryKind | 'all'>('all');
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+  const filtering = query !== deferredQuery;
   const [advanced, setAdvanced] = useState(emptyFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const active =
-    !!query ||
+    !!deferredQuery ||
     filter !== 'all' ||
     advanced.range ||
     advanced.accountId !== 'all' ||
@@ -97,26 +157,71 @@ export function EntriesScreen({
         : emptyFilters(),
     );
     setFiltersOpen(false);
-  }, [resetKey, focusDate]);
+    scrollToTop();
+  }, [resetKey, focusDate, scrollToTop]);
+  const index = useMemo(
+    () => buildEntryIndex(ledger),
+    [ledger.entries, ledger.accounts, ledger.categories],
+  );
   const entries = useMemo(
-    () => filteredEntries(ledger, month, filter, query, advanced),
-    [ledger, month, query, filter, advanced],
+    () => filterEntryIndex(index, month, filter, deferredQuery, advanced),
+    [index, month, deferredQuery, filter, advanced],
   );
-  const { income, expense } = totals(entries, ledger.entries);
-  const grossExpense = entries.reduce(
-    (sum, entry) => sum + (entry.kind === 'expense' ? entry.amount : 0),
-    0,
-  );
-  const refunded = entries.reduce(
-    (sum, entry) => sum + (entry.kind === 'refund' ? entry.amount : 0),
-    0,
+  const { income, expense, grossExpense, refunded } = useMemo(
+    () => ({
+      ...totals(entries, ledger.entries),
+      grossExpense: entries.reduce(
+        (sum, entry) => sum + (entry.kind === 'expense' ? entry.amount : 0),
+        0,
+      ),
+      refunded: entries.reduce(
+        (sum, entry) => sum + (entry.kind === 'refund' ? entry.amount : 0),
+        0,
+      ),
+    }),
+    [entries, ledger.entries],
   );
   const groups = useMemo(
     () => entryGroups(entries, ledger.entries),
     [entries, ledger.entries],
   );
-  return (
-    <>
+  const sections = useMemo(
+    () => groups.map((day) => ({ ...day, key: day.date, data: day.entries })),
+    [groups],
+  );
+  const itemLayout = useMemo(() => {
+    // Supply offsets from the first render; visible cells replace estimates
+    // with measured values before a user can jump to unmeasured records.
+    const measured = geometry.profile === profile;
+    const rowHeight =
+      (measured && geometry.row) ||
+      Math.max(43, 37.5 * fontScale + 2) + 32 + StyleSheet.hairlineWidth;
+    const sectionHeight = (measured && geometry.section) || 19.5 * fontScale;
+    const frames: { index: number; offset: number; length: number }[] = [];
+    let offset = measured ? geometry.header : 0;
+    const add = (length: number) => {
+      frames.push({ index: frames.length, offset, length });
+      offset += length;
+    };
+    for (const section of sections) {
+      add(sectionHeight + 34);
+      section.data.forEach((_entry, index) =>
+        add(
+          rowHeight +
+            (index === 0 ? 1 : 0) +
+            (index === section.data.length - 1
+              ? 1 - StyleSheet.hairlineWidth
+              : 0),
+        ),
+      );
+      add(0);
+    }
+    return (_data: unknown, index: number) => frames[index]!;
+  }, [sections, geometry, profile, fontScale]);
+  const header = (
+    <View
+      onLayout={(event) => measure('header', event.nativeEvent.layout.height)}
+    >
       <View
         style={[
           styles.row,
@@ -142,7 +247,13 @@ export function EntriesScreen({
           <Txt size={11} color={t.muted}>
             {active ? '筛选支出' : '本月支出'}
           </Txt>
-          <Txt size={22} weight="500">
+          <Txt
+            size={width < 360 ? 17 : 22}
+            weight="500"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
             ¥{money(expense)}
           </Txt>
         </View>
@@ -150,7 +261,14 @@ export function EntriesScreen({
           <Txt size={11} color={t.muted}>
             {active ? '筛选收入' : '本月收入'}
           </Txt>
-          <Txt size={22} weight="500" color={t.income}>
+          <Txt
+            size={width < 360 ? 17 : 22}
+            weight="500"
+            color={t.income}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
             ¥{money(income)}
           </Txt>
         </View>
@@ -302,6 +420,16 @@ export function EntriesScreen({
           </Button>
         </View>
       )}
+      {filtering && (
+        <Txt
+          testID="entries-filtering"
+          size={10}
+          color={t.muted}
+          style={{ marginTop: 7 }}
+        >
+          正在筛选…
+        </Txt>
+      )}
       {filtersOpen && (
         <EntryFilterSheet
           ledger={ledger}
@@ -332,51 +460,114 @@ export function EntriesScreen({
           onAction={onAdd}
         />
       )}
-      {groups.map((day) => {
-        const { date, entries: list } = day;
+    </View>
+  );
+  return (
+    <SectionList<Entry, EntrySection>
+      ref={list}
+      testID="page-entries-scroll"
+      sections={sections}
+      keyExtractor={(item) => item.id}
+      style={{ flex: 1 }}
+      contentContainerStyle={{
+        paddingHorizontal: 24,
+        paddingBottom: Math.max(insets.bottom, 20) + 110,
+      }}
+      nestedScrollEnabled
+      directionalLockEnabled
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      stickySectionHeadersEnabled={false}
+      initialNumToRender={12}
+      maxToRenderPerBatch={12}
+      windowSize={5}
+      getItemLayout={itemLayout}
+      ListHeaderComponent={header}
+      ListFooterComponent={
+        entries.length > 0 ? (
+          <Txt
+            size={11}
+            color={t.subtle}
+            style={{ textAlign: 'center', marginTop: 25 }}
+          >
+            共 {entries.length} 笔 · 好好生活，慢慢记录
+          </Txt>
+        ) : undefined
+      }
+      renderSectionHeader={({ section: day }) => (
+        <View
+          onLayout={(event) =>
+            measure('section', event.nativeEvent.layout.height)
+          }
+          style={[
+            styles.row,
+            {
+              justifyContent: 'space-between',
+              marginTop: 24,
+              marginBottom: 10,
+            },
+          ]}
+        >
+          <Txt
+            size={13}
+            weight="500"
+            numberOfLines={1}
+            style={{ flexShrink: 1 }}
+          >
+            {dateHeading(day.date, today)}{' '}
+            <Txt size={10} color={t.muted}>
+              {day.date.slice(5).replace('-', '.')}
+            </Txt>
+          </Txt>
+          <Txt
+            size={10}
+            color={t.muted}
+            numberOfLines={1}
+            style={{ flexShrink: 1, textAlign: 'right' }}
+          >
+            {day.expense > 0 ? `净支出 ${money(day.expense)}` : ''}
+            {day.expense > 0 && day.income > 0 ? '  ·  ' : ''}
+            {day.income > 0 ? `收入 ${money(day.income)}` : ''}
+          </Txt>
+        </View>
+      )}
+      renderItem={({ item, index, section }) => {
+        const first = index === 0,
+          last = index === section.data.length - 1;
         return (
-          <View key={date} style={{ marginTop: 24 }}>
-            <View
-              style={[
-                styles.row,
-                { justifyContent: 'space-between', marginBottom: 10 },
-              ]}
-            >
-              <Txt size={13} weight="500">
-                {dateHeading(date, today)}{' '}
-                <Txt size={10} color={t.muted}>
-                  {date.slice(5).replace('-', '.')}
-                </Txt>
-              </Txt>
-              <Txt size={10} color={t.muted}>
-                {day.expense > 0 ? `净支出 ${money(day.expense)}` : ''}
-                {day.expense > 0 && day.income > 0 ? '  ·  ' : ''}
-                {day.income > 0 ? `收入 ${money(day.income)}` : ''}
-              </Txt>
-            </View>
-            <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
-              {list.map((entry, i) => (
-                <EntryRow
-                  key={entry.id}
-                  entry={entry}
-                  ledger={ledger}
-                  onPress={() => onEntry(entry)}
-                  last={i === list.length - 1}
-                />
-              ))}
-            </Card>
+          <View
+            onLayout={(event) =>
+              measure(
+                'row',
+                event.nativeEvent.layout.height -
+                  (first ? 1 : 0) -
+                  (last ? 1 : 0) +
+                  (last ? StyleSheet.hairlineWidth : 0),
+              )
+            }
+            style={{
+              backgroundColor: t.surface,
+              paddingHorizontal: 16,
+              borderTopLeftRadius: first ? 24 : 0,
+              borderTopRightRadius: first ? 24 : 0,
+              borderBottomLeftRadius: last ? 24 : 0,
+              borderBottomRightRadius: last ? 24 : 0,
+              borderLeftWidth: 1,
+              borderRightWidth: 1,
+              borderTopWidth: first ? 1 : 0,
+              borderBottomWidth: last ? 1 : 0,
+              borderColor: t.dark ? t.border : 'rgba(255,255,255,0.9)',
+            }}
+          >
+            <EntryRow
+              entry={item}
+              ledger={ledger}
+              onPress={() => onEntry(item)}
+              last={last}
+            />
           </View>
         );
-      })}
-      {entries.length > 0 && (
-        <Txt
-          size={11}
-          color={t.subtle}
-          style={{ textAlign: 'center', marginTop: 25 }}
-        >
-          共 {entries.length} 笔 · 好好生活，慢慢记录
-        </Txt>
-      )}
-    </>
+      }}
+    />
   );
 }

@@ -189,9 +189,16 @@ export function HomeScreen({
           </Txt>
           <Txt
             testID="month-expense"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
             size={43}
             weight="500"
-            style={{ letterSpacing: -1.5, fontVariant: ['tabular-nums'] }}
+            style={{
+              letterSpacing: -1.5,
+              fontVariant: ['tabular-nums'],
+              flexShrink: 1,
+            }}
           >
             {money(expense)}
           </Txt>

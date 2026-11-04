@@ -1,0 +1,79 @@
+{
+  "date": "2026-11-04",
+  "baselineSourceCommit": "39f9c2c466182dde867e38f25e854058088c8b88",
+  "web": {
+    "before": {
+      "records": 10000,
+      "mountedEntryRows": 10000,
+      "startupMs": 16782.489250000002,
+      "navigationMs": 8689.341373,
+      "searchMs": 2144.8501590000014,
+      "clearMs": 11344.168994,
+      "saveMs": 501.6912860000011,
+      "jsHeapBytes": 806683692,
+      "domNodes": 321311,
+      "runtimeErrors": [],
+      "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+    },
+    "after": {
+      "records": 10000,
+      "mountedEntryRows": 11,
+      "startupMs": 1185.422801,
+      "navigationMs": 170.671961,
+      "searchMs": 134.4132050000003,
+      "clearMs": 130.5034330000003,
+      "saveMs": 571.250125,
+      "jsHeapBytes": 49214516,
+      "domNodes": 1283,
+      "runtimeErrors": [],
+      "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+    }
+  },
+  "sqlite": {
+    "before": {
+      "records": 10000,
+      "retainedSnapshots": 5,
+      "writeParameterBytes": 11518362,
+      "writes": [
+        {
+          "sql": "INSERT INTO local_snapshots (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+          "bytes": 9848981
+        },
+        {
+          "sql": "INSERT INTO ledger (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+          "bytes": 1669381
+        }
+      ],
+      "platform": "Node SQLite in memory through the app storage adapter; not Expo native bridge timing",
+      "saveAndReadHistoryMs": 479.9962949999999
+    },
+    "after": {
+      "records": 10000,
+      "retainedSnapshots": 5,
+      "saveAndReadHistoryMs": 157.70081700000003,
+      "writeParameterBytes": 3338813,
+      "writes": [
+        {
+          "sql": "INSERT INTO snapshot_versions (id, createdAt, payload) VALUES (?, ?, ?)",
+          "bytes": 1669432
+        },
+        {
+          "sql": "DELETE FROM snapshot_versions WHERE seq NOT IN (SELECT seq FROM snapshot_versions ORDER BY seq DESC LIMIT 5)",
+          "bytes": 0
+        },
+        {
+          "sql": "INSERT INTO ledger (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+          "bytes": 1669381
+        }
+      ],
+      "platform": "Node SQLite in memory through the app storage adapter; not Expo native bridge timing"
+    }
+  },
+  "limitations": [
+    "Single cloud samples; timings vary and are not native FPS or latency guarantees.",
+    "SQLite uses Node SQLite in memory through the app adapter, not the Expo bridge or phone storage.",
+    "SQLite saveAndReadHistoryMs includes loading and validating snapshot history after saving.",
+    "SQL parameter bytes measure supplied values, not physical filesystem writes; initial migration has additional work.",
+    "Web save remains full localStorage writes; no measured improvement in its save latency."
+  ]
+}

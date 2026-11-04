@@ -1,8 +1,7 @@
 import {
   type Ledger,
   type EntryKind,
-  monthEntries,
-  categoryFor,
+  transferCategory,
   validDate,
   refundAmounts,
   type Entry,
@@ -52,6 +51,53 @@ export function entryGroups(entries: Entry[], allEntries: Entry[]) {
   }
   return [...groups.values()];
 }
+export type EntryIndex = ReadonlyArray<{ entry: Entry; text: string }>;
+export function buildEntryIndex(ledger: Ledger): EntryIndex {
+  const accounts = new Map(
+    ledger.accounts.map((account) => [account.id, account.name]),
+  );
+  const categories = new Map(
+    [...ledger.categories, transferCategory].map((category) => [
+      category.id,
+      category.label,
+    ]),
+  );
+  return ledger.entries
+    .map((entry) => ({
+      entry,
+      text: `${entry.note} ${categories.get(entry.categoryId) ?? ''} ${accounts.get(entry.accountId) ?? ''} ${accounts.get(entry.toAccountId ?? '') ?? ''}`.toLowerCase(),
+    }))
+    .sort(
+      (a, b) =>
+        b.entry.date.localeCompare(a.entry.date) ||
+        b.entry.createdAt.localeCompare(a.entry.createdAt),
+    );
+}
+export function filterEntryIndex(
+  index: EntryIndex,
+  month: string,
+  kind: EntryKind | 'all',
+  query: string,
+  filters: EntryFilters,
+): Entry[] {
+  validateFilters(filters);
+  const needle = query.trim().toLowerCase();
+  return index
+    .filter(
+      ({ entry, text }) =>
+        (filters.range
+          ? entry.date >= filters.startDate && entry.date <= filters.endDate
+          : entry.date.startsWith(month)) &&
+        (kind === 'all' || entry.kind === kind) &&
+        (filters.categoryId === 'all' ||
+          entry.categoryId === filters.categoryId) &&
+        (filters.accountId === 'all' ||
+          entry.accountId === filters.accountId ||
+          entry.toAccountId === filters.accountId) &&
+        (!needle || text.includes(needle)),
+    )
+    .map(({ entry }) => entry);
+}
 export function filteredEntries(
   ledger: Ledger,
   month: string,
@@ -59,30 +105,5 @@ export function filteredEntries(
   query: string,
   filters: EntryFilters,
 ) {
-  validateFilters(filters);
-  const accounts = new Map(
-    ledger.accounts.map((account) => [account.id, account.name]),
-  );
-  const needle = query.trim().toLowerCase();
-  const source = filters.range ? ledger.entries : monthEntries(ledger, month);
-  return source
-    .filter(
-      (entry) =>
-        (!filters.range ||
-          (entry.date >= filters.startDate && entry.date <= filters.endDate)) &&
-        (kind === 'all' || entry.kind === kind) &&
-        (filters.categoryId === 'all' ||
-          entry.categoryId === filters.categoryId) &&
-        (filters.accountId === 'all' ||
-          entry.accountId === filters.accountId ||
-          entry.toAccountId === filters.accountId) &&
-        (!needle ||
-          `${entry.note} ${categoryFor(ledger, entry.categoryId).label} ${accounts.get(entry.accountId)} ${accounts.get(entry.toAccountId ?? '') ?? ''}`
-            .toLowerCase()
-            .includes(needle)),
-    )
-    .sort(
-      (a, b) =>
-        b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt),
-    );
+  return filterEntryIndex(buildEntryIndex(ledger), month, kind, query, filters);
 }

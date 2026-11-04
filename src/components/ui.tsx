@@ -130,6 +130,8 @@ export function Txt({
   style,
   numberOfLines,
   testID,
+  adjustsFontSizeToFit,
+  minimumFontScale,
 }: {
   children: React.ReactNode;
   size?: number;
@@ -138,12 +140,16 @@ export function Txt({
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
   testID?: string;
+  adjustsFontSizeToFit?: boolean;
+  minimumFontScale?: number;
 }) {
   const theme = useTheme();
   return (
     <Text
       testID={testID}
       numberOfLines={numberOfLines}
+      adjustsFontSizeToFit={adjustsFontSizeToFit}
+      minimumFontScale={minimumFontScale}
       style={[
         {
           fontSize: size,
@@ -488,10 +494,13 @@ export function EntryRow({
       <Txt
         size={16}
         weight="500"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
         color={
           entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
         }
-        style={{ fontVariant: ['tabular-nums'] }}
+        style={{ fontVariant: ['tabular-nums'], flexShrink: 1 }}
       >
         {entry.kind === 'income' || entry.kind === 'refund'
           ? '+'
