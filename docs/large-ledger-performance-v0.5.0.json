@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-04",
+  "samples": [
+    {
+      "records": 10000,
+      "mountedEntryRows": 11,
+      "startupMs": 1738.364051,
+      "navigationMs": 224.81900399999995,
+      "searchMs": 204.5278370000001,
+      "clearMs": 897.3924019999995,
+      "saveMs": 1133.88105,
+      "jsHeapBytes": 59503896,
+      "domNodes": 1414,
+      "runtimeErrors": [],
+      "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+    },
+    {
+      "records": 10000,
+      "mountedEntryRows": 11,
+      "startupMs": 2958.404006,
+      "navigationMs": 578.8745509999999,
+      "searchMs": 670.9138569999996,
+      "clearMs": 543.7369099999996,
+      "saveMs": 670.1665050000001,
+      "jsHeapBytes": 56167524,
+      "domNodes": 1648,
+      "runtimeErrors": [],
+      "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+    }
+  ],
+  "limitations": [
+    "Two cloud Chromium samples with variable timing; not native FPS or phone storage measurements.",
+    "Both samples validate on-demand rendering and preservation of 10001 records after a save.",
+    "This UI release does not establish a further improvement in browser latency."
+  ]
+}

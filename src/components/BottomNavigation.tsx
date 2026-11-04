@@ -11,6 +11,8 @@ import Animated, {
 import { useTheme } from '../theme';
 import { Glass, Icon, Txt } from './ui';
 import { scheduleOnRN } from 'react-native-worklets';
+import { LinearGradient } from 'expo-linear-gradient';
+import { motion } from '../motion';
 
 export type Tab = 'home' | 'entries' | 'stats';
 const tabs = [
@@ -18,7 +20,6 @@ const tabs = [
   ['entries', 'list', '账单'],
   ['stats', 'chart', '统计'],
 ] as const;
-const spring = { damping: 24, stiffness: 260, mass: 0.8 };
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function BottomNavigation({
@@ -86,6 +87,11 @@ export function BottomNavigation({
                   width: step,
                   borderRadius: 23,
                   backgroundColor: t.accentSoft,
+                  borderWidth: 1,
+                  borderColor: t.dark
+                    ? 'rgba(214,242,218,0.12)'
+                    : 'rgba(255,255,255,0.85)',
+                  boxShadow: t.dark ? 'none' : '0 2px 7px rgba(49,90,61,0.06)',
                 },
                 indicatorStyle,
               ]}
@@ -131,10 +137,10 @@ export function BottomNavigation({
         accessibilityLabel="记一笔"
         onPress={onAdd}
         onPressIn={() => {
-          scale.value = reduce ? 1 : withSpring(0.92, spring);
+          scale.value = reduce ? 1 : withSpring(0.94, motion.spring);
         }}
         onPressOut={() => {
-          scale.value = reduce ? 1 : withSpring(1, spring);
+          scale.value = reduce ? 1 : withSpring(1, motion.spring);
         }}
         style={[
           {
@@ -147,10 +153,20 @@ export function BottomNavigation({
             borderWidth: 1,
             borderColor: t.dark ? '#BEDBC6' : '#638771',
             boxShadow: '0 6px 20px rgba(40,75,50,0.20)',
+            overflow: 'hidden',
           },
           addStyle,
         ]}
       >
+        <LinearGradient
+          pointerEvents="none"
+          colors={[
+            'rgba(255,255,255,0.18)',
+            'rgba(255,255,255,0)',
+            'rgba(0,25,7,0.06)',
+          ]}
+          style={{ position: 'absolute', inset: 0 }}
+        />
         <Icon
           name="plus"
           size={27}

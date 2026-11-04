@@ -74,6 +74,8 @@ export function AmountCalculator({
             textAlign: 'right',
             fontVariant: ['tabular-nums'],
             paddingVertical: 3,
+            outlineColor: t.accent,
+            borderRadius: 8,
           }}
         />
       </View>

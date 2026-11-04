@@ -207,3 +207,43 @@ it('does not expose a saved-entry action on write failure, and targets the actua
     recorded.id,
   );
 });
+
+it('commits one entry when save is pressed twice before persistence or the exit animation completes', async () => {
+  mocks.ledger = emptyLedger();
+  mocks.visible = true;
+  mocks.update.mockReset();
+  let finish: () => void = () => {};
+  mocks.update.mockImplementation(
+    (change) =>
+      new Promise<void>((resolve) => {
+        finish = () => {
+          mocks.ledger = change(mocks.ledger);
+          resolve();
+        };
+      }),
+  );
+  const props = { onClose: vi.fn(), onRefund: vi.fn(), onSaved: vi.fn() };
+  await act(async () => {
+    renderer = create(<EntryEditor {...props} />);
+  });
+  await act(async () =>
+    renderer.root
+      .findByProps({ accessibilityLabel: '金额' })
+      .props.onChangeText('12.34'),
+  );
+  const save = renderer.root.findByProps({ accessibilityLabel: '记好了' }).props
+    .onPress;
+  await act(async () => {
+    save();
+    save();
+  });
+  expect(mocks.update).toHaveBeenCalledOnce();
+  await act(async () => finish());
+  await act(async () => save());
+  expect((mocks.ledger as ReturnType<typeof emptyLedger>).entries).toHaveLength(
+    1,
+  );
+  expect(mocks.update).toHaveBeenCalledOnce();
+  expect(props.onSaved).toHaveBeenCalledOnce();
+  expect(props.onClose).toHaveBeenCalledOnce();
+});

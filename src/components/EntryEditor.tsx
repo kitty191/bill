@@ -1,6 +1,6 @@
 import React, { useReducer, useRef, useState } from 'react';
 import { ScrollView, Switch, TextInput, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { feedback } from '../motion';
 import {
   type Entry,
   type EntryKind,
@@ -16,7 +16,7 @@ import {
 } from '../domain/ledger';
 import { useLedger } from '../state/LedgerProvider';
 import { useTheme } from '../theme';
-import { Sheet } from './Sheet';
+import { Sheet, type SheetHandle } from './Sheet';
 import { Button, Icon, Txt, styles } from './ui';
 import { DateField } from './DateField';
 import { AmountCalculator } from './AmountCalculator';
@@ -30,38 +30,57 @@ import {
 
 export function EntryEditor({
   entry,
+  repeatSource,
   refundOf,
   templateId,
   recurringId,
   recurringDate,
   onRefund,
+  onRepeat,
   onClose,
   onSaved,
 }: {
   entry?: Entry;
+  repeatSource?: Entry;
   refundOf?: Entry;
   templateId?: string;
   recurringId?: string;
   recurringDate?: string;
   onRefund: (entry: Entry) => void;
+  onRepeat?: (entry: Entry) => void;
   onClose: () => void;
   onSaved: (message: string, date: string, entryId?: string) => void;
 }) {
   const t = useTheme();
   const details = useRef<React.ComponentRef<typeof View>>(null);
-  const { ledger, update, saving, removeEntry } = useLedger();
+  const sheet = useRef<SheetHandle>(null);
+  const operation = useRef(false);
+  const [closing, setClosing] = useState(false);
+  const {
+    ledger,
+    update,
+    saving: persistenceSaving,
+    removeEntry,
+  } = useLedger();
+  const saving = persistenceSaving || closing;
+  const closeAfterSave = () => {
+    setClosing(true);
+    if (sheet.current) sheet.current.close();
+    else onClose();
+  };
   const data = ledger!;
   const recurring = data.recurringBills.find((bill) => bill.id === recurringId);
   const preset =
     recurring ?? data.templates.find((template) => template.id === templateId);
+  const seed = entry ?? repeatSource;
   const original =
     refundOf ??
-    (entry?.kind === 'refund'
-      ? data.entries.find((item) => item.id === entry.originalEntryId)
+    (seed?.kind === 'refund'
+      ? data.entries.find((item) => item.id === seed.originalEntryId)
       : undefined);
   const initialKind = original
     ? 'refund'
-    : (entry?.kind ?? preset?.kind ?? 'expense');
+    : (seed?.kind ?? preset?.kind ?? 'expense');
   const initialDefault = entryDefault(
     data,
     initialKind === 'income' ? 'income' : 'expense',
@@ -69,35 +88,31 @@ export function EntryEditor({
   const [kind, setKind] = useState<EntryKind>(initialKind);
   const [draft, dispatchAmount] = useReducer(
     calculatorReducer,
-    entry
-      ? amountInput(entry.amount)
-      : preset
-        ? amountInput(preset.amount)
-        : '',
+    seed ? amountInput(seed.amount) : preset ? amountInput(preset.amount) : '',
     calculatorDraft,
   );
   const amount = draft.expression;
   const [categoryId, setCategoryId] = useState(
     original?.categoryId ??
-      entry?.categoryId ??
+      seed?.categoryId ??
       preset?.categoryId ??
       initialDefault.categoryId,
   );
   const [accountId, setAccountId] = useState(
-    entry?.accountId ??
+    seed?.accountId ??
       original?.accountId ??
       preset?.accountId ??
       initialDefault.accountId,
   );
   const [toAccountId, setToAccountId] = useState(
-    entry?.toAccountId ??
+    seed?.toAccountId ??
       data.accounts.find((account) => account.id !== initialDefault.accountId)
         ?.id ??
       '',
   );
   const [date, setDate] = useState(entry?.date ?? localDate());
   const [note, setNote] = useState(
-    entry?.note ??
+    seed?.note ??
       (recurring ? recurring.note || recurring.name : preset?.note) ??
       (original
         ? `${original.note || categoryFor(data, original.categoryId).label}退款`.slice(
@@ -118,7 +133,7 @@ export function EntryEditor({
     (category) =>
       category.kind === (kind === 'income' ? 'income' : 'expense') &&
       (!category.hidden ||
-        ((entry || recurring) && category.id === categoryId)),
+        ((entry || recurring || repeatSource) && category.id === categoryId)),
   );
   const shortcuts = data.templates.filter(
     (template) =>
@@ -132,6 +147,8 @@ export function EntryEditor({
     : 0;
   const inputStyle = { color: t.text, fontSize: 14, minHeight: 46, flex: 1 };
   const save = async () => {
+    if (operation.current || saving) return;
+    operation.current = true;
     setError('');
     try {
       if (!amount.trim()) throw new Error('请输入金额');
@@ -179,30 +196,34 @@ export function EntryEditor({
           ],
         });
       });
-      void Haptics.notificationAsync(
-        Haptics.NotificationFeedbackType.Success,
-      ).catch(() => {});
+      feedback('success');
       onSaved(entry ? '账单已更新' : '已记好', date, entryId);
-      onClose();
+      closeAfterSave();
     } catch (e) {
+      operation.current = false;
+      feedback('warning');
       setError(
         e instanceof Error ? e.message : '保存失败，请重试。输入内容已保留。',
       );
     }
   };
   const remove = async () => {
-    if (!entry) return;
+    if (!entry || operation.current || saving) return;
+    operation.current = true;
     try {
       await removeEntry(entry.id);
+      feedback('success');
       onSaved('账单已删除，余额与统计已更新', entry.date);
-      onClose();
+      closeAfterSave();
     } catch (error) {
+      operation.current = false;
       setError(error instanceof Error ? error.message : '删除失败，请稍后重试');
     }
   };
   return (
     <Sheet
       visible
+      controlRef={sheet}
       onClose={onClose}
       title={
         recurringId
@@ -213,7 +234,9 @@ export function EntryEditor({
               : '记录退款'
             : entry
               ? '编辑账单'
-              : '记一笔'
+              : repeatSource
+                ? '再记一笔'
+                : '记一笔'
       }
       dismissible={!saving}
       footer={
@@ -321,7 +344,16 @@ export function EntryEditor({
           </Txt>
         </View>
       )}
-      {!entry && kind !== 'refund' && shortcuts.length > 0 && (
+      {repeatSource && (
+        <Txt
+          size={12}
+          color={t.muted}
+          style={{ marginTop: 8, marginBottom: 4 }}
+        >
+          已按原账单预填，日期为今天，确认后才会记账。
+        </Txt>
+      )}
+      {!entry && !repeatSource && kind !== 'refund' && shortcuts.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -582,6 +614,31 @@ export function EntryEditor({
             }}
           >
             记录退款
+          </Button>
+        )}
+        {entry && onRepeat && (
+          <Button
+            variant="soft"
+            disabled={saving}
+            style={{ marginTop: 12 }}
+            onPress={() => {
+              if (
+                amount !== amountInput(entry.amount) ||
+                kind !== entry.kind ||
+                categoryId !== entry.categoryId ||
+                accountId !== entry.accountId ||
+                ((toAccountId || '') !== (entry.toAccountId ?? '') &&
+                  kind === 'transfer') ||
+                date !== entry.date ||
+                note !== entry.note
+              ) {
+                setError('请先保存原账单的修改，再记一笔');
+                return;
+              }
+              onRepeat(entry);
+            }}
+          >
+            再记一笔
           </Button>
         )}
         {entry && (

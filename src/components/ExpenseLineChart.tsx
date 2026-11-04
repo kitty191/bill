@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
@@ -12,7 +12,8 @@ import Svg, {
 import { useMoney, useAmountsHidden } from '../state/PrivacyContext';
 import { trendAxisLabel, trendGeometry } from '../domain/expenseTrend';
 import { useTheme } from '../theme';
-import { Txt, styles } from './ui';
+import { MoneyText, Txt, styles } from './ui';
+import { ChartScrubber } from './ChartScrubber';
 
 export function ExpenseLineChart({
   values,
@@ -26,6 +27,11 @@ export function ExpenseLineChart({
   const hidden = useAmountsHidden();
   const [width, setWidth] = useState(280);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [aboveFinger, setAboveFinger] = useState(true);
+  const select = useCallback((day: number, above: boolean) => {
+    setSelectedDay(day);
+    setAboveFinger(above);
+  }, []);
   useEffect(() => setSelectedDay(null), [month, values.length]);
   const height = 180;
   const chart = trendGeometry(values, width, height);
@@ -57,65 +63,17 @@ export function ExpenseLineChart({
           最高 ¥{money(chart.peak)}
         </Txt>
       </View>
-      <Pressable
+      <ChartScrubber
         testID="daily-expense-chart"
-        accessibilityRole="adjustable"
-        accessibilityLabel={`${Number(month.slice(5))}月每日支出折线图，最高 ${money(chart.peak)} 元`}
-        accessibilityHint="轻触查看某天金额，或使用增加和减少操作切换日期"
-        accessibilityValue={{
-          min: 1,
-          max: values.length,
-          now: selectedDay ?? 1,
-          text: `${selectedDay ?? 1}日支出 ${money(values[(selectedDay ?? 1) - 1] ?? 0)} 元`,
-        }}
-        aria-valuemin={1}
-        aria-valuemax={values.length}
-        aria-valuenow={selectedDay ?? 1}
-        aria-valuetext={`${selectedDay ?? 1}日支出 ${money(values[(selectedDay ?? 1) - 1] ?? 0)} 元`}
-        accessibilityActions={[
-          { name: 'increment', label: '后一天' },
-          { name: 'decrement', label: '前一天' },
-        ]}
-        onAccessibilityAction={(event) =>
-          setSelectedDay((day) =>
-            Math.max(
-              1,
-              Math.min(
-                values.length,
-                (day ?? 1) +
-                  (event.nativeEvent.actionName === 'increment' ? 1 : -1),
-              ),
-            ),
-          )
-        }
-        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        onPress={(event) => {
-          const native = event.nativeEvent as typeof event.nativeEvent & {
-            clientX?: number;
-            offsetX?: number;
-          };
-          const target = event.currentTarget as unknown as {
-            getBoundingClientRect?: () => { left: number };
-          };
-          const localX =
-            Platform.OS === 'web' &&
-            typeof native.clientX === 'number' &&
-            target.getBoundingClientRect
-              ? native.clientX - target.getBoundingClientRect().left
-              : (native.locationX ?? native.offsetX);
-          if (typeof localX !== 'number' || !Number.isFinite(localX)) return;
-          const fraction = (localX - chart.left) / (chart.right - chart.left);
-          setSelectedDay(
-            Math.max(
-              1,
-              Math.min(
-                values.length,
-                Math.round(fraction * (values.length - 1)) + 1,
-              ),
-            ),
-          );
-        }}
-        style={{ height }}
+        count={values.length}
+        selected={selectedDay ?? 1}
+        left={chart.left}
+        right={chart.right}
+        height={height}
+        label={`${Number(month.slice(5))}月每日支出折线图，最高 ${money(chart.peak)} 元`}
+        valueText={`${selectedDay ?? 1}日支出 ${money(values[(selectedDay ?? 1) - 1] ?? 0)} 元`}
+        onWidth={setWidth}
+        onSelect={select}
       >
         <Svg
           pointerEvents="none"
@@ -221,7 +179,40 @@ export function ExpenseLineChart({
             );
           })}
         </Svg>
-      </Pressable>
+        {selected && (
+          <View
+            testID="daily-expense-tooltip"
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            aria-hidden
+            style={{
+              position: 'absolute',
+              width: 132,
+              left: Math.max(
+                0,
+                Math.min(
+                  width - 132,
+                  selected.x + (selected.x < width / 2 ? 14 : -146),
+                ),
+              ),
+              top: aboveFinger ? 4 : height - 74,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 14,
+              backgroundColor: t.surface,
+              borderWidth: 1,
+              borderColor: t.border,
+              boxShadow: `0 4px 16px ${t.shadow}`,
+            }}
+          >
+            <Txt size={10} color={t.muted}>
+              {Number(month.slice(5))}月{selected.day}日 · 净支出
+            </Txt>
+            <MoneyText amount={selected.amount} currency size={17} />
+          </View>
+        )}
+      </ChartScrubber>
       <View
         accessibilityLiveRegion="polite"
         style={{
@@ -238,7 +229,7 @@ export function ExpenseLineChart({
           {selected
             ? `${Number(month.slice(5))}月${selected.day}日 · 支出 ¥${money(selected.amount)}`
             : chart.peak
-              ? '轻触折线，查看某天的支出'
+              ? '轻触或横向拖动，查看每天支出'
               : '本月暂无支出记录'}
         </Txt>
       </View>

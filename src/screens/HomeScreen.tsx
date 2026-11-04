@@ -22,6 +22,7 @@ import {
   EntryRow,
   Icon,
   MonthPicker,
+  MoneyText,
   SectionTitle,
   Txt,
   styles,
@@ -34,6 +35,7 @@ export function HomeScreen({
   onMonth,
   onAdd,
   onEntry,
+  onEntryActions,
   onAll,
   onToday,
   onSettings,
@@ -48,6 +50,7 @@ export function HomeScreen({
   onMonth: (offset: number) => void;
   onAdd: () => void;
   onEntry: (entry: Entry) => void;
+  onEntryActions: (entry: Entry) => void;
   onAll: () => void;
   onToday: () => void;
   onSettings: () => void;
@@ -131,8 +134,8 @@ export function HomeScreen({
       <LinearGradient
         colors={
           t.dark
-            ? ['#2B4535', '#223C2D', '#1E3226']
-            : ['#E6F0E3', '#E4EDE1', '#F0F3E8']
+            ? ['#2A4232', '#22392B', '#1D3025']
+            : ['#E8F1E5', '#EDF3E8', '#F5F7ED']
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -187,21 +190,12 @@ export function HomeScreen({
           <Txt size={24} color={t.dark ? '#B6C9B8' : '#6B826B'} weight="400">
             ¥
           </Txt>
-          <Txt
+          <MoneyText
+            amount={expense}
             testID="month-expense"
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-            size={43}
-            weight="500"
-            style={{
-              letterSpacing: -1.5,
-              fontVariant: ['tabular-nums'],
-              flexShrink: 1,
-            }}
-          >
-            {money(expense)}
-          </Txt>
+            size={46}
+            style={{ flexShrink: 1 }}
+          />
         </View>
         <Button
           variant="plain"
@@ -221,14 +215,12 @@ export function HomeScreen({
           <Txt size={12} color={t.dark ? '#B6C9B8' : '#6B826B'}>
             今日支出
           </Txt>
-          <Txt
+          <MoneyText
+            amount={todayExpense}
+            currency
             testID="today-expense"
             size={18}
-            weight="500"
-            style={{ fontVariant: ['tabular-nums'] }}
-          >
-            ¥{money(todayExpense)}
-          </Txt>
+          />
           <Icon name="right" size={13} color={t.dark ? '#B6C9B8' : '#6B826B'} />
         </Button>
         <View
@@ -250,14 +242,7 @@ export function HomeScreen({
                 本月收入
               </Txt>
             </View>
-            <Txt
-              testID="month-income"
-              size={20}
-              weight="500"
-              style={{ fontVariant: ['tabular-nums'] }}
-            >
-              {money(income)}
-            </Txt>
+            <MoneyText amount={income} testID="month-income" size={20} />
           </View>
           <View
             style={{
@@ -278,14 +263,7 @@ export function HomeScreen({
                 本月结余
               </Txt>
             </View>
-            <Txt
-              testID="month-net"
-              size={20}
-              weight="500"
-              style={{ fontVariant: ['tabular-nums'] }}
-            >
-              {money(income - expense)}
-            </Txt>
+            <MoneyText amount={income - expense} testID="month-net" size={20} />
           </View>
         </View>
       </LinearGradient>
@@ -551,6 +529,7 @@ export function HomeScreen({
                 entry={entry}
                 ledger={ledger}
                 onPress={() => onEntry(entry)}
+                onLongPress={() => onEntryActions(entry)}
                 last={i === list.length - 1}
               />
             ))

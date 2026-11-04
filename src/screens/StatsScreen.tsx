@@ -18,6 +18,7 @@ import {
   EmptyState,
   Icon,
   MonthPicker,
+  MoneyText,
   SectionTitle,
   Txt,
   styles,
@@ -71,13 +72,12 @@ function MonthlyStats({
         <Txt size={12} color={t.muted}>
           本月总支出
         </Txt>
-        <Txt
-          size={35}
-          weight="500"
-          style={{ marginVertical: 7, letterSpacing: -1 }}
-        >
-          ¥{money(expense)}
-        </Txt>
+        <MoneyText
+          amount={expense}
+          currency
+          size={36}
+          style={{ marginVertical: 8 }}
+        />
         <View style={styles.row}>
           <Icon name="trend" size={13} color={t.muted} />
           <Txt size={11} color={t.muted}>
@@ -106,9 +106,13 @@ function MonthlyStats({
               <Txt size={10} color={t.muted}>
                 {label}
               </Txt>
-              <Txt size={15} weight="500">
-                {label === '记账天数' ? `${value} 天` : money(Number(value))}
-              </Txt>
+              {label === '记账天数' ? (
+                <Txt size={15} weight="500">
+                  {value} 天
+                </Txt>
+              ) : (
+                <MoneyText amount={Number(value)} size={15} />
+              )}
             </View>
           ))}
         </View>

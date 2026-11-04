@@ -1,17 +1,19 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import { type Ledger } from '../domain/ledger';
 import { annualSummary } from '../domain/annual';
 import { trendAxisLabel, trendGeometry } from '../domain/expenseTrend';
 import { useMoney, useAmountsHidden } from '../state/PrivacyContext';
 import { useTheme } from '../theme';
+import { ChartScrubber } from './ChartScrubber';
 import {
   Button,
   Card,
   EmptyState,
   Icon,
   SectionTitle,
+  MoneyText,
   Txt,
   styles,
 } from './ui';
@@ -36,6 +38,7 @@ export function AnnualStats({
   );
   const [width, setWidth] = useState(280);
   const [selected, setSelected] = useState(1);
+  const select = useCallback((index: number) => setSelected(index), []);
   const selectedMonth = Math.min(selected, summary.observedMonths);
   const maximum = trendGeometry(
     summary.monthly.flatMap((m) => [m.income, m.expense]),
@@ -47,12 +50,10 @@ export function AnnualStats({
     top = 12,
     baseline = 160;
   const points = (kind: 'expense' | 'income') =>
-    summary.monthly
-      .slice(0, summary.observedMonths)
-      .map((m, index) => ({
-        x: left + (index / 11) * (right - left),
-        y: baseline - (m[kind] / maximum) * (baseline - top),
-      }));
+    summary.monthly.slice(0, summary.observedMonths).map((m, index) => ({
+      x: left + (index / 11) * (right - left),
+      y: baseline - (m[kind] / maximum) * (baseline - top),
+    }));
   const expense = points('expense'),
     income = points('income');
   const line = (values: typeof expense) =>
@@ -110,14 +111,13 @@ export function AnnualStats({
         <Txt size={12} color={t.muted}>
           全年净支出
         </Txt>
-        <Txt
+        <MoneyText
+          amount={summary.expense}
+          currency
           testID="annual-expense"
-          size={35}
-          weight="500"
+          size={36}
           style={{ marginVertical: 8 }}
-        >
-          ¥{money(summary.expense)}
-        </Txt>
+        />
         <View style={[styles.row, { marginTop: 12 }]}>
           {[
             ['全年收入', summary.income, 'annual-income'],
@@ -128,9 +128,7 @@ export function AnnualStats({
               <Txt size={10} color={t.muted}>
                 {label}
               </Txt>
-              <Txt testID={String(id)} size={14} weight="500">
-                {money(Number(value))}
-              </Txt>
+              <MoneyText testID={String(id)} amount={Number(value)} size={14} />
             </View>
           ))}
         </View>
@@ -154,57 +152,17 @@ export function AnnualStats({
             ● 净支出
           </Txt>
         </View>
-        <Pressable
+        <ChartScrubber
           testID="annual-trend-chart"
-          accessibilityRole="adjustable"
-          accessibilityLabel={`${year}年收支趋势，${selectedMonth}月收入 ${money(detail.income)} 元，净支出 ${money(detail.expense)} 元`}
-          accessibilityValue={{
-            min: 1,
-            max: summary.observedMonths,
-            now: selectedMonth,
-          }}
-          aria-valuemin={1}
-          aria-valuemax={summary.observedMonths}
-          aria-valuenow={selectedMonth}
-          accessibilityActions={[
-            { name: 'increment', label: '下个月' },
-            { name: 'decrement', label: '上个月' },
-          ]}
-          onAccessibilityAction={(event) =>
-            setSelected(
-              Math.max(
-                1,
-                Math.min(
-                  summary.observedMonths,
-                  selectedMonth +
-                    (event.nativeEvent.actionName === 'increment' ? 1 : -1),
-                ),
-              ),
-            )
-          }
-          onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-          onPress={(event) => {
-            const native = event.nativeEvent as typeof event.nativeEvent & {
-              clientX?: number;
-            };
-            const target = event.currentTarget as unknown as {
-              getBoundingClientRect?: () => { left: number };
-            };
-            const x =
-              typeof native.clientX === 'number' && target.getBoundingClientRect
-                ? native.clientX - target.getBoundingClientRect().left
-                : native.locationX;
-            if (Number.isFinite(x))
-              setSelected(
-                Math.max(
-                  1,
-                  Math.min(
-                    summary.observedMonths,
-                    Math.round(((x - left) / (right - left)) * 11) + 1,
-                  ),
-                ),
-              );
-          }}
+          count={summary.observedMonths}
+          selected={selectedMonth}
+          left={left}
+          right={left + ((summary.observedMonths - 1) / 11) * (right - left)}
+          height={190}
+          label={`${year}年收支趋势，${selectedMonth}月收入 ${money(detail.income)} 元，净支出 ${money(detail.expense)} 元`}
+          valueText={`${selectedMonth}月收入 ${money(detail.income)} 元，净支出 ${money(detail.expense)} 元`}
+          onWidth={setWidth}
+          onSelect={select}
         >
           <Svg width={width} height={190} pointerEvents="none">
             {[0, maximum / 2, maximum].map((amount) => {
@@ -231,6 +189,15 @@ export function AnnualStats({
                 </React.Fragment>
               );
             })}
+            <Line
+              x1={expense[selectedMonth - 1]!.x}
+              x2={expense[selectedMonth - 1]!.x}
+              y1={top}
+              y2={baseline}
+              stroke={t.accent}
+              strokeOpacity={0.24}
+              strokeDasharray="3 4"
+            />
             <Path
               d={line(income)}
               fill="none"
@@ -271,7 +238,7 @@ export function AnnualStats({
               </SvgText>
             ))}
           </Svg>
-        </Pressable>
+        </ChartScrubber>
         <View accessibilityLiveRegion="polite">
           <Txt
             testID="annual-month-detail"

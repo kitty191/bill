@@ -38,6 +38,7 @@ import {
   EntryRow,
   Icon,
   MonthPicker,
+  MoneyText,
   Txt,
   dateHeading,
   styles,
@@ -55,6 +56,7 @@ export function EntriesScreen({
   month,
   onMonth,
   onEntry,
+  onEntryActions,
   onAdd,
   resetKey,
   focusDate,
@@ -65,6 +67,7 @@ export function EntriesScreen({
   month: string;
   onMonth: (offset: number) => void;
   onEntry: (entry: Entry) => void;
+  onEntryActions: (entry: Entry) => void;
   onAdd: () => void;
   resetKey: number;
   focusDate?: string;
@@ -247,30 +250,18 @@ export function EntriesScreen({
           <Txt size={11} color={t.muted}>
             {active ? '筛选支出' : '本月支出'}
           </Txt>
-          <Txt
-            size={width < 360 ? 17 : 22}
-            weight="500"
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
-            ¥{money(expense)}
-          </Txt>
+          <MoneyText amount={expense} currency size={width < 360 ? 17 : 22} />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <Txt size={11} color={t.muted}>
             {active ? '筛选收入' : '本月收入'}
           </Txt>
-          <Txt
+          <MoneyText
+            amount={income}
+            currency
             size={width < 360 ? 17 : 22}
-            weight="500"
             color={t.income}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
-            ¥{money(income)}
-          </Txt>
+          />
         </View>
       </Card>
       {filter === 'expense' && grossExpense > expense && (
@@ -556,13 +547,14 @@ export function EntriesScreen({
               borderRightWidth: 1,
               borderTopWidth: first ? 1 : 0,
               borderBottomWidth: last ? 1 : 0,
-              borderColor: t.dark ? t.border : 'rgba(255,255,255,0.9)',
+              borderColor: t.dark ? t.border : '#E8EDE5',
             }}
           >
             <EntryRow
               entry={item}
               ledger={ledger}
               onPress={() => onEntry(item)}
+              onLongPress={() => onEntryActions(item)}
               last={last}
             />
           </View>

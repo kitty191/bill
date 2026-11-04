@@ -1,4 +1,9 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, {
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   KeyboardAvoidingView,
   Keyboard,
@@ -6,6 +11,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   View,
 } from 'react-native';
 import {
@@ -15,6 +21,8 @@ import {
 } from 'react-native-gesture-handler';
 import Animated, {
   FadeInDown,
+  FadeIn,
+  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -25,10 +33,12 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { usePrivacy } from '../state/PrivacyContext';
-import { IconButton, Txt, styles } from './ui';
+import { Glass, IconButton, Txt, styles } from './ui';
+import { motion } from '../motion';
 import { SheetScrollContext } from './sheetScroll';
 
-const sheetEntering = FadeInDown.duration(250);
+const sheetEntering = FadeInDown.duration(motion.sheet);
+export type SheetHandle = { close: () => void };
 
 export function Sheet({
   visible,
@@ -37,6 +47,7 @@ export function Sheet({
   children,
   dismissible = true,
   footer,
+  controlRef,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -44,6 +55,7 @@ export function Sheet({
   children: React.ReactNode;
   dismissible?: boolean;
   footer?: React.ReactNode;
+  controlRef?: React.Ref<SheetHandle>;
 }) {
   const t = useTheme();
   const privacy = usePrivacy();
@@ -68,44 +80,93 @@ export function Sheet({
     },
     [reduce],
   );
-  const dismiss = () => {
-    if (dismissible) {
-      Keyboard.dismiss();
-      onClose();
-    }
-  };
   const dismissKeyboard = useCallback(() => Keyboard.dismiss(), []);
   const translation = useSharedValue(0);
+  const panelHeight = useSharedValue(700);
+  const dragStart = useSharedValue(0);
+  const closing = useSharedValue(false);
+  const close = useCallback(() => {
+    if (closing.value) return;
+    Keyboard.dismiss();
+    if (reduce) {
+      onClose();
+      return;
+    }
+    closing.value = true;
+    translation.value = withTiming(
+      panelHeight.value + 30,
+      { duration: motion.dismiss },
+      (finished) => {
+        if (finished) scheduleOnRN(onClose);
+      },
+    );
+  }, [closing, reduce, onClose, panelHeight, translation]);
+  useImperativeHandle(controlRef, () => ({ close }), [close]);
+  const dismiss = () => {
+    if (dismissible) close();
+  };
   const gestureStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translation.value }],
+  }));
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: Math.max(
+      0,
+      1 - translation.value / Math.max(1, panelHeight.value),
+    ),
   }));
   const pan = useMemo(
     () =>
       Gesture.Pan()
+        .runOnJS(Platform.OS === 'web')
         .enabled(dismissible)
+        .activeOffsetY([-5, 5])
+        .failOffsetX([-16, 16])
+        .onBegin(() => {
+          cancelAnimation(translation);
+          dragStart.value = translation.value;
+          closing.value = false;
+        })
         .onStart(() => {
           scheduleOnRN(dismissKeyboard);
         })
         .onUpdate((event) => {
-          translation.value = Math.max(0, event.translationY);
+          translation.value = Math.max(0, dragStart.value + event.translationY);
         })
         .onEnd((event) => {
-          if (event.translationY > 80 || event.velocityY > 800) {
+          if (
+            translation.value > Math.min(96, panelHeight.value * 0.2) ||
+            (event.velocityY > 850 && event.translationY > 12)
+          ) {
+            closing.value = true;
             translation.value = withTiming(
-              700,
-              { duration: reduce ? 0 : 180 },
-              () => scheduleOnRN(onClose),
+              panelHeight.value + 30,
+              { duration: reduce ? 0 : motion.dismiss },
+              (finished) => {
+                if (finished) scheduleOnRN(onClose);
+              },
             );
-          } else
-            translation.value = withSpring(0, { damping: 28, stiffness: 320 });
+          } else translation.value = reduce ? 0 : withSpring(0, motion.spring);
+        })
+        .onFinalize((_event, success) => {
+          if (!success)
+            translation.value = reduce ? 0 : withSpring(0, motion.spring);
         }),
-    [dismissible, reduce, onClose, translation, dismissKeyboard],
+    [
+      dismissible,
+      reduce,
+      onClose,
+      translation,
+      dismissKeyboard,
+      panelHeight,
+      closing,
+      dragStart,
+    ],
   );
   return (
     <Modal
       visible={visible && privacy.phase === 'unlocked'}
       transparent
-      animationType={reduce || privacy.phase !== 'unlocked' ? 'none' : 'fade'}
+      animationType="none"
       onRequestClose={dismiss}
       statusBarTranslucent
     >
@@ -116,34 +177,56 @@ export function Sheet({
             flex: 1,
             justifyContent: 'flex-end',
             alignItems: 'center',
-            backgroundColor: t.overlay,
           }}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="关闭面板"
-            onPress={dismiss}
-            style={{ position: 'absolute', inset: 0 }}
-          />
+          <Animated.View
+            entering={reduce ? undefined : FadeIn.duration(motion.fade)}
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: t.overlay },
+              backdropStyle,
+            ]}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="关闭面板"
+              onPress={dismiss}
+              style={{ position: 'absolute', inset: 0 }}
+            />
+          </Animated.View>
           <Animated.View
             entering={reduce ? undefined : sheetEntering}
             accessibilityViewIsModal
+            onLayout={(event) => {
+              panelHeight.value = event.nativeEvent.layout.height;
+            }}
             style={[
               {
                 width: '100%',
                 maxWidth: 560,
                 maxHeight: '92%',
-                backgroundColor: t.surface,
                 borderTopLeftRadius: 32,
                 borderTopRightRadius: 32,
                 paddingBottom: Math.max(insets.bottom, 20),
-                boxShadow: '0 -12px 60px rgba(20,40,30,0.12)',
+                boxShadow: `0 -8px 40px ${t.shadow}`,
               },
               gestureStyle,
             ]}
           >
-            <GestureDetector gesture={pan}>
+            <Glass
+              variant="sheet"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: 0,
+                  borderTopLeftRadius: 32,
+                  borderTopRightRadius: 32,
+                },
+              ]}
+            />
+            <GestureDetector gesture={pan} touchAction="none">
               <View
+                testID="sheet-drag-handle"
                 style={{
                   paddingTop: 11,
                   paddingBottom: 8,
@@ -152,10 +235,11 @@ export function Sheet({
               >
                 <View
                   style={{
-                    width: 34,
+                    width: 36,
                     height: 4,
                     borderRadius: 2,
-                    backgroundColor: t.border,
+                    backgroundColor: t.muted,
+                    opacity: 0.32,
                   }}
                 />
               </View>
@@ -205,7 +289,12 @@ export function Sheet({
             {footer && (
               <View
                 testID="sheet-footer"
-                style={{ paddingHorizontal: 25, paddingTop: 8 }}
+                style={{
+                  paddingHorizontal: 25,
+                  paddingTop: 12,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderColor: t.border,
+                }}
               >
                 {footer}
               </View>

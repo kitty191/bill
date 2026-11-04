@@ -46,6 +46,7 @@ import {
   ListFilter,
   Trash2,
   Pencil,
+  Copy,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -54,6 +55,14 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useTheme } from '../theme';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { feedback, motion } from '../motion';
 import { useMoney } from '../state/PrivacyContext';
 import {
   categoryFor,
@@ -103,7 +112,9 @@ const icons: Record<string, LucideIcon> = {
   lock: LockKeyhole,
   refund: RotateCcw,
   bell: Bell,
+  copy: Copy,
 };
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function Icon({
   name,
   size = 20,
@@ -187,6 +198,12 @@ export function Button({
   testID?: string;
 }) {
   const t = useTheme();
+  const reduce = useReducedMotion();
+  const pressed = useSharedValue(0);
+  const pressStyle = useAnimatedStyle(() => ({
+    opacity: disabled ? 0.45 : 1 - pressed.value * 0.16,
+    transform: [{ scale: reduce ? 1 : 1 - pressed.value * 0.025 }],
+  }));
   const bg = {
     primary: t.dark ? '#A0CCAD' : '#345B48',
     soft: t.accentSoft,
@@ -202,7 +219,7 @@ export function Button({
         ? t.danger
         : t.accent;
   return (
-    <Pressable
+    <AnimatedPressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={
@@ -211,15 +228,13 @@ export function Button({
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        {
-          backgroundColor: bg,
-          opacity: disabled ? 0.5 : pressed ? 0.75 : 1,
-          transform: [{ scale: pressed ? 0.98 : 1 }],
-        },
-        style,
-      ]}
+      onPressIn={() => {
+        pressed.value = reduce ? 1 : withTiming(1, { duration: motion.press });
+      }}
+      onPressOut={() => {
+        pressed.value = reduce ? 0 : withSpring(0, motion.spring);
+      }}
+      style={[styles.button, { backgroundColor: bg }, style, pressStyle]}
     >
       {typeof children === 'string' ? (
         <Txt weight="600" color={fg}>
@@ -228,7 +243,7 @@ export function Button({
       ) : (
         children
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -247,29 +262,30 @@ export function IconButton({
 }) {
   const t = useTheme();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
+    <Button
+      variant="plain"
+      label={label}
       disabled={disabled}
       onPress={onPress}
-      hitSlop={5}
-      style={({ pressed }) => [
+      style={[
         {
           width: 44,
           height: 44,
+          minHeight: 0,
           borderRadius: 22,
           backgroundColor: t.surface,
           borderWidth: 1,
           borderColor: t.border,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: pressed || disabled ? 0.5 : 1,
+          paddingHorizontal: 0,
+          paddingVertical: 0,
         },
         style,
       ]}
     >
       <Icon name={name} size={19} />
-    </Pressable>
+    </Button>
   );
 }
 
@@ -289,7 +305,8 @@ export function Card({
           borderRadius: 24,
           padding: 22,
           borderWidth: 1,
-          borderColor: t.dark ? t.border : 'rgba(255,255,255,0.9)',
+          borderColor: t.dark ? t.border : '#E8EDE5',
+          boxShadow: t.dark ? 'none' : '0 3px 14px rgba(40,66,45,0.025)',
         },
         style,
       ]}
@@ -306,9 +323,11 @@ export const BlurTargetContext = createContext<
 export function Glass({
   children,
   style,
+  variant = 'dock',
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  variant?: 'dock' | 'sheet';
 }) {
   const t = useTheme();
   const blurTarget = useContext(BlurTargetContext);
@@ -319,35 +338,42 @@ export function Glass({
           overflow: 'hidden',
           borderRadius: 30,
           borderWidth: 1,
-          borderColor: t.dark
-            ? 'rgba(255,255,255,0.12)'
-            : 'rgba(255,255,255,0.94)',
-          backgroundColor: t.glass,
-          boxShadow: '0 8px 28px rgba(25, 52, 36, 0.08)',
+          borderColor: t.glassEdge,
+          backgroundColor: variant === 'sheet' ? t.sheet : t.glass,
+          boxShadow: `0 8px 28px ${t.shadow}`,
         },
         style,
       ]}
     >
-      {Platform.OS === 'android' ? (
-        <LinearGradient
-          pointerEvents="none"
-          colors={
-            t.dark
-              ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']
-              : ['rgba(255,255,255,0.48)', 'rgba(255,255,255,0.12)']
-          }
-          style={StyleSheet.absoluteFill}
-        />
-      ) : (
+      {Platform.OS !== 'android' && (
         <BlurView
           pointerEvents="none"
-          intensity={40}
+          intensity={variant === 'sheet' ? 34 : 48}
           tint={t.dark ? 'dark' : 'light'}
           blurTarget={blurTarget}
           blurMethod="dimezisBlurViewSdk31Plus"
           style={StyleSheet.absoluteFill}
         />
       )}
+      <LinearGradient
+        pointerEvents="none"
+        colors={[t.glassHighlight, 'rgba(255,255,255,0)', t.glassShade]}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 20,
+          right: 20,
+          height: 1,
+          backgroundColor: t.glassHighlight,
+        }}
+      />
       {children}
     </View>
   );
@@ -436,11 +462,13 @@ export function EntryRow({
   ledger,
   onPress,
   last = false,
+  onLongPress,
 }: {
   entry: Entry;
   ledger: Ledger;
   onPress: () => void;
   last?: boolean;
+  onLongPress?: () => void;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -454,6 +482,22 @@ export function EntryRow({
       accessibilityRole="button"
       accessibilityLabel={`${entry.date} ${entry.note || category.label} ${entry.kind === 'income' ? '收入' : entry.kind === 'expense' ? '支出' : entry.kind === 'refund' ? '退款' : '转账'} ${money(entry.amount)} 元，查看详情`}
       onPress={onPress}
+      onLongPress={
+        onLongPress
+          ? () => {
+              feedback('light');
+              onLongPress();
+            }
+          : undefined
+      }
+      delayLongPress={420}
+      accessibilityHint={
+        onLongPress ? '长按打开快捷操作，也可进入详情再记一笔' : undefined
+      }
+      accessibilityActions={
+        onLongPress ? [{ name: 'longpress', label: '账单快捷操作' }] : undefined
+      }
+      onAccessibilityAction={onLongPress ? () => onLongPress() : undefined}
       style={({ pressed }) => [
         styles.row,
         {
@@ -491,25 +535,75 @@ export function EntryRow({
           {entry.kind === 'transfer' ? ` → ${destination}` : ''}
         </Txt>
       </View>
-      <Txt
+      <MoneyText
+        amount={entry.amount}
+        prefix={
+          entry.kind === 'income' || entry.kind === 'refund'
+            ? '+'
+            : entry.kind === 'expense'
+              ? '−'
+              : ''
+        }
         size={16}
-        weight="500"
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
         color={
           entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
         }
-        style={{ fontVariant: ['tabular-nums'], flexShrink: 1 }}
-      >
-        {entry.kind === 'income' || entry.kind === 'refund'
-          ? '+'
-          : entry.kind === 'expense'
-            ? '−'
-            : ''}
-        {money(entry.amount)}
-      </Txt>
+        style={{ flexShrink: 1 }}
+      />
     </Pressable>
+  );
+}
+
+export function MoneyText({
+  amount,
+  size = 22,
+  currency = false,
+  prefix = '',
+  color,
+  style,
+  testID,
+}: {
+  amount: number;
+  size?: number;
+  currency?: boolean;
+  prefix?: string;
+  color?: string;
+  style?: StyleProp<TextStyle>;
+  testID?: string;
+}) {
+  const t = useTheme();
+  const money = useMoney();
+  const [whole, fraction] = money(amount).split('.');
+  return (
+    <Txt
+      testID={testID}
+      size={size}
+      weight="500"
+      color={color}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.6}
+      style={[
+        {
+          fontVariant: ['tabular-nums'],
+          letterSpacing: size >= 28 ? -0.8 : -0.15,
+        },
+        style,
+      ]}
+    >
+      {currency && (
+        <Txt size={size * 0.6} color={color ?? t.muted}>
+          ¥
+        </Txt>
+      )}
+      {prefix}
+      {whole}
+      {fraction !== undefined && (
+        <Txt size={size * 0.72} weight="500" color={color ?? t.muted}>
+          .{fraction}
+        </Txt>
+      )}
+    </Txt>
   );
 }
 

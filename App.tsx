@@ -26,7 +26,7 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { feedback, motion } from './src/motion';
 import {
   type Entry,
   type Ledger,
@@ -46,6 +46,7 @@ import {
 } from './src/components/ui';
 import { BottomNavigation, type Tab } from './src/components/BottomNavigation';
 import { EntryEditor } from './src/components/EntryEditor';
+import { EntryActions } from './src/components/EntryActions';
 import { SettingsSheet } from './src/components/SettingsSheet';
 import { HomeScreen } from './src/screens/HomeScreen';
 import {
@@ -114,11 +115,13 @@ function Main() {
   const entriesScroll = useRef<EntriesListHandle>(null);
   const [editor, setEditor] = useState<{
     entry?: Entry;
+    repeatSource?: Entry;
     refundOf?: Entry;
     templateId?: string;
     recurringId?: string;
     recurringDate?: string;
   } | null>(null);
+  const [actionEntryId, setActionEntryId] = useState<string | null>(null);
   const [settings, setSettings] = useState<
     false | 'main' | 'privacy' | 'recurring'
   >(false);
@@ -154,7 +157,7 @@ function Main() {
     tabRef.current = next;
     Keyboard.dismiss();
     setTab(next);
-    void Haptics.selectionAsync().catch(() => {});
+    feedback('selection');
   }, []);
   const navigate = useCallback(
     (next: Tab) => {
@@ -173,6 +176,14 @@ function Main() {
     [],
   );
   const onEntry = useCallback((entry: Entry) => setEditor({ entry }), []);
+  const onEntryActions = useCallback(
+    (entry: Entry) => setActionEntryId(entry.id),
+    [],
+  );
+  const onRepeat = useCallback((repeatSource: Entry) => {
+    setActionEntryId(null);
+    setEditor({ repeatSource });
+  }, []);
   const openEditor = useCallback(() => setEditor({}), []);
   const openSettings = useCallback(() => setSettings('main'), []);
   const closeSettings = useCallback(() => setSettings(false), []);
@@ -241,6 +252,7 @@ function Main() {
                   month={month}
                   onMonth={onMonth}
                   onEntry={onEntry}
+                  onEntryActions={onEntryActions}
                   onAdd={openEditor}
                 />
               ) : (
@@ -263,6 +275,7 @@ function Main() {
                       onMonth={onMonth}
                       onAdd={openEditor}
                       onEntry={onEntry}
+                      onEntryActions={onEntryActions}
                       onAll={showAll}
                       onToday={showToday}
                       onSettings={openSettings}
@@ -288,6 +301,7 @@ function Main() {
       month,
       onMonth,
       onEntry,
+      onEntryActions,
       openEditor,
       openSettings,
       openTemplate,
@@ -499,15 +513,13 @@ function Main() {
             bottom={Math.max(insets.bottom, 18)}
             onAdd={() => {
               setEditor({});
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
-                () => {},
-              );
+              feedback('light');
             }}
           />
-          {(!!toast || !!undo) && !editor && !settings && (
+          {(!!toast || !!undo) && !editor && !settings && !actionEntryId && (
             <Animated.View
-              entering={reduce ? undefined : FadeIn.duration(150)}
-              exiting={reduce ? undefined : FadeOut.duration(150)}
+              entering={reduce ? undefined : FadeIn.duration(motion.fade)}
+              exiting={reduce ? undefined : FadeOut.duration(motion.fade)}
               accessibilityLiveRegion="polite"
               pointerEvents={undo || quickEntry ? 'auto' : 'none'}
               style={{
@@ -557,7 +569,10 @@ function Main() {
                     variant="plain"
                     onPress={() => {
                       void restoreDeleted()
-                        .then(() => setToast('账单已恢复'))
+                        .then(() => {
+                          feedback('success');
+                          setToast('账单已恢复');
+                        })
                         .catch((error) =>
                           setToast(
                             error instanceof Error
@@ -580,22 +595,41 @@ function Main() {
               )}
             </Animated.View>
           )}
+          {actionEntryId &&
+            ledger.entries.some((entry) => entry.id === actionEntryId) && (
+              <EntryActions
+                entry={
+                  ledger.entries.find((entry) => entry.id === actionEntryId)!
+                }
+                ledger={ledger}
+                onClose={() => setActionEntryId(null)}
+                onRepeat={onRepeat}
+                onEdit={(entry) => {
+                  setActionEntryId(null);
+                  onEntry(entry);
+                }}
+              />
+            )}
           {editor && (
             <EntryEditor
               key={
                 editor.entry?.id ??
-                (editor.refundOf
-                  ? `refund-${editor.refundOf.id}`
-                  : editor.recurringId
-                    ? `recurring-${editor.recurringId}-${editor.recurringDate}`
-                    : (editor.templateId ?? 'new'))
+                (editor.repeatSource
+                  ? `repeat-${editor.repeatSource.id}`
+                  : editor.refundOf
+                    ? `refund-${editor.refundOf.id}`
+                    : editor.recurringId
+                      ? `recurring-${editor.recurringId}-${editor.recurringDate}`
+                      : (editor.templateId ?? 'new'))
               }
               entry={editor.entry}
+              repeatSource={editor.repeatSource}
               refundOf={editor.refundOf}
               templateId={editor.templateId}
               recurringId={editor.recurringId}
               recurringDate={editor.recurringDate}
               onRefund={openRefund}
+              onRepeat={onRepeat}
               onClose={() => setEditor(null)}
               onSaved={(message, date, entryId) => {
                 setMonth(date.slice(0, 7));
