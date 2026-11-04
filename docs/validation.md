@@ -27,6 +27,7 @@
 - 最后补回小图标按钮触摸范围后，类型检查、网页导出和 2 项图表 / 窄屏隐私及关闭流程再次通过。
 - 截图使用生成账本，已查看 `docs/previews/home-v0.5.0-light.png`、`actions-v0.5.0-light.png`、`editor-v0.5.0-dark.png`、`chart-v0.5.0-light.png` 与 `actions-private-v0.5.0-dark.png`；未上传私人录屏。
 - 1000 条记录、9 次切页，三个页面均 0 次重复渲染，无运行异常，见 `docs/paging-performance-v0.5.0.json`。一万条账单两次样本均首屏挂载 11 行、保存后 10001 条完整；网页搜索约 205–671 ms、保存约 670–1134 ms，耗时波动明显，不代表手机性能，也未证明本轮进一步降低网页延迟。原始数据见 `docs/large-ledger-performance-v0.5.0.json`。
+- iOS 代码导出、Android Release 构建通过。版本 0.5.0 / versionCode 16，32,613,327 字节，源码提交 `b62266a0b4ee95af69dc286974243dc3a17c2222`。沿用 v0.4.1 签名，APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、独立 Hermes / 原生模块、权限、图标和临时性能计数器缺席检查通过，见 `downloads/qingzhang-v0.5.0-android-arm64-verification.json`。
 - 本轮未进行原生真机安装、SQLite 桥、动态字体、玻璃效果、触感、后台唤醒和触摸验收。
 
 ### v0.4.1 大账本性能
