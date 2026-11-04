@@ -36,12 +36,14 @@ export function Sheet({
   title,
   children,
   dismissible = true,
+  footer,
 }: {
   visible: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   dismissible?: boolean;
+  footer?: React.ReactNode;
 }) {
   const t = useTheme();
   const privacy = usePrivacy();
@@ -200,6 +202,14 @@ export function Sheet({
                 </View>
               </SheetScrollContext.Provider>
             </ScrollView>
+            {footer && (
+              <View
+                testID="sheet-footer"
+                style={{ paddingHorizontal: 25, paddingTop: 8 }}
+              >
+                {footer}
+              </View>
+            )}
           </Animated.View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>

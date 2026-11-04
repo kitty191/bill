@@ -1,86 +1,100 @@
-import React, { useRef, useState } from 'react';
-import { Keyboard, TextInput, View } from 'react-native';
-import { calculateAmount } from '../domain/calculator';
+import React, { useMemo } from 'react';
+import { TextInput, View } from 'react-native';
+import {
+  calculateAmount,
+  type CalculatorAction,
+  type CalculatorDraft,
+} from '../domain/calculator';
 import { amountInput } from '../domain/ledger';
 import { useTheme } from '../theme';
-import { Button, Txt, styles } from './ui';
-import { useSheetScroll } from './sheetScroll';
+import { Button, Icon, Txt, styles } from './ui';
+import { useSheetScroll, type SheetView } from './sheetScroll';
 
 export function AmountCalculator({
-  expression,
-  onExpressionChange,
-  onApply,
-  onClose,
+  draft,
+  onChange,
   disabled,
-  returnTo,
+  label,
+  summary,
+  details,
 }: {
-  expression: string;
-  onExpressionChange: React.Dispatch<React.SetStateAction<string>>;
-  onApply: (amount: string) => void;
-  onClose: () => void;
+  draft: CalculatorDraft;
+  onChange: (action: CalculatorAction) => void;
   disabled: boolean;
-  returnTo?: React.RefObject<React.ComponentRef<typeof View> | null>;
+  label: string;
+  summary: string;
+  details: React.RefObject<SheetView | null>;
 }) {
   const t = useTheme();
-  const panel = useRef<React.ComponentRef<typeof View>>(null);
   const reveal = useSheetScroll();
-  const [error, setError] = useState('');
-  const close = () => {
-    onClose();
-    if (returnTo) reveal(returnTo);
-  };
-  const apply = () => {
+  const preview = useMemo(() => {
+    if (!/[+\-−×÷*/()]|\.\d{3}/.test(draft.expression)) return '';
     try {
-      const amount = amountInput(calculateAmount(expression));
-      onApply(amount);
-      Keyboard.dismiss();
-      close();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '计算式无效');
+      return `= ¥${amountInput(calculateAmount(draft.expression))}`;
+    } catch {
+      return '';
     }
-  };
+  }, [draft.expression]);
   return (
     <View
-      ref={panel}
-      collapsable={false}
-      onLayout={() => reveal(panel)}
+      testID="amount-calculator"
       style={{
-        borderRadius: 20,
+        borderRadius: 21,
         backgroundColor: t.surfaceAlt,
-        padding: 13,
-        marginBottom: 20,
-        gap: 10,
+        padding: 12,
+        marginTop: 14,
+        marginBottom: 16,
+        gap: 5,
       }}
     >
-      <View style={[styles.row, { justifyContent: 'space-between' }]}>
-        <Txt size={13} weight="500">
-          金额计算器
+      <Txt size={11} color={t.muted}>
+        {label}
+      </Txt>
+      <View style={[styles.row, { gap: 7 }]}>
+        <Txt size={26} color={t.muted}>
+          ¥
         </Txt>
-        <Button variant="plain" disabled={disabled} onPress={close}>
-          收起计算器
-        </Button>
+        <TextInput
+          accessibilityLabel="金额"
+          placeholder="0.00"
+          placeholderTextColor={t.subtle}
+          value={draft.expression}
+          onChangeText={(value) => onChange({ type: 'text', value })}
+          editable={!disabled}
+          inputMode="none"
+          showSoftInputOnFocus={false}
+          maxLength={120}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 58,
+            color: t.text,
+            fontSize: draft.expression.length > 12 ? 26 : 38,
+            fontWeight: '500',
+            textAlign: 'right',
+            fontVariant: ['tabular-nums'],
+            paddingVertical: 3,
+          }}
+        />
       </View>
-      <TextInput
-        accessibilityLabel="计算表达式"
-        placeholder="例如 (26 + 15) ÷ 2"
-        placeholderTextColor={t.subtle}
-        value={expression}
-        onChangeText={(value) => {
-          onExpressionChange(value);
-          setError('');
-        }}
-        editable={!disabled}
-        showSoftInputOnFocus={false}
-        maxLength={120}
+      <View style={{ minHeight: 21 }} accessibilityLiveRegion="polite">
+        <Txt
+          testID={draft.error ? 'calculator-error' : 'calculation-preview'}
+          size={11}
+          color={draft.error ? t.danger : t.muted}
+          style={{ textAlign: 'right' }}
+        >
+          {draft.error || preview || ' '}
+        </Txt>
+      </View>
+      <View
         style={{
-          color: t.text,
-          minHeight: 46,
-          fontSize: 23,
-          textAlign: 'right',
-          paddingHorizontal: 7,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          rowGap: 5,
         }}
-      />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+      >
         {[
           'C',
           '(',
@@ -107,34 +121,22 @@ export function AmountCalculator({
             key={key}
             label={
               key === '='
-                ? '使用计算结果'
+                ? '计算结果'
                 : key === 'C'
-                  ? '清空计算式'
+                  ? '清空金额'
                   : key === '⌫'
                     ? '删除计算末位'
                     : `计算键${key}`
             }
             disabled={disabled}
             variant={key === '=' ? 'primary' : 'plain'}
-            onPress={() => {
-              if (key === '=') {
-                apply();
-                return;
-              }
-              setError('');
-              onExpressionChange((value) =>
-                key === 'C'
-                  ? ''
-                  : key === '⌫'
-                    ? value.slice(0, -1)
-                    : (value + key).slice(0, 120),
-              );
-            }}
+            onPress={() => onChange({ type: 'key', key })}
             style={{
-              width: '23%',
-              minHeight: 43,
+              width: '23.5%',
+              minHeight: 42,
               backgroundColor: key === '=' ? t.accent : t.surface,
               borderRadius: 13,
+              paddingHorizontal: 0,
             }}
           >
             <Txt size={18} color={key === '=' ? t.background : t.text}>
@@ -143,14 +145,25 @@ export function AmountCalculator({
           </Button>
         ))}
       </View>
-      <Txt size={10} color={t.muted}>
-        结果四舍五入到分，确认记账后才写入账本。
-      </Txt>
-      {!!error && (
-        <Txt testID="calculator-error" size={12} color={t.danger}>
-          {error}
+      <Button
+        variant="plain"
+        label="选择分类、账户和日期"
+        disabled={disabled}
+        onPress={() => reveal(details)}
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          gap: 7,
+          paddingHorizontal: 3,
+          minHeight: 33,
+          marginTop: 4,
+        }}
+      >
+        <Txt size={10} color={t.muted} numberOfLines={1} style={{ flex: 1 }}>
+          {summary}
         </Txt>
-      )}
+        <Icon name="down" size={15} color={t.muted} />
+      </Button>
     </View>
   );
 }

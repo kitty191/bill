@@ -1,4 +1,4 @@
-import { MAX_AMOUNT } from './ledger';
+import { MAX_AMOUNT, amountInput } from './ledger';
 
 type Fraction = { n: bigint; d: bigint };
 const fraction = (n: bigint, d = 1n): Fraction => {
@@ -75,4 +75,84 @@ export function calculateAmount(expression: string): number {
   if (cents <= 0n || cents > BigInt(MAX_AMOUNT))
     throw new Error('金额需大于 0，且不超过 9,999,999.99');
   return Number(cents);
+}
+
+export type CalculatorDraft = {
+  expression: string;
+  fresh: boolean;
+  error: string;
+};
+export type CalculatorAction =
+  | { type: 'seed'; value: string }
+  | { type: 'text'; value: string }
+  | { type: 'key'; key: string };
+export const calculatorDraft = (expression: string): CalculatorDraft => ({
+  expression,
+  fresh: true,
+  error: '',
+});
+
+/** The form owns this draft so input and replacement after '=' survive app locks. */
+export function calculatorReducer(
+  state: CalculatorDraft,
+  action: CalculatorAction,
+): CalculatorDraft {
+  if (action.type === 'seed') return calculatorDraft(action.value);
+  if (action.type === 'text')
+    return { expression: action.value.slice(0, 120), fresh: false, error: '' };
+  const key = action.key;
+  if (key === '=') {
+    try {
+      return calculatorDraft(amountInput(calculateAmount(state.expression)));
+    } catch (error) {
+      return {
+        ...state,
+        error: state.expression.trim()
+          ? error instanceof Error
+            ? error.message
+            : '计算式无效'
+          : '请输入金额',
+      };
+    }
+  }
+  if (key === 'C') return calculatorDraft('');
+  if (key === '⌫')
+    return {
+      expression: state.expression.slice(0, -1),
+      fresh: false,
+      error: '',
+    };
+  let value = state.expression;
+  if (/^\d$/.test(key))
+    value = state.fresh || value === '0' ? key : value + key;
+  else if (key === '.') {
+    if (state.fresh) value = '0.';
+    else {
+      const operand = value.split(/[+\-−×÷*/()]/).at(-1) ?? '';
+      if (operand.includes('.') || value.endsWith(')')) return state;
+      value += operand ? '.' : '0.';
+    }
+  } else if (['+', '−', '×', '÷'].includes(key)) {
+    if (!value || value.endsWith('(')) {
+      if (key !== '−') return state;
+      value += key;
+    } else if (/[+\-−×÷*/]$/.test(value))
+      value =
+        key === '−' && /[×÷*/]$/.test(value)
+          ? value + key
+          : value.replace(/[+\-−×÷*/]+$/, key);
+    else value += key;
+  } else if (key === '(')
+    value = state.fresh ? '(' : value + (/[\d.)]$/.test(value) ? '×(' : '(');
+  else if (key === ')') {
+    if (
+      (value.match(/\(/g) ?? []).length <= (value.match(/\)/g) ?? []).length ||
+      !/[\d.)]$/.test(value)
+    )
+      return state;
+    value += ')';
+  } else return state;
+  return value.length <= 120
+    ? { expression: value, fresh: false, error: '' }
+    : state;
 }

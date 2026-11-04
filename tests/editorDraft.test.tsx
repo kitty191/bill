@@ -16,7 +16,7 @@ vi.mock('react-native', () => ({
   Keyboard: { dismiss: vi.fn() },
 }));
 vi.mock('expo-haptics', () => ({
-  notificationAsync: vi.fn(),
+  notificationAsync: vi.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 1 },
 }));
 vi.mock('../src/state/LedgerProvider', () => ({
@@ -39,8 +39,19 @@ vi.mock('../src/theme', () => ({
   }),
 }));
 vi.mock('../src/components/Sheet', () => ({
-  Sheet: ({ children }: { children: React.ReactNode }) =>
-    mocks.visible ? <>{children}</> : null,
+  Sheet: ({
+    children,
+    footer,
+  }: {
+    children: React.ReactNode;
+    footer?: React.ReactNode;
+  }) =>
+    mocks.visible ? (
+      <>
+        {children}
+        {footer}
+      </>
+    ) : null,
 }));
 vi.mock('../src/components/ui', () => ({
   styles: { row: {} },
@@ -90,14 +101,12 @@ it('retains an unapplied calculation when the locked native modal unmounts and r
       .findByProps({ accessibilityLabel: '金额' })
       .props.onChangeText('8');
   });
+  expect(
+    renderer.root.findAllByProps({ accessibilityLabel: '打开金额计算器' }),
+  ).toHaveLength(0);
   await act(async () => {
     renderer.root
-      .findByProps({ accessibilityLabel: '打开金额计算器' })
-      .props.onPress();
-  });
-  await act(async () => {
-    renderer.root
-      .findByProps({ accessibilityLabel: '计算表达式' })
+      .findByProps({ accessibilityLabel: '金额' })
       .props.onChangeText('(26+15)/2');
   });
   mocks.visible = false;
@@ -105,22 +114,48 @@ it('retains an unapplied calculation when the locked native modal unmounts and r
     renderer.update(<EntryEditor {...props} />);
   });
   expect(
-    renderer.root.findAllByProps({ accessibilityLabel: '计算表达式' }),
+    renderer.root.findAllByProps({ accessibilityLabel: '金额' }),
   ).toHaveLength(0);
   mocks.visible = true;
   await act(async () => {
     renderer.update(<EntryEditor {...props} />);
   });
   expect(
-    renderer.root.findByProps({ accessibilityLabel: '计算表达式' }).props.value,
+    renderer.root.findByProps({ accessibilityLabel: '金额' }).props.value,
   ).toBe('(26+15)/2');
   await act(async () => {
     renderer.root
-      .findByProps({ accessibilityLabel: '使用计算结果' })
+      .findByProps({ accessibilityLabel: '计算结果' })
       .props.onPress();
   });
   expect(
     renderer.root.findByProps({ accessibilityLabel: '金额' }).props.value,
   ).toBe('20.50');
   expect(mocks.update).not.toHaveBeenCalled();
+});
+
+it('records an expression directly with the primary button, without an equals or apply step', async () => {
+  mocks.ledger = emptyLedger();
+  mocks.visible = true;
+  mocks.update.mockImplementation(async (change) => {
+    mocks.ledger = change(mocks.ledger);
+  });
+  const props = { onClose: vi.fn(), onRefund: vi.fn(), onSaved: vi.fn() };
+  await act(async () => {
+    renderer = create(<EntryEditor {...props} />);
+  });
+  await act(async () => {
+    renderer.root
+      .findByProps({ accessibilityLabel: '金额' })
+      .props.onChangeText('(26+15)/2');
+  });
+  await act(async () => {
+    await renderer.root
+      .findByProps({ accessibilityLabel: '记好了' })
+      .props.onPress();
+  });
+  expect(
+    (mocks.ledger as ReturnType<typeof emptyLedger>).entries[0]?.amount,
+  ).toBe(2050);
+  expect(props.onClose).toHaveBeenCalledOnce();
 });

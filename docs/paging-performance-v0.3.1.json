@@ -1,0 +1,18 @@
+{
+  "records": 1000,
+  "pageChanges": 9,
+  "screenRenders": {
+    "HomeScreen": 0,
+    "EntriesScreen": 0,
+    "StatsScreen": 0
+  },
+  "metrics": {
+    "TaskDuration": 1.236638,
+    "ScriptDuration": 0.692763,
+    "LayoutDuration": 0.006325,
+    "RecalcStyleDuration": 0.005003,
+    "LayoutCount": 10
+  },
+  "runtimeErrors": [],
+  "platform": "Chromium web; not native FPS"
+}

@@ -40,35 +40,33 @@ const expense: Entry = {
   createdAt: '2026-10-31T10:00:00Z',
 };
 
-test('calculator handles errors and applies an exact amount before explicit recording', async ({
+test('plus opens the keypad immediately and records the expression directly without equals', async ({
   page,
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '记一笔', exact: true }).click();
-  await page.getByRole('textbox', { name: '金额', exact: true }).fill('8');
-  await page
-    .getByRole('button', { name: '打开金额计算器', exact: true })
-    .click();
+  await expect(page.getByTestId('amount-calculator')).toBeInViewport();
   await expect(
-    page.getByRole('button', { name: '请先完成计算或收起计算器', exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole('textbox', { name: '计算表达式', exact: true })
-    .fill('1/0');
-  await page.getByRole('button', { name: '使用计算结果', exact: true }).click();
+    page.getByRole('button', { name: '计算键7', exact: true }),
+  ).toBeInViewport();
+  await expect(
+    page.getByRole('button', { name: '记好了', exact: true }),
+  ).toBeInViewport();
+  await expect(
+    page.getByRole('button', { name: '打开金额计算器', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('textbox', { name: '金额', exact: true }).fill('1/0');
+  await page.getByRole('button', { name: '计算结果', exact: true }).click();
   await expect(page.getByTestId('calculator-error')).toContainText(
     '不能除以 0',
   );
   await expect(
     page.getByRole('textbox', { name: '金额', exact: true }),
-  ).toHaveValue('8');
+  ).toHaveValue('1/0');
   await page
-    .getByRole('textbox', { name: '计算表达式', exact: true })
+    .getByRole('textbox', { name: '金额', exact: true })
     .fill('(26+15)/2');
-  await page.getByRole('button', { name: '使用计算结果', exact: true }).click();
-  await expect(
-    page.getByRole('textbox', { name: '金额', exact: true }),
-  ).toHaveValue('20.50');
+  await expect(page.getByTestId('calculation-preview')).toHaveText('= ¥20.50');
   expect(
     await page.evaluate((key) => localStorage.getItem(key), key),
   ).toBeNull();
@@ -76,12 +74,15 @@ test('calculator handles errors and applies an exact amount before explicit reco
   await expect(page.getByTestId('month-expense')).toHaveText('20.50');
 });
 
-test('quick dates, leap-day calendar and calculator expansion stay coordinated', async ({
+test('calendar details are accessible while the primary action stays visible', async ({
   page,
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '记一笔', exact: true }).click();
   await page.getByRole('textbox', { name: '金额', exact: true }).fill('12');
+  await page
+    .getByRole('button', { name: '选择分类、账户和日期', exact: true })
+    .click();
   await page.getByRole('button', { name: '记账日期昨天', exact: true }).click();
   await expect(
     page.getByRole('textbox', { name: '记账日期', exact: true }),
@@ -90,26 +91,51 @@ test('quick dates, leap-day calendar and calculator expansion stay coordinated',
     .getByRole('textbox', { name: '记账日期', exact: true })
     .fill('2024-02-01');
   await page.getByRole('button', { name: '选择记账日期', exact: true }).click();
+  await expect(page.getByTestId('calendar-记账日期')).toBeInViewport();
   await expect(
-    page.getByRole('button', { name: '记账日期选择2024-02-29', exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole('button', { name: '打开金额计算器', exact: true })
-    .click();
-  await expect(page.getByTestId('calendar-记账日期')).toHaveCount(0);
-  await page.getByRole('button', { name: '选择记账日期', exact: true }).click();
-  await expect(
-    page.getByRole('textbox', { name: '计算表达式', exact: true }),
-  ).toHaveCount(0);
+    page.getByRole('button', { name: '记好了', exact: true }),
+  ).toBeInViewport();
   await page
     .getByRole('button', { name: '记账日期选择2024-02-29', exact: true })
     .click();
-  await expect(
-    page.getByRole('textbox', { name: '记账日期', exact: true }),
-  ).toHaveValue('2024-02-29');
   await page.getByRole('button', { name: '记好了', exact: true }).click();
   await expect(page.getByTestId('month-expense')).toHaveText('12.00');
   expect((await saved(page)).entries[0].date).toBe('2024-02-29');
+});
+
+test('prefilled templates and edited records support replacement and continued calculation', async ({
+  page,
+}) => {
+  await seed(page, {
+    ...emptyLedger(),
+    templates: [
+      {
+        id: 'breakfast',
+        name: '早餐',
+        kind: 'expense',
+        amount: 1850,
+        categoryId: 'food',
+        accountId: 'wechat',
+        note: '早餐',
+      },
+    ],
+  });
+  await page.getByRole('button', { name: '常用记账早餐', exact: true }).click();
+  await expect(
+    page.getByRole('textbox', { name: '金额', exact: true }),
+  ).toHaveValue('18.50');
+  await page.getByRole('button', { name: '计算键2', exact: true }).click();
+  await page.getByRole('button', { name: '计算键5', exact: true }).click();
+  await expect(
+    page.getByRole('textbox', { name: '金额', exact: true }),
+  ).toHaveValue('25');
+  await page.getByRole('button', { name: '记好了', exact: true }).click();
+  await expect(page.getByTestId('month-expense')).toHaveText('25.00');
+  await page.getByRole('button', { name: /早餐.*查看详情/ }).click();
+  await page.getByRole('button', { name: '计算键+', exact: true }).click();
+  await page.getByRole('button', { name: '计算键2', exact: true }).click();
+  await page.getByRole('button', { name: '保存修改', exact: true }).click();
+  await expect(page.getByTestId('month-expense')).toHaveText('27.00');
 });
 
 test('combined filters search across month boundaries and validate date order', async ({
@@ -328,23 +354,21 @@ test('calculator and calendar fit narrow dark screens without runtime errors', a
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.goto('/');
   await page.getByRole('button', { name: '记一笔', exact: true }).click();
-  await page
-    .getByRole('button', { name: '打开金额计算器', exact: true })
-    .click();
   await page.getByRole('button', { name: '计算键7', exact: true }).click();
   await page.getByRole('button', { name: '计算键+', exact: true }).click();
   await page.getByRole('button', { name: '计算键3', exact: true }).click();
+  await expect(page.getByRole('button', { name: '记好了', exact: true })).toBeInViewport();
   await expect(
-    page.getByRole('button', { name: '使用计算结果', exact: true }),
+    page.getByRole('button', { name: '计算结果', exact: true }),
   ).toBeInViewport();
-  await page.screenshot({ path: '/tmp/qingzhang-v030-calculator-dark.png' });
-  await page.getByRole('button', { name: '使用计算结果', exact: true }).click();
+  await page.screenshot({ path: '/tmp/qingzhang-v031-calculator-dark.png' });
+  await page.getByRole('button', { name: '计算结果', exact: true }).click();
   await expect(
     page.getByRole('textbox', { name: '金额', exact: true }),
   ).toHaveValue('10.00');
   await page.getByRole('button', { name: '选择记账日期', exact: true }).click();
   await expect(page.getByTestId('calendar-记账日期')).toBeInViewport();
-  await page.screenshot({ path: '/tmp/qingzhang-v030-calendar-dark.png' });
+  await page.screenshot({ path: '/tmp/qingzhang-v031-calendar-dark.png' });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
