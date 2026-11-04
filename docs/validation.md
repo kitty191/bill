@@ -27,6 +27,7 @@
 - 首轮双浏览器回归的两项原有用例同时发生无响应超时，分别单独复查通过；最终单浏览器回归另有一项原有日历用例在填充日期后打开了旧月份，补充输入值确认后连续三次复查通过。其余 38 项在最终构建的网页上通过。
 - 已查看 320px 窄屏实际截图：`docs/previews/today-details-v0.3.3-light.png`、`today-details-v0.3.3-dark.png`、`quick-edit-v0.3.3-light.png`，覆盖退款说明、隐藏金额和快捷修改。
 - 切页基准通过：1000 条账单、9 次切页，三个页面均 0 次重复渲染，无运行错误，见 `docs/paging-performance-v0.3.3.json`；此结果不是原生帧率测量。
+- iOS 代码导出、Android Release 构建通过。版本 0.3.3 / versionCode 13，32,560,991 字节，源码提交 `b79fcfd0c846f6f9126997ad41ff1ab6c1b01f36`。沿用 v0.3.2 签名，APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、独立 Hermes / 原生模块、权限、图标和临时性能计数器缺席检查通过，见 `downloads/qingzhang-v0.3.3-android-arm64-verification.json`。
 - 本轮未进行原生真机的安装、触摸、系统返回与后台唤醒验收。schema 仍为 3，未改变账本结构与持久化协议。
 
 ### v0.3.2 今日支出与午夜刷新

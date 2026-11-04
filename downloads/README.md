@@ -1,9 +1,11 @@
 # 清账 Android 预览版
 
-[下载 v0.3.2 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.3.2-android-arm64.apk) · [版本说明](https://github.com/kitty191/bill/releases/tag/v0.3.2-android-preview) · [发布前审查](../docs/review-v0.3.2.md)
+[下载 v0.3.3 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.3.3-android-arm64.apk) · [版本说明](https://github.com/kitty191/bill/releases/tag/v0.3.3-android-preview) · [发布前审查](../docs/review-v0.3.3.md)
 
-- 版本：0.3.2，versionCode 12，32,558,223 字节，约 31.0 MB。
-- 首页月支出下方增加「今日支出」，只统计手机本地日期的消费，切换查看其他月份也不受影响。
+- 版本：0.3.3，versionCode 13，32,560,991 字节，约 31.1 MB。
+- 点击首页「今日支出」进入当天支出明细，清空旧搜索和筛选；有退款时显示原支出与已退金额。
+- 记账成功后可在 8 秒内点击「修改」直接编辑刚保存的一笔。连续保存指向最新记录，修改保持原 ID 和创建时间；可与删除撤销同时使用。
+- 当天没有支出时可直接记下今天第一笔，普通切页保留筛选，首页「查看全部」清除筛选。
 - 持续打开时在本地午夜自动切换到新一天，后台返回立即更新；历史账单保留，新日期没有消费时显示 0.00。
 - 排除收入和转账；沿用净支出口径，退款抵扣原消费日。记账后即时更新，跟随隐藏金额偏好。
 - 保留点加号直接计算记账、固定底部保存、日历与快捷日期、组合筛选、按月预算、8 秒撤销、隐私选项和原生分页优化。
@@ -14,14 +16,14 @@
 
 下载后使用系统安装器打开。数据保存在本机，更新前可先导出 JSON 备份，卸载前请保存备份。
 
-类型检查、140 项单元 / 组件测试、36 项网页交互用例和网页 / iOS 代码导出通过。9 项日期生命周期测试另在纽约时区复测，覆盖夏令时、跨年和后台返回。1000 条模拟账单、9 次切页时三个页面均 0 次重复渲染，此结果不是手机帧率测量。
+类型检查、141 项单元 / 组件测试、39 项网页交互用例和网页 / iOS 代码导出通过。交互用例覆盖今日明细 / 退款说明、旧筛选重置、快捷修改目标 / 时限、身份保留、删除撤销共存与跨年记账。1000 条模拟账单、9 次切页时三个页面均 0 次重复渲染，此结果不是手机帧率测量。
 
 APK 已通过原签名、APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64 与内置 Hermes / 原生模块检查，尚未进行真机安装、时区设置、后台唤醒、触摸、SQLite 和生物识别验收。应用锁不等于账本或导出文件加密。IPA 另需 Apple 构建与签名，目前没有可下载的 iOS 安装包。
 
 SHA-256：
 
 ```text
-c48d70f3e835f698ba092aae18542702f930d26a605af0b87d7bd53a8a00c9a8
+d625f71b7478692e28a63788c084246c3174c32ec89bff62f437345c69f852e4
 ```
 
-[构建校验记录](qingzhang-v0.3.2-android-arm64-verification.json) · [校验和文件](qingzhang-v0.3.2-android-arm64.apk.sha256)。签名密钥不会上传，旧版安装包和校验记录保留供追溯。
+[构建校验记录](qingzhang-v0.3.3-android-arm64-verification.json) · [校验和文件](qingzhang-v0.3.3-android-arm64.apk.sha256)。签名密钥不会上传，旧版安装包和校验记录保留供追溯。
