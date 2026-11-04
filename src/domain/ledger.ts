@@ -13,10 +13,11 @@ export type Entry = {
   createdAt: string;
 };
 export type Ledger = {
-  version: 2;
+  version: 3;
   accounts: Account[];
   entries: Entry[];
   monthlyBudget: number;
+  monthBudgets: Record<string, number>;
   showAccountCards: boolean;
   categories: ManagedCategory[];
   templates: QuickTemplate[];
@@ -137,8 +138,9 @@ export const MAX_AMOUNT = 999_999_999;
 
 export function emptyLedger(): Ledger {
   return {
-    version: 2,
+    version: 3,
     monthlyBudget: 0,
+    monthBudgets: {},
     showAccountCards: false,
     categories: defaultCategories(),
     templates: [],
@@ -225,7 +227,10 @@ function isText(
 export function validateLedger(input: unknown): Ledger {
   invariant(input && typeof input === 'object', '账本格式无效');
   const data = input as Record<string, unknown>;
-  invariant(data.version === 1 || data.version === 2, '不支持此备份版本');
+  invariant(
+    data.version === 1 || data.version === 2 || data.version === 3,
+    '不支持此备份版本',
+  );
   invariant(
     Array.isArray(data.accounts) &&
       data.accounts.length > 0 &&
@@ -242,6 +247,24 @@ export function validateLedger(input: unknown): Ledger {
       typeof data.showAccountCards === 'boolean',
     '账户显示设置无效',
   );
+  const rawBudgets = data.version === 3 ? data.monthBudgets : {};
+  invariant(
+    rawBudgets &&
+      typeof rawBudgets === 'object' &&
+      !Array.isArray(rawBudgets) &&
+      Object.keys(rawBudgets).length <= 3612,
+    '月份预算格式无效',
+  );
+  const monthBudgets: Record<string, number> = {};
+  for (const [month, amount] of Object.entries(rawBudgets)) {
+    invariant(
+      /^\d{4}-(0[1-9]|1[0-2])$/.test(month) &&
+        validDate(`${month}-01`) &&
+        isAmount(amount),
+      '月份预算无效',
+    );
+    monthBudgets[month] = amount;
+  }
   const ids = new Set<string>();
   const accounts: Account[] = data.accounts.map((a: unknown) => {
     invariant(a && typeof a === 'object', '账户格式无效');
@@ -310,7 +333,7 @@ export function validateLedger(input: unknown): Ledger {
       x.kind === 'income' ||
         x.kind === 'expense' ||
         x.kind === 'transfer' ||
-        (data.version === 2 && x.kind === 'refund'),
+        (data.version !== 1 && x.kind === 'refund'),
       '收支类型无效',
     );
     invariant(isAmount(x.amount) && x.amount > 0, '账单金额无效');
@@ -442,10 +465,11 @@ export function validateLedger(input: unknown): Ledger {
     defaults[kind] = { accountId: x.accountId, categoryId: x.categoryId };
   }
   return {
-    version: 2,
+    version: 3,
     accounts,
     entries,
     monthlyBudget: data.monthlyBudget,
+    monthBudgets,
     showAccountCards: data.showAccountCards ?? false,
     categories,
     templates,
@@ -492,6 +516,13 @@ export function deleteEntry(ledger: Ledger, entryId: string): Ledger {
     ...ledger,
     entries: ledger.entries.filter((e) => e.id !== entryId),
   });
+}
+export function restoreEntry(ledger: Ledger, entry: Entry): Ledger {
+  invariant(
+    !ledger.entries.some((item) => item.id === entry.id),
+    '同一账单已存在，不能重复恢复',
+  );
+  return upsertEntry(ledger, entry);
 }
 export function refundAmounts(entries: Entry[]): Map<string, number> {
   const values = new Map<string, number>();
@@ -648,4 +679,8 @@ export function csv(ledger: Ledger): string {
       .map((row) => row.map(cell).join(','))
       .join('\r\n')
   );
+}
+
+export function budgetForMonth(ledger: Ledger, month: string): number {
+  return ledger.monthBudgets[month] ?? ledger.monthlyBudget;
 }

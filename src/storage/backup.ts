@@ -19,7 +19,7 @@ export async function exportLegacyBackup(content: string) {
   validateLedger(JSON.parse(content));
   await exportContent(
     content,
-    `qingzhang-before-upgrade-v1-${localDate()}.json`,
+    `qingzhang-before-upgrade-v${JSON.parse(content).version}-${localDate()}.json`,
     'application/json',
   );
 }

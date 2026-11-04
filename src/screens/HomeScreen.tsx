@@ -9,6 +9,7 @@ import {
   type Entry,
   type Ledger,
   accountBalance,
+  budgetForMonth,
   localDate,
   monthEntries,
   totals,
@@ -63,7 +64,7 @@ export function HomeScreen({
     [ledger.entries, month],
   );
   const { income, expense } = totals(entries, ledger.entries);
-  const budget = ledger.monthlyBudget;
+  const budget = budgetForMonth(ledger, month);
   const remaining = budget - expense;
   const totalAssets = useMemo(
     () =>

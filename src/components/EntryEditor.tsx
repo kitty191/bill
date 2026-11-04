@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, Switch, TextInput, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Keyboard, ScrollView, Switch, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   type Entry,
@@ -11,7 +11,6 @@ import {
   upsertEntry,
   validDate,
   categoryFor,
-  deleteEntry,
   entryDefault,
   remainingRefund,
   validateLedger,
@@ -20,6 +19,8 @@ import { useLedger } from '../state/LedgerProvider';
 import { useTheme } from '../theme';
 import { Sheet } from './Sheet';
 import { Button, Icon, Txt, styles } from './ui';
+import { DateField } from './DateField';
+import { AmountCalculator } from './AmountCalculator';
 
 export function EntryEditor({
   entry,
@@ -37,7 +38,8 @@ export function EntryEditor({
   onSaved: (message: string, date: string) => void;
 }) {
   const t = useTheme();
-  const { ledger, update, saving } = useLedger();
+  const amountSection = useRef<React.ComponentRef<typeof View>>(null);
+  const { ledger, update, saving, removeEntry } = useLedger();
   const data = ledger!;
   const preset = data.templates.find((template) => template.id === templateId);
   const original =
@@ -93,6 +95,7 @@ export function EntryEditor({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveTemplate, setSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
   const categories = data.categories.filter(
     (category) =>
       category.kind === (kind === 'income' ? 'income' : 'expense') &&
@@ -164,7 +167,7 @@ export function EntryEditor({
   const remove = async () => {
     if (!entry) return;
     try {
-      await update((current) => deleteEntry(current, entry.id));
+      await removeEntry(entry.id);
       onSaved('账单已删除，余额与统计已更新', entry.date);
       onClose();
     } catch (error) {
@@ -287,7 +290,11 @@ export function EntryEditor({
           ))}
         </ScrollView>
       )}
-      <View style={{ paddingVertical: 23 }}>
+      <View
+        ref={amountSection}
+        collapsable={false}
+        style={{ paddingVertical: 23 }}
+      >
         <Txt size={11} color={t.muted}>
           {kind === 'expense'
             ? '花了多少'
@@ -324,6 +331,27 @@ export function EntryEditor({
           />
         </View>
       </View>
+      <Button
+        variant="plain"
+        label="打开金额计算器"
+        disabled={saving}
+        onPress={() => {
+          Keyboard.dismiss();
+          setCalculatorOpen(!calculatorOpen);
+        }}
+        style={{ alignSelf: 'flex-end', marginTop: -17, marginBottom: 13 }}
+      >
+        计算器
+      </Button>
+      {calculatorOpen && (
+        <AmountCalculator
+          returnTo={amountSection}
+          initial={amount}
+          disabled={saving}
+          onApply={setAmount}
+          onClose={() => setCalculatorOpen(false)}
+        />
+      )}
       {kind !== 'transfer' && kind !== 'refund' && (
         <>
           <Txt size={12} color={t.muted} style={{ marginBottom: 13 }}>
@@ -456,24 +484,14 @@ export function EntryEditor({
           marginBottom: 20,
         }}
       >
-        <View
-          style={[styles.row, { borderBottomWidth: 1, borderColor: t.border }]}
-        >
-          <Icon name="calendar" size={17} color={t.muted} />
-          <Txt size={12} color={t.muted}>
-            日期
-          </Txt>
-          <TextInput
-            editable={!saving}
-            accessibilityLabel="记账日期"
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={t.subtle}
-            value={date}
-            onChangeText={setDate}
-            autoCapitalize="none"
-            style={[inputStyle, { textAlign: 'right' }]}
-          />
-        </View>
+        <DateField
+          label="记账日期"
+          value={date}
+          onChange={setDate}
+          disabled={saving}
+          closeCalendar={calculatorOpen}
+          onOpen={() => setCalculatorOpen(false)}
+        />
         <View style={styles.row}>
           <Icon name="edit" size={17} color={t.muted} />
           <TextInput
@@ -532,17 +550,19 @@ export function EntryEditor({
         </Txt>
       )}
       <Button
-        disabled={saving}
+        disabled={saving || calculatorOpen}
         onPress={() => void save()}
         style={{ minHeight: 52, borderRadius: 18 }}
       >
-        {saving
-          ? '正在保存…'
-          : entry
-            ? '保存修改'
-            : kind === 'refund'
-              ? '确认退款'
-              : '记好了'}
+        {calculatorOpen
+          ? '请先完成计算或收起计算器'
+          : saving
+            ? '正在保存…'
+            : entry
+              ? '保存修改'
+              : kind === 'refund'
+                ? '确认退款'
+                : '记好了'}
       </Button>
       {entry?.kind === 'expense' && remainingRefund(data, entry) > 0 && (
         <Button

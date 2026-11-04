@@ -1,7 +1,12 @@
 import React, { act } from 'react';
 import { create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { emptyLedger, type Ledger } from '../src/domain/ledger';
+import {
+  emptyLedger,
+  upsertEntry,
+  type Entry,
+  type Ledger,
+} from '../src/domain/ledger';
 const mocks = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
 vi.mock('../src/storage/ledgerStore', () => ({
   loadLedger: mocks.load,
@@ -31,6 +36,156 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await act(async () => renderer.unmount());
+  vi.useRealTimers();
+});
+
+const expense: Entry = {
+  id: 'expense',
+  kind: 'expense',
+  amount: 10000,
+  categoryId: 'food',
+  accountId: 'wechat',
+  date: '2026-11-01',
+  note: '可撤销账单',
+  createdAt: '2026-11-01T10:00:00Z',
+};
+async function seedEntries(entries: Entry[]) {
+  await act(async () => {
+    await state.update((ledger) => ({ ...ledger, entries }));
+  });
+}
+describe('durable deletion undo', () => {
+  it('restores the exact deleted record without losing intervening writes', async () => {
+    await seedEntries([expense]);
+    await act(async () => {
+      await state.removeEntry(expense.id);
+    });
+    expect(state.ledger!.entries).toEqual([]);
+    expect(state.undo?.entry).toEqual(expense);
+    const income: Entry = {
+      ...expense,
+      id: 'income',
+      kind: 'income',
+      categoryId: 'salary',
+      amount: 1000,
+    };
+    await act(async () => {
+      await state.update((ledger) => upsertEntry(ledger, income));
+      await state.restoreDeleted();
+    });
+    expect(state.ledger!.entries).toEqual([income, expense]);
+    expect(state.undo).toBeNull();
+  });
+  it('keeps both committed data and undo state intact when storage fails', async () => {
+    await seedEntries([expense]);
+    mocks.save.mockRejectedValueOnce(new Error('保存失败'));
+    await act(async () => {
+      await expect(state.removeEntry(expense.id)).rejects.toThrow('保存失败');
+    });
+    expect(state.ledger!.entries).toEqual([expense]);
+    expect(state.undo).toBeNull();
+    await act(async () => {
+      await state.removeEntry(expense.id);
+    });
+    mocks.save.mockRejectedValueOnce(new Error('恢复失败'));
+    await act(async () => {
+      await expect(state.restoreDeleted()).rejects.toThrow('恢复失败');
+    });
+    expect(state.ledger!.entries).toEqual([]);
+    expect(state.undo?.entry).toEqual(expense);
+    await act(async () => {
+      await state.restoreDeleted();
+    });
+    expect(state.ledger!.entries).toEqual([expense]);
+  });
+  it('expires after eight wall-clock seconds', async () => {
+    vi.useFakeTimers();
+    await seedEntries([expense]);
+    await act(async () => {
+      await state.removeEntry(expense.id);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8000);
+    });
+    expect(state.undo).toBeNull();
+    await act(async () => {
+      await expect(state.restoreDeleted()).rejects.toThrow('时间已过');
+    });
+    expect(state.ledger!.entries).toEqual([]);
+  });
+  it('revalidates refund limits against the current original expense', async () => {
+    const refund: Entry = {
+      ...expense,
+      id: 'refund',
+      kind: 'refund',
+      amount: 3000,
+      originalEntryId: expense.id,
+    };
+    await seedEntries([expense, refund]);
+    await act(async () => {
+      await state.removeEntry(refund.id);
+      await state.update((ledger) =>
+        upsertEntry(ledger, { ...expense, amount: 2000 }),
+      );
+    });
+    await act(async () => {
+      await expect(state.restoreDeleted()).rejects.toThrow('累计退款');
+    });
+    expect(state.ledger!.entries).toEqual([{ ...expense, amount: 2000 }]);
+  });
+  it('clears the undo token after bulk replacement and backup recovery', async () => {
+    await seedEntries([expense]);
+    await act(async () => {
+      await state.removeEntry(expense.id);
+      await state.update(() => emptyLedger(), { resetUndo: true });
+    });
+    expect(state.undo).toBeNull();
+    await seedEntries([expense]);
+    await act(async () => {
+      await state.removeEntry(expense.id);
+      await state.recover(emptyLedger());
+    });
+    expect(state.undo).toBeNull();
+  });
+  it('only restores the most recent deletion', async () => {
+    const second = { ...expense, id: 'second' };
+    await seedEntries([expense, second]);
+    await act(async () => {
+      await state.removeEntry(expense.id);
+      await state.removeEntry(second.id);
+      await state.restoreDeleted();
+    });
+    expect(state.ledger!.entries).toEqual([second]);
+  });
+  it('does not restore after expiry while waiting behind another write', async () => {
+    vi.useFakeTimers();
+    await seedEntries([expense]);
+    await act(async () => {
+      await state.removeEntry(expense.id);
+    });
+    let finish!: () => void;
+    mocks.save.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    let quiet!: Promise<void>, restore!: Promise<unknown>;
+    await act(async () => {
+      quiet = state.update(
+        (ledger) => ({ ...ledger, showAccountCards: true }),
+        { background: true },
+      );
+    });
+    await act(async () => {
+      restore = state.restoreDeleted().catch((error) => error.message);
+      await vi.advanceTimersByTimeAsync(8000);
+      finish();
+      await quiet;
+      expect(await restore).toContain('时间已过');
+    });
+    expect(state.ledger!.entries).toEqual([]);
+  });
 });
 describe('ledger write serialization', () => {
   it('keeps the last switch intent when its settings consumer closes and reopens during a write', async () => {

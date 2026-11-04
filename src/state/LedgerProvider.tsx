@@ -6,7 +6,13 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { type Ledger, validateLedger } from '../domain/ledger';
+import {
+  type Entry,
+  type Ledger,
+  validateLedger,
+  deleteEntry,
+  restoreEntry,
+} from '../domain/ledger';
 import { loadLedger, saveLedger } from '../storage/ledgerStore';
 import { useSavedToggle } from './useSavedToggle';
 
@@ -17,11 +23,14 @@ type Context = {
   error: string | null;
   backgroundError: string;
   accountDisplay: ReturnType<typeof useSavedToggle>;
+  undo: { entry: Entry; expiresAt: number } | null;
+  removeEntry: (id: string) => Promise<void>;
+  restoreDeleted: () => Promise<void>;
   reload: () => void;
   recover: (backup: Ledger) => Promise<void>;
   update: (
     change: (current: Ledger) => Ledger,
-    options?: { background?: boolean },
+    options?: { background?: boolean; resetUndo?: boolean },
   ) => Promise<void>;
 };
 const LedgerContext = createContext<Context | null>(null);
@@ -32,6 +41,20 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backgroundError, setBackgroundError] = useState('');
+  const [undo, setUndo] = useState<Context['undo']>(null);
+  const undoRef = useRef<Context['undo']>(null);
+  const clearUndo = useCallback(() => {
+    undoRef.current = null;
+    setUndo(null);
+  }, []);
+  useEffect(() => {
+    if (!undo) return;
+    const timer = setTimeout(
+      clearUndo,
+      Math.max(0, undo.expiresAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [undo, clearUndo]);
   const current = useRef<Ledger | null>(null);
   const pending = useRef(false);
   const writes = useRef(Promise.resolve());
@@ -66,19 +89,20 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
           current.current = next;
           setLedger(next);
           setError(null);
+          clearUndo();
         });
       } finally {
         pending.current = false;
         setSaving(false);
       }
     },
-    [enqueue],
+    [enqueue, clearUndo],
   );
 
   const update = useCallback(
     async (
       change: (data: Ledger) => Ledger,
-      options?: { background?: boolean },
+      options?: { background?: boolean; resetUndo?: boolean },
     ) => {
       const foreground = !options?.background;
       if (!current.current || (foreground && pending.current))
@@ -95,6 +119,7 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
           await saveLedger(next);
           current.current = next;
           setLedger(next);
+          if (options?.resetUndo) clearUndo();
         });
       } catch (failure) {
         if (!foreground)
@@ -109,8 +134,35 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [enqueue],
+    [enqueue, clearUndo],
   );
+  const removeEntry = useCallback(
+    async (entryId: string) => {
+      let removed: Entry | undefined;
+      await update((ledger) => {
+        removed = ledger.entries.find((entry) => entry.id === entryId);
+        if (!removed) throw new Error('账单不存在或已删除');
+        return deleteEntry(ledger, entryId);
+      });
+      const record = { entry: removed!, expiresAt: Date.now() + 8000 };
+      undoRef.current = record;
+      setUndo(record);
+    },
+    [update],
+  );
+  const restoreDeleted = useCallback(async () => {
+    const record = undoRef.current;
+    if (!record || Date.now() >= record.expiresAt) {
+      clearUndo();
+      throw new Error('撤销时间已过');
+    }
+    await update((ledger) => {
+      if (undoRef.current !== record || Date.now() >= record.expiresAt)
+        throw new Error('撤销时间已过');
+      return restoreEntry(ledger, record.entry);
+    });
+    if (undoRef.current === record) clearUndo();
+  }, [update, clearUndo]);
   const saveAccountDisplay = useCallback(
     (showAccountCards: boolean) =>
       update((value) => ({ ...value, showAccountCards }), { background: true }),
@@ -130,6 +182,9 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
         error,
         backgroundError,
         accountDisplay,
+        undo,
+        removeEntry,
+        restoreDeleted,
         reload,
         recover,
         update,

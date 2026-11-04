@@ -388,9 +388,13 @@ export function SectionTitle({
 export function MonthPicker({
   month,
   onChange,
+  labelPrefix = '',
+  disabled = false,
 }: {
   month: string;
   onChange: (offset: number) => void;
+  labelPrefix?: string;
+  disabled?: boolean;
 }) {
   const t = useTheme();
   const [year, m] = month.split('-');
@@ -398,7 +402,8 @@ export function MonthPicker({
     <View style={[styles.row, { gap: 4 }]}>
       <Button
         variant="plain"
-        label="上个月"
+        label={`${labelPrefix}上个月`}
+        disabled={disabled || month === '1900-01'}
         onPress={() => onChange(-1)}
         style={{ width: 36, paddingHorizontal: 0 }}
       >
@@ -409,7 +414,8 @@ export function MonthPicker({
       </Txt>
       <Button
         variant="plain"
-        label="下个月"
+        label={`${labelPrefix}下个月`}
+        disabled={disabled || month === '2200-12'}
         onPress={() => onChange(1)}
         style={{ width: 36, paddingHorizontal: 0 }}
       >

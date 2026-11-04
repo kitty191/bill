@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -25,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import { usePrivacy } from '../state/PrivacyContext';
 import { IconButton, Txt, styles } from './ui';
+import { SheetScrollContext } from './sheetScroll';
 
 const sheetEntering = FadeInDown.duration(250);
 
@@ -45,9 +47,32 @@ export function Sheet({
   const privacy = usePrivacy();
   const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
+  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const content = useRef<React.ComponentRef<typeof View>>(null);
+  const reveal = useCallback(
+    (target: React.RefObject<React.ComponentRef<typeof View> | null>) => {
+      requestAnimationFrame(() => {
+        if (!target.current || !content.current) return;
+        target.current.measureLayout(
+          content.current,
+          (_x, y) =>
+            scroll.current?.scrollTo({
+              y: Math.max(0, y - 8),
+              animated: !reduce,
+            }),
+          () => {},
+        );
+      });
+    },
+    [reduce],
+  );
   const dismiss = () => {
-    if (dismissible) onClose();
+    if (dismissible) {
+      Keyboard.dismiss();
+      onClose();
+    }
   };
+  const dismissKeyboard = useCallback(() => Keyboard.dismiss(), []);
   const translation = useSharedValue(0);
   const gestureStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translation.value }],
@@ -56,6 +81,9 @@ export function Sheet({
     () =>
       Gesture.Pan()
         .enabled(dismissible)
+        .onStart(() => {
+          scheduleOnRN(dismissKeyboard);
+        })
         .onUpdate((event) => {
           translation.value = Math.max(0, event.translationY);
         })
@@ -69,7 +97,7 @@ export function Sheet({
           } else
             translation.value = withSpring(0, { damping: 28, stiffness: 320 });
         }),
-    [dismissible, reduce, onClose, translation],
+    [dismissible, reduce, onClose, translation, dismissKeyboard],
   );
   return (
     <Modal
@@ -157,14 +185,20 @@ export function Sheet({
               />
             </View>
             <ScrollView
+              ref={scroll}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               contentContainerStyle={{
                 paddingHorizontal: 25,
                 paddingBottom: 14,
               }}
               showsVerticalScrollIndicator={false}
             >
-              {children}
+              <SheetScrollContext.Provider value={reveal}>
+                <View ref={content} collapsable={false}>
+                  {children}
+                </View>
+              </SheetScrollContext.Provider>
             </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>

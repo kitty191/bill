@@ -11,6 +11,9 @@ import {
   id,
   parseAmount,
   validateLedger,
+  budgetForMonth,
+  localDate,
+  shiftMonth,
 } from '../domain/ledger';
 import {
   exportLedger,
@@ -23,17 +26,19 @@ import { CategoryManager, TemplateManager } from './LedgerTools';
 import { PrivacySettings } from './PrivacySettings';
 import { useTheme } from '../theme';
 import { Sheet } from './Sheet';
-import { Button, Icon, SectionTitle, Txt, styles } from './ui';
+import { Button, Icon, MonthPicker, SectionTitle, Txt, styles } from './ui';
 import appConfig from '../../app.json';
 
 export function SettingsSheet({
   onClose,
   onSaved,
   initialPage = 'main',
+  month = localDate().slice(0, 7),
 }: {
   onClose: () => void;
   onSaved: (message: string) => void;
   initialPage?: 'main' | 'privacy';
+  month?: string;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -45,12 +50,15 @@ export function SettingsSheet({
   useEffect(() => {
     void loadLegacyLedger()
       .then(setLegacy)
-      .catch(() => {});
+      .catch(() => setError('无法读取升级前备份，请关闭设置后重试'));
   }, []);
   const { ledger: data, update, saving, accountDisplay } = useLedger();
   const ledger = data!;
+  const [budgetMonth, setBudgetMonth] = useState(month);
   const [budget, setBudget] = useState(
-    ledger.monthlyBudget ? amountInput(ledger.monthlyBudget) : '',
+    budgetForMonth(ledger, month)
+      ? amountInput(budgetForMonth(ledger, month))
+      : '',
   );
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -124,13 +132,20 @@ export function SettingsSheet({
         : confirmation === 'demo'
           ? demoLedger()
           : imported!;
-    await update((current) => ({
-      ...next,
-      ...(confirmation !== 'import'
-        ? { showAccountCards: current.showAccountCards }
-        : {}),
-    }));
-    setBudget(next.monthlyBudget ? amountInput(next.monthlyBudget) : '');
+    await update(
+      (current) => ({
+        ...next,
+        ...(confirmation !== 'import'
+          ? { showAccountCards: current.showAccountCards }
+          : {}),
+      }),
+      { resetUndo: true },
+    );
+    setBudget(
+      budgetForMonth(next, budgetMonth)
+        ? amountInput(budgetForMonth(next, budgetMonth))
+        : '',
+    );
     setConfirmation(null);
     setImported(null);
     setAccount(null);
@@ -256,6 +271,19 @@ export function SettingsSheet({
         />
       </View>
       <SectionTitle title="月度预算" />
+      <View style={{ alignItems: 'flex-end', marginBottom: 12 }}>
+        <MonthPicker
+          month={budgetMonth}
+          labelPrefix="预算"
+          disabled={disabled}
+          onChange={(offset) => {
+            const next = shiftMonth(budgetMonth, offset);
+            setBudgetMonth(next);
+            const value = budgetForMonth(ledger, next);
+            setBudget(value ? amountInput(value) : '');
+          }}
+        />
+      </View>
       <View style={styles.row}>
         <TextInput
           accessibilityLabel="月度预算金额"
@@ -273,7 +301,10 @@ export function SettingsSheet({
           onPress={() =>
             void perform(async () => {
               const value = budget.trim() ? parseAmount(budget, true) : 0;
-              await update((current) => ({ ...current, monthlyBudget: value }));
+              await update((current) => ({
+                ...current,
+                monthBudgets: { ...current.monthBudgets, [budgetMonth]: value },
+              }));
             }, '预算已更新')
           }
         >
@@ -281,7 +312,8 @@ export function SettingsSheet({
         </Button>
       </View>
       <Txt size={10} color={t.muted} style={{ marginTop: 8 }}>
-        所有月份共用此预算；留空或设为 0 可关闭。
+        只修改所选月份，留空或设为 0 关闭该月预算。
+        {ledger.monthlyBudget > 0 ? '未单独设置的月份沿用升级前预算。' : ''}
       </Txt>
       <SectionTitle
         title="账户管理"

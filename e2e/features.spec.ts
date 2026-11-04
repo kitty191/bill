@@ -384,7 +384,7 @@ test('v1 upgrades preserve the original file, and failed snapshot storage blocks
   await page.reload();
   await startEntry(page, '20', '升级后的记录');
   await saveEntry(page);
-  expect((await stored(page)).version).toBe(2);
+  expect((await stored(page)).version).toBe(3);
   expect(
     JSON.parse(
       (await page.evaluate(() =>

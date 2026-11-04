@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Keyboard, TextInput, View } from 'react-native';
 import {
   type Entry,
   type EntryKind,
   type Ledger,
-  categoryFor,
-  monthEntries,
   totals,
 } from '../domain/ledger';
 import { useTheme } from '../theme';
+import {
+  filteredEntries,
+  emptyFilters,
+  entryGroups,
+} from '../domain/entryFilters';
+import { EntryFilterSheet } from '../components/EntryFilterSheet';
 import { useMoney } from '../state/PrivacyContext';
 import {
   Button,
@@ -43,26 +47,51 @@ export function EntriesScreen({
   const money = useMoney();
   const [filter, setFilter] = useState<EntryKind | 'all'>('all');
   const [query, setQuery] = useState('');
+  const [advanced, setAdvanced] = useState(emptyFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const active =
+    !!query ||
+    filter !== 'all' ||
+    advanced.range ||
+    advanced.accountId !== 'all' ||
+    advanced.categoryId !== 'all';
+  useEffect(() => {
+    setAdvanced((value) => {
+      const categoryId =
+        value.categoryId === 'all' ||
+        value.categoryId === 'transfer' ||
+        ledger.categories.some((category) => category.id === value.categoryId)
+          ? value.categoryId
+          : 'all';
+      const accountId =
+        value.accountId === 'all' ||
+        ledger.accounts.some((account) => account.id === value.accountId)
+          ? value.accountId
+          : 'all';
+      return categoryId === value.categoryId && accountId === value.accountId
+        ? value
+        : { ...value, categoryId, accountId };
+    });
+  }, [ledger.categories, ledger.accounts]);
   useEffect(() => {
     setFilter('all');
     setQuery('');
+    setAdvanced(emptyFilters());
+    setFiltersOpen(false);
   }, [resetKey]);
   const entries = useMemo(
-    () =>
-      monthEntries(ledger, month).filter(
-        (e) =>
-          (filter === 'all' || e.kind === filter) &&
-          `${e.note} ${categoryFor(ledger, e.categoryId)?.label} ${ledger.accounts.find((a) => a.id === e.accountId)?.name} ${ledger.accounts.find((a) => a.id === e.toAccountId)?.name ?? ''}`
-            .toLowerCase()
-            .includes(query.trim().toLowerCase()),
-      ),
-    [ledger, month, query, filter],
+    () => filteredEntries(ledger, month, filter, query, advanced),
+    [ledger, month, query, filter, advanced],
   );
-  const { income, expense } = totals(
-    monthEntries(ledger, month),
-    ledger.entries,
+  const { income, expense } = totals(entries, ledger.entries);
+  const refunded = entries.reduce(
+    (sum, entry) => sum + (entry.kind === 'refund' ? entry.amount : 0),
+    0,
   );
-  const dates = [...new Set(entries.map((e) => e.date))];
+  const groups = useMemo(
+    () => entryGroups(entries, ledger.entries),
+    [entries, ledger.entries],
+  );
   return (
     <>
       <View
@@ -74,7 +103,13 @@ export function EntriesScreen({
         <Txt size={29} weight="600">
           账单
         </Txt>
-        <MonthPicker month={month} onChange={onMonth} />
+        <MonthPicker
+          month={month}
+          onChange={(offset) => {
+            setAdvanced((value) => ({ ...value, range: false }));
+            onMonth(offset);
+          }}
+        />
       </View>
       <Txt color={t.muted} size={12}>
         每一笔小事，都值得被记住。
@@ -82,7 +117,7 @@ export function EntriesScreen({
       <Card style={{ marginTop: 24, flexDirection: 'row', gap: 20 }}>
         <View style={{ flex: 1, gap: 4 }}>
           <Txt size={11} color={t.muted}>
-            本月支出
+            {active ? '筛选支出' : '本月支出'}
           </Txt>
           <Txt size={22} weight="500">
             ¥{money(expense)}
@@ -90,13 +125,18 @@ export function EntriesScreen({
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <Txt size={11} color={t.muted}>
-            本月收入
+            {active ? '筛选收入' : '本月收入'}
           </Txt>
           <Txt size={22} weight="500" color={t.income}>
             ¥{money(income)}
           </Txt>
         </View>
       </Card>
+      {refunded > 0 && (
+        <Txt size={10} color={t.muted} style={{ marginTop: 10 }}>
+          退款到账 ¥{money(refunded)} · 抵减原支出，不计收入
+        </Txt>
+      )}
       <View
         style={[
           styles.row,
@@ -110,6 +150,27 @@ export function EntriesScreen({
         ]}
       >
         <Icon name="search" size={17} color={t.muted} />
+        <Button
+          variant="plain"
+          label="打开组合筛选"
+          onPress={() => {
+            Keyboard.dismiss();
+            setFiltersOpen(true);
+          }}
+          style={{ paddingHorizontal: 5 }}
+        >
+          <Icon
+            name="list"
+            size={19}
+            color={
+              advanced.range ||
+              advanced.categoryId !== 'all' ||
+              advanced.accountId !== 'all'
+                ? t.accent
+                : t.muted
+            }
+          />
+        </Button>
         <TextInput
           accessibilityLabel="搜索账单"
           placeholder="搜索备注、分类或账户"
@@ -142,7 +203,22 @@ export function EntriesScreen({
           <Button
             key={value}
             variant={filter === value ? 'soft' : 'plain'}
-            onPress={() => setFilter(value)}
+            onPress={() => {
+              setFilter(value);
+              const category = ledger.categories.find(
+                (item) => item.id === advanced.categoryId,
+              );
+              if (
+                value !== 'all' &&
+                ((value === 'transfer' && advanced.categoryId !== 'transfer') ||
+                  (value !== 'transfer' &&
+                    (advanced.categoryId === 'transfer' ||
+                      (category &&
+                        category.kind !==
+                          (value === 'income' ? 'income' : 'expense')))))
+              )
+                setAdvanced((current) => ({ ...current, categoryId: 'all' }));
+            }}
             label={`筛选${label}`}
             style={{
               flex: 1,
@@ -161,25 +237,62 @@ export function EntriesScreen({
           </Button>
         ))}
       </View>
+      {active && (
+        <View style={[styles.row, { marginTop: 10, flexWrap: 'wrap', gap: 4 }]}>
+          <Txt
+            testID="active-entry-filters"
+            size={10}
+            color={t.muted}
+            style={{ flex: 1 }}
+          >
+            {advanced.range
+              ? `${advanced.startDate} 至 ${advanced.endDate}`
+              : '当前月份'}
+            {advanced.categoryId !== 'all'
+              ? ` · ${advanced.categoryId === 'transfer' ? '转账' : ledger.categories.find((category) => category.id === advanced.categoryId)?.label}`
+              : ''}
+            {advanced.accountId !== 'all'
+              ? ` · ${ledger.accounts.find((account) => account.id === advanced.accountId)?.name}`
+              : ''}{' '}
+            · {entries.length} 笔
+          </Txt>
+          <Button
+            variant="plain"
+            onPress={() => {
+              setFilter('all');
+              setQuery('');
+              setAdvanced(emptyFilters());
+            }}
+            style={{ paddingHorizontal: 5, minHeight: 32 }}
+          >
+            清除筛选
+          </Button>
+        </View>
+      )}
+      {filtersOpen && (
+        <EntryFilterSheet
+          ledger={ledger}
+          kind={filter}
+          month={month}
+          value={advanced}
+          onApply={setAdvanced}
+          onClose={() => setFiltersOpen(false)}
+        />
+      )}
       {!entries.length && (
         <EmptyState
-          title={
-            query || filter !== 'all'
-              ? '没有找到这些账单'
-              : '这个月，留一点生活的痕迹'
-          }
+          title={active ? '没有找到这些账单' : '这个月，留一点生活的痕迹'}
           description={
-            query || filter !== 'all'
+            active
               ? '换个关键词或筛选条件试试。'
               : '记下一笔，让收支慢慢清晰起来。'
           }
-          action={!query && filter === 'all' ? '记一笔' : undefined}
+          action={!active ? '记一笔' : undefined}
           onAction={onAdd}
         />
       )}
-      {dates.map((date) => {
-        const list = entries.filter((e) => e.date === date);
-        const day = totals(list, ledger.entries);
+      {groups.map((day) => {
+        const { date, entries: list } = day;
         return (
           <View key={date} style={{ marginTop: 24 }}>
             <View

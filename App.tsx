@@ -83,8 +83,17 @@ function Main() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
-  const { ledger, loading, error, backgroundError, reload, recover, saving } =
-    useLedger();
+  const {
+    ledger,
+    loading,
+    error,
+    backgroundError,
+    reload,
+    recover,
+    saving,
+    undo,
+    restoreDeleted,
+  } = useLedger();
   const [recovery, setRecovery] = useState<Ledger | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
@@ -410,12 +419,12 @@ function Main() {
               );
             }}
           />
-          {!!toast && (
+          {(!!toast || !!undo) && (
             <Animated.View
               entering={reduce ? undefined : FadeIn.duration(150)}
               exiting={reduce ? undefined : FadeOut.duration(150)}
               accessibilityLiveRegion="polite"
-              pointerEvents="none"
+              pointerEvents={undo ? 'auto' : 'none'}
               style={{
                 position: 'absolute',
                 top: Math.max(insets.top, 25) + 48,
@@ -429,8 +438,36 @@ function Main() {
               }}
             >
               <Txt size={12} color={t.background}>
-                {toast}
+                {undo ? '已删除一笔账单 · 8 秒内可撤销' : toast}
               </Txt>
+              {undo && (
+                <Button
+                  label="撤销删除"
+                  disabled={saving}
+                  variant="plain"
+                  onPress={() => {
+                    void restoreDeleted()
+                      .then(() => setToast('账单已恢复'))
+                      .catch((error) =>
+                        setToast(
+                          error instanceof Error
+                            ? error.message
+                            : '恢复失败，请重试',
+                        ),
+                      );
+                  }}
+                  style={{ marginTop: 5, minHeight: 36 }}
+                >
+                  <Txt size={12} color={t.background} weight="600">
+                    {saving ? '正在恢复…' : '撤销删除'}
+                  </Txt>
+                </Button>
+              )}
+              {undo && !!toast && !toast.startsWith('账单已删除') && (
+                <Txt size={10} color={t.background}>
+                  {toast}
+                </Txt>
+              )}
             </Animated.View>
           )}
           {editor && (
@@ -454,6 +491,7 @@ function Main() {
           )}
           {settings && (
             <SettingsSheet
+              month={month}
               initialPage={settings || 'main'}
               onClose={closeSettings}
               onSaved={setToast}
