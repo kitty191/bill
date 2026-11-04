@@ -53,6 +53,9 @@ test('income, expenses, transfer, editing, deletion and reload form a working le
   await expect(page.getByText('你的消费画像，等待点亮')).toBeVisible();
   await page.getByRole('tab', { name: '首页', exact: true }).click();
   await expect(page.getByTestId('month-expense')).toHaveText('0.00');
+  await expect(
+    page.getByRole('button', { name: '修改刚保存的账单', exact: true }),
+  ).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -112,6 +115,9 @@ test('invalid entries and storage failure retain input and do not change saved t
   ).toHaveValue('12.34');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(page.getByTestId('month-expense')).toHaveText('0.00');
+  await expect(
+    page.getByRole('button', { name: '修改刚保存的账单', exact: true }),
+  ).toHaveCount(0);
   expect(
     await page.evaluate(() => localStorage.getItem('qingzhang.ledger.v1')),
   ).toBeNull();

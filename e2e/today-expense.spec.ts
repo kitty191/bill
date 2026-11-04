@@ -101,7 +101,14 @@ test('local midnight resets only the daily summary without interaction or data l
   expect(await page.evaluate((key) => localStorage.getItem(key), key)).toBe(
     original,
   );
-  await page.getByRole('button', { name: '记一笔', exact: true }).click();
+  await page.getByRole('button', { name: /^查看今日支出明细/ }).click();
+  await expect(page.getByTestId('active-entry-filters')).toHaveText(
+    '2027-01-01 至 2027-01-01 · 0 笔',
+  );
+  await expect(page.getByText('今天还没有支出', { exact: true })).toBeVisible();
+  await page
+    .getByRole('button', { name: '记下今天第一笔', exact: true })
+    .click();
   await page.getByRole('textbox', { name: '金额', exact: true }).fill('1.25');
   await expect(
     page.getByRole('textbox', { name: '记账日期', exact: true }),

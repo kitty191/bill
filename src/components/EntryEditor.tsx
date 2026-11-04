@@ -40,7 +40,7 @@ export function EntryEditor({
   templateId?: string;
   onRefund: (entry: Entry) => void;
   onClose: () => void;
-  onSaved: (message: string, date: string) => void;
+  onSaved: (message: string, date: string, entryId?: string) => void;
 }) {
   const t = useTheme();
   const details = useRef<React.ComponentRef<typeof View>>(null);
@@ -130,11 +130,12 @@ export function EntryEditor({
       const value = calculateAmount(amount);
       if (!validDate(date))
         throw new Error('请填写有效日期，格式为 YYYY-MM-DD');
+      const entryId = entry?.id ?? id();
       await update((current) => {
         const next = upsertEntry(
           current,
           {
-            id: entry?.id ?? id(),
+            id: entryId,
             kind,
             amount: value,
             categoryId: kind === 'transfer' ? 'transfer' : categoryId,
@@ -168,7 +169,7 @@ export function EntryEditor({
       void Haptics.notificationAsync(
         Haptics.NotificationFeedbackType.Success,
       ).catch(() => {});
-      onSaved(entry ? '账单已更新' : '记下了，生活又清晰一点', date);
+      onSaved(entry ? '账单已更新' : '已记好', date, entryId);
       onClose();
     } catch (e) {
       setError(

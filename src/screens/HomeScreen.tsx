@@ -34,6 +34,7 @@ export function HomeScreen({
   onAdd,
   onEntry,
   onAll,
+  onToday,
   onSettings,
   onTemplate,
   onBackup,
@@ -45,6 +46,7 @@ export function HomeScreen({
   onAdd: () => void;
   onEntry: (entry: Entry) => void;
   onAll: () => void;
+  onToday: () => void;
   onSettings: () => void;
   onTemplate: (id: string) => void;
   onBackup: () => void;
@@ -185,7 +187,21 @@ export function HomeScreen({
             {money(expense)}
           </Txt>
         </View>
-        <View style={[styles.row, { marginTop: 11, gap: 9, flexWrap: 'wrap' }]}>
+        <Button
+          variant="plain"
+          onPress={onToday}
+          label={`查看今日支出明细，${money(todayExpense)} 元`}
+          style={{
+            marginTop: 3,
+            minHeight: 44,
+            paddingVertical: 5,
+            paddingHorizontal: 0,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-start',
+            gap: 9,
+          }}
+        >
           <Txt size={12} color={t.dark ? '#B6C9B8' : '#6B826B'}>
             今日支出
           </Txt>
@@ -197,7 +213,8 @@ export function HomeScreen({
           >
             ¥{money(todayExpense)}
           </Txt>
-        </View>
+          <Icon name="right" size={13} color={t.dark ? '#B6C9B8' : '#6B826B'} />
+        </Button>
         <View
           style={{
             height: 1,

@@ -102,7 +102,10 @@ function Main() {
   const tabRef = useRef<Tab>('home');
   const pageProgress = useSharedValue(0);
   const [month, setMonth] = useState(localDate().slice(0, 7));
-  const [entriesResetKey, setEntriesResetKey] = useState(0);
+  const [entriesTarget, setEntriesTarget] = useState<{
+    key: number;
+    date?: string;
+  }>({ key: 0 });
   const entriesScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [editor, setEditor] = useState<{
     entry?: Entry;
@@ -111,16 +114,31 @@ function Main() {
   } | null>(null);
   const [settings, setSettings] = useState<false | 'main' | 'privacy'>(false);
   const privacy = usePrivacy();
-  const [toast, setToast] = useState('');
+  const [notice, setNotice] = useState<{
+    message: string;
+    entryId?: string;
+    expiresAt: number;
+  } | null>(null);
+  const setToast = useCallback((message: string, entryId?: string) => {
+    setNotice(
+      message
+        ? { message, entryId, expiresAt: Date.now() + (entryId ? 8000 : 2800) }
+        : null,
+    );
+  }, []);
+  const toast = notice?.message ?? '';
   useEffect(() => {
     if (backgroundError && !settings) setToast(backgroundError);
   }, [backgroundError, settings]);
   const blurTarget = useRef<React.ComponentRef<typeof View>>(null);
   useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(''), 2800);
+    if (!notice) return;
+    const timer = setTimeout(
+      () => setNotice((current) => (current === notice ? null : current)),
+      Math.max(0, notice.expiresAt - Date.now()),
+    );
     return () => clearTimeout(timer);
-  }, [toast]);
+  }, [notice]);
   const selectTab = useCallback((next: Tab) => {
     if (tabRef.current === next) return;
     tabRef.current = next;
@@ -158,10 +176,36 @@ function Main() {
     [],
   );
   const showAll = useCallback(() => {
-    setEntriesResetKey((value) => value + 1);
+    setEntriesTarget((value) => ({ key: value.key + 1 }));
     entriesScroll.current?.scrollTo({ y: 0, animated: false });
     navigate('entries');
   }, [navigate]);
+  const showToday = useCallback(() => {
+    const date = localDate();
+    setMonth(date.slice(0, 7));
+    setEntriesTarget((value) => ({ key: value.key + 1, date }));
+    entriesScroll.current?.scrollTo({ y: 0, animated: false });
+    navigate('entries');
+  }, [navigate]);
+  const quickEntry =
+    notice?.entryId && Date.now() < notice.expiresAt
+      ? ledger?.entries.find((entry) => entry.id === notice.entryId)
+      : undefined;
+  const editRecentlySaved = () => {
+    if (!notice?.entryId || Date.now() >= notice.expiresAt) {
+      setToast('快捷修改已过期，请在账单中打开');
+      return;
+    }
+    const current = ledger?.entries.find(
+      (entry) => entry.id === notice.entryId,
+    );
+    if (!current) {
+      setToast('这笔账单已不存在');
+      return;
+    }
+    setNotice(null);
+    setEditor({ entry: current });
+  };
   // Keep the screen elements and callbacks stable while native paging animates.
   const pages = useMemo(
     () =>
@@ -190,6 +234,7 @@ function Main() {
                     onAdd={openEditor}
                     onEntry={onEntry}
                     onAll={showAll}
+                    onToday={showToday}
                     onSettings={openSettings}
                     onTemplate={openTemplate}
                     onBackup={openBackup}
@@ -197,7 +242,8 @@ function Main() {
                 ) : key === 'entries' ? (
                   <MemoEntriesScreen
                     today={today}
-                    resetKey={entriesResetKey}
+                    resetKey={entriesTarget.key}
+                    focusDate={entriesTarget.date}
                     ledger={ledger}
                     month={month}
                     onMonth={onMonth}
@@ -226,7 +272,8 @@ function Main() {
       openTemplate,
       openBackup,
       showAll,
-      entriesResetKey,
+      showToday,
+      entriesTarget,
       insets.bottom,
       today,
     ],
@@ -419,12 +466,12 @@ function Main() {
               );
             }}
           />
-          {(!!toast || !!undo) && (
+          {(!!toast || !!undo) && !editor && !settings && (
             <Animated.View
               entering={reduce ? undefined : FadeIn.duration(150)}
               exiting={reduce ? undefined : FadeOut.duration(150)}
               accessibilityLiveRegion="polite"
-              pointerEvents={undo ? 'auto' : 'none'}
+              pointerEvents={undo || quickEntry ? 'auto' : 'none'}
               style={{
                 position: 'absolute',
                 top: Math.max(insets.top, 25) + 48,
@@ -434,39 +481,64 @@ function Main() {
                 backgroundColor: t.text,
                 paddingHorizontal: 17,
                 paddingVertical: 13,
-                alignItems: 'center',
+                gap: 5,
               }}
             >
-              <Txt size={12} color={t.background}>
-                {undo ? '已删除一笔账单 · 8 秒内可撤销' : toast}
-              </Txt>
-              {undo && (
-                <Button
-                  label="撤销删除"
-                  disabled={saving}
-                  variant="plain"
-                  onPress={() => {
-                    void restoreDeleted()
-                      .then(() => setToast('账单已恢复'))
-                      .catch((error) =>
-                        setToast(
-                          error instanceof Error
-                            ? error.message
-                            : '恢复失败，请重试',
-                        ),
-                      );
-                  }}
-                  style={{ marginTop: 5, minHeight: 36 }}
-                >
-                  <Txt size={12} color={t.background} weight="600">
-                    {saving ? '正在恢复…' : '撤销删除'}
+              {!!toast && (!undo || !toast.startsWith('账单已删除')) && (
+                <View style={[styles.row, { justifyContent: 'space-between' }]}>
+                  <Txt size={12} color={t.background} style={{ flex: 1 }}>
+                    {toast}
                   </Txt>
-                </Button>
+                  {quickEntry && (
+                    <Button
+                      label="修改刚保存的账单"
+                      variant="plain"
+                      disabled={saving}
+                      onPress={editRecentlySaved}
+                      style={{
+                        minHeight: 36,
+                        paddingHorizontal: 9,
+                        paddingVertical: 6,
+                      }}
+                    >
+                      <Txt size={12} color={t.background} weight="600">
+                        修改
+                      </Txt>
+                    </Button>
+                  )}
+                </View>
               )}
-              {undo && !!toast && !toast.startsWith('账单已删除') && (
-                <Txt size={10} color={t.background}>
-                  {toast}
-                </Txt>
+              {undo && (
+                <View style={[styles.row, { justifyContent: 'space-between' }]}>
+                  <Txt size={12} color={t.background} style={{ flex: 1 }}>
+                    已删除一笔账单 · 8 秒内可撤销
+                  </Txt>
+                  <Button
+                    label="撤销删除"
+                    disabled={saving}
+                    variant="plain"
+                    onPress={() => {
+                      void restoreDeleted()
+                        .then(() => setToast('账单已恢复'))
+                        .catch((error) =>
+                          setToast(
+                            error instanceof Error
+                              ? error.message
+                              : '恢复失败，请重试',
+                          ),
+                        );
+                    }}
+                    style={{
+                      minHeight: 36,
+                      paddingHorizontal: 9,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Txt size={12} color={t.background} weight="600">
+                      {saving ? '正在恢复…' : '撤销删除'}
+                    </Txt>
+                  </Button>
+                </View>
               )}
             </Animated.View>
           )}
@@ -483,9 +555,9 @@ function Main() {
               templateId={editor.templateId}
               onRefund={openRefund}
               onClose={() => setEditor(null)}
-              onSaved={(message, date) => {
+              onSaved={(message, date, entryId) => {
                 setMonth(date.slice(0, 7));
-                setToast(message);
+                setToast(message, entryId);
               }}
             />
           )}

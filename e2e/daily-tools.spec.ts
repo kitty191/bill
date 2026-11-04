@@ -90,6 +90,9 @@ test('calendar details are accessible while the primary action stays visible', a
   await page
     .getByRole('textbox', { name: '记账日期', exact: true })
     .fill('2024-02-01');
+  await expect(
+    page.getByRole('textbox', { name: '记账日期', exact: true }),
+  ).toHaveValue('2024-02-01');
   await page.getByRole('button', { name: '选择记账日期', exact: true }).click();
   await expect(page.getByTestId('calendar-记账日期')).toBeInViewport();
   await expect(
@@ -357,7 +360,9 @@ test('calculator and calendar fit narrow dark screens without runtime errors', a
   await page.getByRole('button', { name: '计算键7', exact: true }).click();
   await page.getByRole('button', { name: '计算键+', exact: true }).click();
   await page.getByRole('button', { name: '计算键3', exact: true }).click();
-  await expect(page.getByRole('button', { name: '记好了', exact: true })).toBeInViewport();
+  await expect(
+    page.getByRole('button', { name: '记好了', exact: true }),
+  ).toBeInViewport();
   await expect(
     page.getByRole('button', { name: '计算结果', exact: true }),
   ).toBeInViewport();

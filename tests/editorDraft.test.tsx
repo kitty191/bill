@@ -158,4 +158,52 @@ it('records an expression directly with the primary button, without an equals or
     (mocks.ledger as ReturnType<typeof emptyLedger>).entries[0]?.amount,
   ).toBe(2050);
   expect(props.onClose).toHaveBeenCalledOnce();
+  const recorded = (mocks.ledger as ReturnType<typeof emptyLedger>).entries[0]!;
+  expect(props.onSaved).toHaveBeenCalledWith(
+    '已记好',
+    recorded.date,
+    recorded.id,
+  );
+});
+
+it('does not expose a saved-entry action on write failure, and targets the actual saved record after retry', async () => {
+  mocks.ledger = emptyLedger();
+  mocks.visible = true;
+  mocks.update.mockReset();
+  mocks.update
+    .mockRejectedValueOnce(new Error('存储空间不足'))
+    .mockImplementation(async (change) => {
+      mocks.ledger = change(mocks.ledger);
+    });
+  const props = { onClose: vi.fn(), onRefund: vi.fn(), onSaved: vi.fn() };
+  await act(async () => {
+    renderer = create(<EntryEditor {...props} />);
+  });
+  await act(async () => {
+    renderer.root
+      .findByProps({ accessibilityLabel: '金额' })
+      .props.onChangeText('12.34');
+  });
+  await act(async () => {
+    await renderer.root
+      .findByProps({ accessibilityLabel: '记好了' })
+      .props.onPress();
+  });
+  expect(props.onSaved).not.toHaveBeenCalled();
+  expect(props.onClose).not.toHaveBeenCalled();
+  expect((mocks.ledger as ReturnType<typeof emptyLedger>).entries).toHaveLength(
+    0,
+  );
+  await act(async () => {
+    await renderer.root
+      .findByProps({ accessibilityLabel: '记好了' })
+      .props.onPress();
+  });
+  const recorded = (mocks.ledger as ReturnType<typeof emptyLedger>).entries[0]!;
+  expect(recorded.amount).toBe(1234);
+  expect(props.onSaved).toHaveBeenCalledExactlyOnceWith(
+    '已记好',
+    recorded.date,
+    recorded.id,
+  );
 });

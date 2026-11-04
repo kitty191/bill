@@ -34,6 +34,7 @@ export function EntriesScreen({
   onEntry,
   onAdd,
   resetKey,
+  focusDate,
 }: {
   today: string;
   ledger: Ledger;
@@ -42,6 +43,7 @@ export function EntriesScreen({
   onEntry: (entry: Entry) => void;
   onAdd: () => void;
   resetKey: number;
+  focusDate?: string;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -55,6 +57,14 @@ export function EntriesScreen({
     advanced.range ||
     advanced.accountId !== 'all' ||
     advanced.categoryId !== 'all';
+  const todayOnly =
+    filter === 'expense' &&
+    !query.trim() &&
+    advanced.range &&
+    advanced.startDate === today &&
+    advanced.endDate === today &&
+    advanced.accountId === 'all' &&
+    advanced.categoryId === 'all';
   useEffect(() => {
     setAdvanced((value) => {
       const categoryId =
@@ -74,16 +84,29 @@ export function EntriesScreen({
     });
   }, [ledger.categories, ledger.accounts]);
   useEffect(() => {
-    setFilter('all');
+    setFilter(focusDate ? 'expense' : 'all');
     setQuery('');
-    setAdvanced(emptyFilters());
+    setAdvanced(
+      focusDate
+        ? {
+            ...emptyFilters(),
+            range: true,
+            startDate: focusDate,
+            endDate: focusDate,
+          }
+        : emptyFilters(),
+    );
     setFiltersOpen(false);
-  }, [resetKey]);
+  }, [resetKey, focusDate]);
   const entries = useMemo(
     () => filteredEntries(ledger, month, filter, query, advanced),
     [ledger, month, query, filter, advanced],
   );
   const { income, expense } = totals(entries, ledger.entries);
+  const grossExpense = entries.reduce(
+    (sum, entry) => sum + (entry.kind === 'expense' ? entry.amount : 0),
+    0,
+  );
   const refunded = entries.reduce(
     (sum, entry) => sum + (entry.kind === 'refund' ? entry.amount : 0),
     0,
@@ -132,6 +155,16 @@ export function EntriesScreen({
           </Txt>
         </View>
       </Card>
+      {filter === 'expense' && grossExpense > expense && (
+        <Txt
+          testID="expense-refund-summary"
+          size={10}
+          color={t.muted}
+          style={{ marginTop: 10 }}
+        >
+          原支出 ¥{money(grossExpense)} · 已退 ¥{money(grossExpense - expense)}
+        </Txt>
+      )}
       {refunded > 0 && (
         <Txt size={10} color={t.muted} style={{ marginTop: 10 }}>
           退款到账 ¥{money(refunded)} · 抵减原支出，不计收入
@@ -281,13 +314,21 @@ export function EntriesScreen({
       )}
       {!entries.length && (
         <EmptyState
-          title={active ? '没有找到这些账单' : '这个月，留一点生活的痕迹'}
-          description={
-            active
-              ? '换个关键词或筛选条件试试。'
-              : '记下一笔，让收支慢慢清晰起来。'
+          title={
+            todayOnly
+              ? '今天还没有支出'
+              : active
+                ? '没有找到这些账单'
+                : '这个月，留一点生活的痕迹'
           }
-          action={!active ? '记一笔' : undefined}
+          description={
+            todayOnly
+              ? '从一笔小花费开始，记录今天的生活。'
+              : active
+                ? '换个关键词或筛选条件试试。'
+                : '记下一笔，让收支慢慢清晰起来。'
+          }
+          action={todayOnly ? '记下今天第一笔' : !active ? '记一笔' : undefined}
           onAction={onAdd}
         />
       )}
