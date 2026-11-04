@@ -11,9 +11,11 @@ export type Entry = {
   date: string;
   note: string;
   createdAt: string;
+  recurringId?: string;
+  recurringDate?: string;
 };
 export type Ledger = {
-  version: 3;
+  version: 4;
   accounts: Account[];
   entries: Entry[];
   monthlyBudget: number;
@@ -22,6 +24,8 @@ export type Ledger = {
   categories: ManagedCategory[];
   templates: QuickTemplate[];
   defaults: Partial<Record<'expense' | 'income', EntryDefault>>;
+  recurringEnabled: boolean;
+  recurringBills: RecurringBill[];
 };
 export type Category = {
   id: string;
@@ -41,6 +45,12 @@ export type QuickTemplate = EntryDefault & {
   kind: 'expense' | 'income';
   amount: number;
   note: string;
+};
+export type RecurringBill = QuickTemplate & {
+  enabled: boolean;
+  cadence: 'weekly' | 'monthly' | 'yearly';
+  anchorDate: string;
+  nextDate: string;
 };
 export const categoryIcons = [
   'utensils',
@@ -138,13 +148,15 @@ export const MAX_AMOUNT = 999_999_999;
 
 export function emptyLedger(): Ledger {
   return {
-    version: 3,
+    version: 4,
     monthlyBudget: 0,
     monthBudgets: {},
     showAccountCards: false,
     categories: defaultCategories(),
     templates: [],
     defaults: {},
+    recurringEnabled: false,
+    recurringBills: [],
     accounts: [
       { id: 'wechat', name: '微信', openingBalance: 0 },
       { id: 'alipay', name: '支付宝', openingBalance: 0 },
@@ -227,10 +239,7 @@ function isText(
 export function validateLedger(input: unknown): Ledger {
   invariant(input && typeof input === 'object', '账本格式无效');
   const data = input as Record<string, unknown>;
-  invariant(
-    data.version === 1 || data.version === 2 || data.version === 3,
-    '不支持此备份版本',
-  );
+  invariant([1, 2, 3, 4].includes(data.version as number), '不支持此备份版本');
   invariant(
     Array.isArray(data.accounts) &&
       data.accounts.length > 0 &&
@@ -247,7 +256,7 @@ export function validateLedger(input: unknown): Ledger {
       typeof data.showAccountCards === 'boolean',
     '账户显示设置无效',
   );
-  const rawBudgets = data.version === 3 ? data.monthBudgets : {};
+  const rawBudgets = (data.version as number) >= 3 ? data.monthBudgets : {};
   invariant(
     rawBudgets &&
       typeof rawBudgets === 'object' &&
@@ -322,6 +331,7 @@ export function validateLedger(input: unknown): Ledger {
       '至少保留一个可用的支出和收入分类',
     );
   const entryIds = new Set<string>();
+  const occurrences = new Set<string>();
   const entries: Entry[] = data.entries.map((a: unknown) => {
     invariant(a && typeof a === 'object', '账单格式无效');
     const x = a as Record<string, unknown>;
@@ -370,6 +380,20 @@ export function validateLedger(input: unknown): Ledger {
     }
     if (x.kind === 'refund')
       invariant(isText(x.originalEntryId, 100, true), '请选择退款关联的原支出');
+    const recurring =
+      data.version === 4 &&
+      (x.recurringId !== undefined || x.recurringDate !== undefined);
+    if (recurring) {
+      invariant(
+        isText(x.recurringId, 100, true) &&
+          isText(x.recurringDate, 10, true) &&
+          validDate(x.recurringDate),
+        '周期账单关联无效',
+      );
+      const occurrence = JSON.stringify([x.recurringId, x.recurringDate]);
+      invariant(!occurrences.has(occurrence), '同一期周期账单不能重复记账');
+      occurrences.add(occurrence);
+    }
     entryIds.add(x.id);
     return {
       id: x.id,
@@ -380,6 +404,12 @@ export function validateLedger(input: unknown): Ledger {
       date: x.date,
       note: x.note.trim(),
       createdAt: x.createdAt,
+      ...(recurring
+        ? {
+            recurringId: x.recurringId as string,
+            recurringDate: x.recurringDate as string,
+          }
+        : {}),
       ...(x.kind === 'transfer'
         ? { toAccountId: x.toAccountId as string }
         : {}),
@@ -464,8 +494,87 @@ export function validateLedger(input: unknown): Ledger {
     );
     defaults[kind] = { accountId: x.accountId, categoryId: x.categoryId };
   }
+  const rawRecurring = data.version === 4 ? data.recurringBills : [];
+  invariant(
+    Array.isArray(rawRecurring) && rawRecurring.length <= 30,
+    '周期账单不能超过 30 个',
+  );
+  invariant(
+    data.version !== 4 || typeof data.recurringEnabled === 'boolean',
+    '周期提醒设置无效',
+  );
+  const recurringIds = new Set<string>();
+  const recurringBills: RecurringBill[] = rawRecurring.map((raw: unknown) => {
+    invariant(raw && typeof raw === 'object', '周期账单格式无效');
+    const x = raw as Record<string, unknown>;
+    invariant(
+      isText(x.id, 100, true) && !recurringIds.has(x.id),
+      '周期账单标识重复或无效',
+    );
+    invariant(
+      isText(x.name, 20, true) && isText(x.note, 120),
+      '周期账单名称或备注无效',
+    );
+    invariant(x.kind === 'expense' || x.kind === 'income', '周期账单类型无效');
+    invariant(isAmount(x.amount) && x.amount > 0, '周期账单金额无效');
+    invariant(
+      isText(x.accountId, 100) && ids.has(x.accountId),
+      '周期账单账户无效',
+    );
+    invariant(
+      isText(x.categoryId, 100) &&
+        categories.some((c) => c.id === x.categoryId && c.kind === x.kind),
+      '周期账单分类无效',
+    );
+    invariant(
+      typeof x.enabled === 'boolean' &&
+        ['weekly', 'monthly', 'yearly'].includes(x.cadence as string),
+      '周期账单频率或开关无效',
+    );
+    invariant(
+      isText(x.anchorDate, 10, true) &&
+        validDate(x.anchorDate) &&
+        isText(x.nextDate, 10, true) &&
+        validDate(x.nextDate) &&
+        x.nextDate >= x.anchorDate,
+      '周期账单日期无效',
+    );
+    recurringIds.add(x.id);
+    const anchor = x.anchorDate.split('-').map(Number) as [
+      number,
+      number,
+      number,
+    ];
+    const next = x.nextDate.split('-').map(Number) as [number, number, number];
+    const clampedDay = Math.min(
+      anchor[2],
+      new Date(next[0], next[1], 0).getDate(),
+    );
+    const aligned =
+      x.cadence === 'weekly'
+        ? (Date.UTC(next[0], next[1] - 1, next[2]) -
+            Date.UTC(anchor[0], anchor[1] - 1, anchor[2])) %
+            (7 * 86_400_000) ===
+          0
+        : next[2] === clampedDay &&
+          (x.cadence !== 'yearly' || next[1] === anchor[1]);
+    invariant(aligned, '下次日期与周期基准不一致');
+    return {
+      id: x.id,
+      name: x.name.trim(),
+      note: x.note.trim(),
+      kind: x.kind,
+      amount: x.amount,
+      categoryId: x.categoryId,
+      accountId: x.accountId,
+      enabled: x.enabled,
+      cadence: x.cadence as RecurringBill['cadence'],
+      anchorDate: x.anchorDate,
+      nextDate: x.nextDate,
+    };
+  });
   return {
-    version: 3,
+    version: 4,
     accounts,
     entries,
     monthlyBudget: data.monthlyBudget,
@@ -474,6 +583,9 @@ export function validateLedger(input: unknown): Ledger {
     categories,
     templates,
     defaults,
+    recurringEnabled:
+      data.version === 4 ? (data.recurringEnabled as boolean) : false,
+    recurringBills,
   };
 }
 

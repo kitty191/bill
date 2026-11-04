@@ -7,10 +7,17 @@ import {
   type Entry,
   type Ledger,
 } from '../src/domain/ledger';
-const mocks = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  load: vi.fn(),
+  save: vi.fn(),
+  snapshots: vi.fn(),
+  clearSnapshots: vi.fn(),
+}));
 vi.mock('../src/storage/ledgerStore', () => ({
   loadLedger: mocks.load,
   saveLedger: mocks.save,
+  loadSnapshots: mocks.snapshots,
+  clearSnapshots: mocks.clearSnapshots,
 }));
 import { LedgerProvider, useLedger } from '../src/state/LedgerProvider';
 (
@@ -26,6 +33,8 @@ beforeEach(async () => {
   vi.resetAllMocks();
   mocks.load.mockResolvedValue(emptyLedger());
   mocks.save.mockResolvedValue(undefined);
+  mocks.snapshots.mockResolvedValue([]);
+  mocks.clearSnapshots.mockResolvedValue(undefined);
   await act(async () => {
     renderer = create(
       <LedgerProvider>
@@ -321,5 +330,120 @@ describe('ledger write serialization', () => {
     });
     expect(state.ledger).toEqual(recovery);
     expect(state.saving).toBe(false);
+  });
+});
+
+describe('snapshot recovery serialization', () => {
+  const snapshot = {
+    id: 'snapshot-a',
+    createdAt: '2026-11-04T04:00:00Z',
+    payload: JSON.stringify({ ...emptyLedger(), monthlyBudget: 12345 }),
+  };
+  it('does not restore content that changed after the preview was confirmed', async () => {
+    mocks.snapshots.mockResolvedValue([
+      { ...snapshot, payload: JSON.stringify(emptyLedger()) },
+    ]);
+    const before = state.ledger;
+    await act(async () => {
+      await expect(
+        state.restoreSnapshot(snapshot.id, snapshot.payload),
+      ).rejects.toThrow('已变化');
+    });
+    expect(state.ledger).toBe(before);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it('restores a validated snapshot only after durable save and clears obsolete undo', async () => {
+    await seedEntries([expense]);
+    await act(async () => {
+      await state.removeEntry(expense.id);
+    });
+    mocks.snapshots.mockResolvedValue([snapshot]);
+    mocks.save.mockRejectedValueOnce(new Error('快照保存失败'));
+    await act(async () => {
+      await expect(state.restoreSnapshot(snapshot.id)).rejects.toThrow(
+        '快照保存失败',
+      );
+    });
+    expect(state.ledger!.monthlyBudget).toBe(0);
+    expect(state.undo?.entry).toEqual(expense);
+    await act(async () => {
+      await state.restoreSnapshot(snapshot.id);
+    });
+    expect(state.ledger!.monthlyBudget).toBe(12345);
+    expect(state.undo).toBeNull();
+  });
+  it('rechecks snapshot existence when its queued restore actually starts', async () => {
+    let finish!: () => void;
+    mocks.save.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    mocks.snapshots.mockResolvedValue([snapshot]);
+    let display!: Promise<void>, restore!: Promise<unknown>;
+    await act(async () => {
+      display = state.update((ledger) => ({ ...ledger, monthlyBudget: 200 }), {
+        background: true,
+      });
+    });
+    await act(async () => {
+      restore = state
+        .restoreSnapshot(snapshot.id)
+        .catch((error) => error.message);
+      mocks.snapshots.mockResolvedValue([]);
+      finish();
+      await display;
+      expect(await restore).toContain('已不存在');
+    });
+    expect(state.ledger!.monthlyBudget).toBe(200);
+  });
+  it('rejects damaged snapshots without writing the main record', async () => {
+    const before = state.ledger;
+    mocks.snapshots.mockResolvedValue([
+      { ...snapshot, payload: '{"version":999}' },
+    ]);
+    await act(async () => {
+      await expect(state.restoreSnapshot(snapshot.id)).rejects.toThrow('版本');
+    });
+    expect(state.ledger).toBe(before);
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(state.saving).toBe(false);
+  });
+  it('clears only snapshot history and leaves the current book intact, including on failure', async () => {
+    await seedEntries([expense]);
+    const before = state.ledger;
+    mocks.clearSnapshots.mockRejectedValueOnce(new Error('清理失败'));
+    await act(async () => {
+      await expect(state.clearSnapshotHistory()).rejects.toThrow('清理失败');
+    });
+    expect(state.ledger).toBe(before);
+    expect(state.saving).toBe(false);
+    await act(async () => {
+      await state.clearSnapshotHistory();
+    });
+    expect(state.ledger).toBe(before);
+    expect(mocks.clearSnapshots).toHaveBeenCalledTimes(2);
+  });
+  it('projects the recurring switch immediately and rolls it back after write failure', async () => {
+    let reject!: (error: Error) => void;
+    mocks.save.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, fail) => {
+          reject = fail;
+        }),
+    );
+    await act(async () => {
+      state.recurringDisplay.onValueChange(true);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    });
+    expect(state.recurringDisplay.value).toBe(true);
+    expect(state.saving).toBe(false);
+    expect(state.ledger!.recurringEnabled).toBe(false);
+    await act(async () => {
+      reject(new Error('设置保存失败'));
+    });
+    expect(state.recurringDisplay.value).toBe(false);
+    expect(state.recurringDisplay.error).toBe('设置保存失败');
   });
 });

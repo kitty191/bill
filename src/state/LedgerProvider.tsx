@@ -13,7 +13,12 @@ import {
   deleteEntry,
   restoreEntry,
 } from '../domain/ledger';
-import { loadLedger, saveLedger } from '../storage/ledgerStore';
+import {
+  loadLedger,
+  saveLedger,
+  loadSnapshots,
+  clearSnapshots,
+} from '../storage/ledgerStore';
 import { useSavedToggle } from './useSavedToggle';
 
 type Context = {
@@ -23,6 +28,9 @@ type Context = {
   error: string | null;
   backgroundError: string;
   accountDisplay: ReturnType<typeof useSavedToggle>;
+  recurringDisplay: ReturnType<typeof useSavedToggle>;
+  restoreSnapshot: (id: string, expectedPayload?: string) => Promise<void>;
+  clearSnapshotHistory: () => Promise<void>;
   undo: { entry: Entry; expiresAt: number } | null;
   removeEntry: (id: string) => Promise<void>;
   restoreDeleted: () => Promise<void>;
@@ -173,6 +181,56 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
     ledger?.showAccountCards ?? false,
     saveAccountDisplay,
   );
+  const saveRecurringDisplay = useCallback(
+    (recurringEnabled: boolean) =>
+      update((value) => ({ ...value, recurringEnabled }), { background: true }),
+    [update],
+  );
+  const recurringDisplay = useSavedToggle(
+    ledger?.recurringEnabled ?? false,
+    saveRecurringDisplay,
+  );
+  const restoreSnapshot = useCallback(
+    async (snapshotId: string, expectedPayload?: string) => {
+      if (pending.current) throw new Error('账本正在保存，请稍后再试');
+      pending.current = true;
+      setSaving(true);
+      try {
+        await enqueue(async () => {
+          const snapshot = (await loadSnapshots()).find(
+            (item) => item.id === snapshotId,
+          );
+          if (!snapshot) throw new Error('此快照已不存在，请刷新列表');
+          if (
+            expectedPayload !== undefined &&
+            snapshot.payload !== expectedPayload
+          )
+            throw new Error('快照内容已变化，请重新选择');
+          const next = validateLedger(JSON.parse(snapshot.payload));
+          await saveLedger(next);
+          current.current = next;
+          setLedger(next);
+          setError(null);
+          clearUndo();
+        });
+      } finally {
+        pending.current = false;
+        setSaving(false);
+      }
+    },
+    [enqueue, clearUndo],
+  );
+  const clearSnapshotHistory = useCallback(async () => {
+    if (pending.current) throw new Error('账本正在保存，请稍后再试');
+    pending.current = true;
+    setSaving(true);
+    try {
+      await enqueue(clearSnapshots);
+    } finally {
+      pending.current = false;
+      setSaving(false);
+    }
+  }, [enqueue]);
   return (
     <LedgerContext.Provider
       value={{
@@ -182,6 +240,9 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
         error,
         backgroundError,
         accountDisplay,
+        recurringDisplay,
+        restoreSnapshot,
+        clearSnapshotHistory,
         undo,
         removeEntry,
         restoreDeleted,

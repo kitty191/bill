@@ -55,6 +55,8 @@ import { PrivacyProvider } from './src/state/PrivacyProvider';
 import { PrivacyGuard } from './src/components/PrivacyGuard';
 import { usePrivacy } from './src/state/PrivacyContext';
 import { useLocalDate } from './src/state/useLocalDate';
+import { SnapshotManager } from './src/components/SnapshotManager';
+import { Sheet } from './src/components/Sheet';
 
 const PAGE_KEYS: Tab[] = ['home', 'entries', 'stats'];
 const MemoHomeScreen = memo(HomeScreen);
@@ -111,8 +113,13 @@ function Main() {
     entry?: Entry;
     refundOf?: Entry;
     templateId?: string;
+    recurringId?: string;
+    recurringDate?: string;
   } | null>(null);
-  const [settings, setSettings] = useState<false | 'main' | 'privacy'>(false);
+  const [settings, setSettings] = useState<
+    false | 'main' | 'privacy' | 'recurring'
+  >(false);
+  const [snapshotRecovery, setSnapshotRecovery] = useState(false);
   const privacy = usePrivacy();
   const [notice, setNotice] = useState<{
     message: string;
@@ -175,6 +182,14 @@ function Main() {
     (refundOf: Entry) => setEditor({ refundOf }),
     [],
   );
+  const openRecurring = useCallback(
+    (recurringId: string, recurringDate: string) => {
+      setSettings(false);
+      setEditor({ recurringId, recurringDate });
+    },
+    [],
+  );
+  const openRecurringSettings = useCallback(() => setSettings('recurring'), []);
   const showAll = useCallback(() => {
     setEntriesTarget((value) => ({ key: value.key + 1 }));
     entriesScroll.current?.scrollTo({ y: 0, animated: false });
@@ -238,6 +253,8 @@ function Main() {
                     onSettings={openSettings}
                     onTemplate={openTemplate}
                     onBackup={openBackup}
+                    onRecurring={openRecurring}
+                    onRecurringSettings={openRecurringSettings}
                   />
                 ) : key === 'entries' ? (
                   <MemoEntriesScreen
@@ -271,6 +288,8 @@ function Main() {
       openSettings,
       openTemplate,
       openBackup,
+      openRecurring,
+      openRecurringSettings,
       showAll,
       showToday,
       entriesTarget,
@@ -305,6 +324,21 @@ function Main() {
             <Button disabled={saving} onPress={reload}>
               重新读取
             </Button>
+            <Button variant="soft" onPress={() => setSnapshotRecovery(true)}>
+              从本机快照恢复
+            </Button>
+            {snapshotRecovery && (
+              <Sheet
+                visible
+                title="本机快照恢复"
+                onClose={() => setSnapshotRecovery(false)}
+                dismissible={!saving}
+              >
+                <SnapshotManager
+                  onRestored={() => setSnapshotRecovery(false)}
+                />
+              </Sheet>
+            )}
             <Button
               variant="soft"
               disabled={saving}
@@ -548,11 +582,15 @@ function Main() {
                 editor.entry?.id ??
                 (editor.refundOf
                   ? `refund-${editor.refundOf.id}`
-                  : (editor.templateId ?? 'new'))
+                  : editor.recurringId
+                    ? `recurring-${editor.recurringId}-${editor.recurringDate}`
+                    : (editor.templateId ?? 'new'))
               }
               entry={editor.entry}
               refundOf={editor.refundOf}
               templateId={editor.templateId}
+              recurringId={editor.recurringId}
+              recurringDate={editor.recurringDate}
               onRefund={openRefund}
               onClose={() => setEditor(null)}
               onSaved={(message, date, entryId) => {
@@ -567,6 +605,7 @@ function Main() {
               initialPage={settings || 'main'}
               onClose={closeSettings}
               onSaved={setToast}
+              onRecurring={openRecurring}
             />
           )}
         </View>

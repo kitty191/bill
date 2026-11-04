@@ -102,7 +102,7 @@ describe('independent monthly budgets and migration', () => {
       monthlyBudget: 100000,
     };
     const loaded = validateLedger(source);
-    expect(loaded.version).toBe(3);
+    expect(loaded.version).toBe(4);
     expect(loaded.entries).toEqual(source.entries);
     expect(loaded.monthBudgets).toEqual({});
     expect(budgetForMonth(loaded, '2026-10')).toBe(100000);

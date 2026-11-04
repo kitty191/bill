@@ -5,6 +5,7 @@ import { usePagerScrollLock } from '../components/SwipePager';
 import { useTheme } from '../theme';
 import { useMoney, usePrivacy } from '../state/PrivacyContext';
 import { backupReminderDue } from '../domain/privacy';
+import { dueRecurring } from '../domain/recurring';
 import {
   type Entry,
   type Ledger,
@@ -38,6 +39,8 @@ export function HomeScreen({
   onSettings,
   onTemplate,
   onBackup,
+  onRecurring,
+  onRecurringSettings,
 }: {
   today: string;
   ledger: Ledger;
@@ -50,10 +53,16 @@ export function HomeScreen({
   onSettings: () => void;
   onTemplate: (id: string) => void;
   onBackup: () => void;
+  onRecurring: (id: string, date: string) => void;
+  onRecurringSettings: () => void;
 }) {
   const t = useTheme();
   const money = useMoney();
   const privacy = usePrivacy();
+  const due = useMemo(
+    () => dueRecurring(ledger, today),
+    [ledger.recurringBills, ledger.recurringEnabled, today],
+  );
   const [reminderError, setReminderError] = useState('');
   const templates = ledger.templates.filter(
     (item) =>
@@ -349,6 +358,46 @@ export function HomeScreen({
         )}
       </Card>
 
+      {due.length > 0 && (
+        <Card style={{ marginTop: 16, padding: 17, gap: 10 }}>
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <Txt size={13} weight="500">
+              周期账单待确认 · {due.length}
+            </Txt>
+            <Button
+              variant="plain"
+              label="管理周期账单"
+              onPress={onRecurringSettings}
+              style={{ minHeight: 32, paddingHorizontal: 4 }}
+            >
+              管理
+            </Button>
+          </View>
+          {due.slice(0, 3).map((bill) => (
+            <Button
+              key={bill.id}
+              label={`确认周期账单${bill.name}`}
+              variant="plain"
+              onPress={() => onRecurring(bill.id, bill.nextDate)}
+              style={{ alignItems: 'stretch', paddingHorizontal: 0 }}
+            >
+              <View style={[styles.row, { justifyContent: 'space-between' }]}>
+                <Txt size={13} weight="500" style={{ flex: 1 }}>
+                  {bill.name}
+                </Txt>
+                <Txt size={14}>¥{money(bill.amount)}</Txt>
+                <Icon name="right" size={13} color={t.muted} />
+              </View>
+              <Txt size={10} color={t.muted}>
+                到期 {bill.nextDate} · 点击确认本期
+              </Txt>
+            </Button>
+          ))}
+          <Txt size={10} color={t.muted}>
+            确认后才写入账本，未发生的消费可在管理中跳过。
+          </Txt>
+        </Card>
+      )}
       {ledger.showAccountCards && (
         <>
           <SectionTitle

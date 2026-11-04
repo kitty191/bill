@@ -80,7 +80,7 @@ test('budget, account balances, sample data and JSON/CSV export', async ({
     await readFile((await downloadedBackup.path())!, 'utf8'),
   );
   expect(backupContent.entries).toHaveLength(9);
-  expect(backupContent.version).toBe(3);
+  expect(backupContent.version).toBe(4);
   const table = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出表格', exact: true }).click();
   const downloadedTable = await table;

@@ -20,6 +20,7 @@ import { Sheet } from './Sheet';
 import { Button, Icon, Txt, styles } from './ui';
 import { DateField } from './DateField';
 import { AmountCalculator } from './AmountCalculator';
+import { confirmRecurring } from '../domain/recurring';
 import {
   calculateAmount,
   calculatorDraft,
@@ -31,6 +32,8 @@ export function EntryEditor({
   entry,
   refundOf,
   templateId,
+  recurringId,
+  recurringDate,
   onRefund,
   onClose,
   onSaved,
@@ -38,6 +41,8 @@ export function EntryEditor({
   entry?: Entry;
   refundOf?: Entry;
   templateId?: string;
+  recurringId?: string;
+  recurringDate?: string;
   onRefund: (entry: Entry) => void;
   onClose: () => void;
   onSaved: (message: string, date: string, entryId?: string) => void;
@@ -46,7 +51,9 @@ export function EntryEditor({
   const details = useRef<React.ComponentRef<typeof View>>(null);
   const { ledger, update, saving, removeEntry } = useLedger();
   const data = ledger!;
-  const preset = data.templates.find((template) => template.id === templateId);
+  const recurring = data.recurringBills.find((bill) => bill.id === recurringId);
+  const preset =
+    recurring ?? data.templates.find((template) => template.id === templateId);
   const original =
     refundOf ??
     (entry?.kind === 'refund'
@@ -91,7 +98,7 @@ export function EntryEditor({
   const [date, setDate] = useState(entry?.date ?? localDate());
   const [note, setNote] = useState(
     entry?.note ??
-      preset?.note ??
+      (recurring ? recurring.note || recurring.name : preset?.note) ??
       (original
         ? `${original.note || categoryFor(data, original.categoryId).label}退款`.slice(
             0,
@@ -110,7 +117,8 @@ export function EntryEditor({
   const categories = data.categories.filter(
     (category) =>
       category.kind === (kind === 'income' ? 'income' : 'expense') &&
-      (!category.hidden || (entry && category.id === categoryId)),
+      (!category.hidden ||
+        ((entry || recurring) && category.id === categoryId)),
   );
   const shortcuts = data.templates.filter(
     (template) =>
@@ -132,22 +140,27 @@ export function EntryEditor({
         throw new Error('请填写有效日期，格式为 YYYY-MM-DD');
       const entryId = entry?.id ?? id();
       await update((current) => {
-        const next = upsertEntry(
-          current,
-          {
-            id: entryId,
-            kind,
-            amount: value,
-            categoryId: kind === 'transfer' ? 'transfer' : categoryId,
-            accountId,
-            ...(kind === 'transfer' ? { toAccountId } : {}),
-            ...(kind === 'refund' ? { originalEntryId: original?.id } : {}),
-            date,
-            note,
-            createdAt: entry?.createdAt ?? new Date().toISOString(),
-          },
-          !entry && kind !== 'refund',
-        );
+        const record: Entry = {
+          id: entryId,
+          kind,
+          amount: value,
+          categoryId: kind === 'transfer' ? 'transfer' : categoryId,
+          accountId,
+          ...(kind === 'transfer' ? { toAccountId } : {}),
+          ...(kind === 'refund' ? { originalEntryId: original?.id } : {}),
+          date,
+          note,
+          createdAt: entry?.createdAt ?? new Date().toISOString(),
+          ...(entry?.recurringId
+            ? {
+                recurringId: entry.recurringId,
+                recurringDate: entry.recurringDate,
+              }
+            : {}),
+        };
+        const next = recurringId
+          ? confirmRecurring(current, recurringId, recurringDate ?? '', record)
+          : upsertEntry(current, record, !entry && kind !== 'refund');
         if (!saveTemplate || kind === 'refund' || kind === 'transfer')
           return next;
         return validateLedger({
@@ -192,13 +205,15 @@ export function EntryEditor({
       visible
       onClose={onClose}
       title={
-        kind === 'refund'
-          ? entry
-            ? '编辑退款'
-            : '记录退款'
-          : entry
-            ? '编辑账单'
-            : '记一笔'
+        recurringId
+          ? '确认周期账单'
+          : kind === 'refund'
+            ? entry
+              ? '编辑退款'
+              : '记录退款'
+            : entry
+              ? '编辑账单'
+              : '记一笔'
       }
       dismissible={!saving}
       footer={
@@ -229,7 +244,7 @@ export function EntryEditor({
         </View>
       }
     >
-      {kind !== 'refund' && (
+      {kind !== 'refund' && !recurringId && (
         <View
           style={[
             styles.row,
@@ -332,6 +347,11 @@ export function EntryEditor({
             </Button>
           ))}
         </ScrollView>
+      )}
+      {recurringId && (
+        <Txt size={12} color={t.muted} style={{ marginTop: 12 }}>
+          账期 {recurringDate} · 确认后才记账，可修改本次金额和记账日期
+        </Txt>
       )}
       <AmountCalculator
         draft={draft}

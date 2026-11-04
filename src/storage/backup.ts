@@ -23,6 +23,14 @@ export async function exportLegacyBackup(content: string) {
     'application/json',
   );
 }
+export async function exportSnapshot(content: string, snapshotId: string) {
+  const ledger = validateLedger(JSON.parse(content));
+  await exportContent(
+    JSON.stringify(ledger, null, 2),
+    `qingzhang-${snapshotId.replace(/[^a-zA-Z0-9-]/g, '')}.json`,
+    'application/json',
+  );
+}
 
 async function exportContent(content: string, name: string, mimeType: string) {
   if (Platform.OS === 'web') {

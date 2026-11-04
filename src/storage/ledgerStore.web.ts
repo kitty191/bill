@@ -1,18 +1,36 @@
 import { type Ledger, emptyLedger, validateLedger } from '../domain/ledger';
+import {
+  addSnapshot,
+  snapshotBeforeWrite,
+  validateSnapshots,
+} from '../domain/snapshots';
 
 const key = 'qingzhang.ledger.v1';
+const snapshotsKey = 'qingzhang.ledger.snapshots.v1';
+export async function loadSnapshots() {
+  return validateSnapshots(
+    JSON.parse(localStorage.getItem(snapshotsKey) ?? '[]'),
+  );
+}
+export async function clearSnapshots() {
+  localStorage.removeItem(snapshotsKey);
+}
 export async function loadLedger(): Promise<Ledger> {
   const data = localStorage.getItem(key);
   return data === null ? emptyLedger() : validateLedger(JSON.parse(data));
 }
 export async function saveLedger(ledger: Ledger): Promise<void> {
-  const payload = JSON.stringify(validateLedger(ledger));
+  const valid = validateLedger(ledger);
+  const payload = JSON.stringify(valid);
   const current = localStorage.getItem(key);
   let legacy = false;
   let older = false;
+  let before4 = false;
   try {
     legacy = current !== null && JSON.parse(current).version === 1;
     older = current !== null && [1, 2].includes(JSON.parse(current).version);
+    before4 =
+      current !== null && [1, 2, 3].includes(JSON.parse(current).version);
   } catch {
     /* Recovery is explicitly confirmed. */
   }
@@ -20,9 +38,28 @@ export async function saveLedger(ledger: Ledger): Promise<void> {
     localStorage.setItem('qingzhang.ledger.before-v3', current!);
   if (legacy && localStorage.getItem('qingzhang.ledger.legacy-v1') === null)
     localStorage.setItem('qingzhang.ledger.legacy-v1', current!);
+  if (before4 && localStorage.getItem('qingzhang.ledger.before-v4') === null)
+    localStorage.setItem('qingzhang.ledger.before-v4', current!);
+  const previous = snapshotBeforeWrite(current, valid);
+  if (previous !== null) {
+    try {
+      localStorage.setItem(
+        snapshotsKey,
+        JSON.stringify(addSnapshot(await loadSnapshots(), previous)),
+      );
+    } catch (error) {
+      throw new Error(
+        `自动快照保存失败，账本未更新：${error instanceof Error ? error.message : '请在设置中检查本机快照'}`,
+      );
+    }
+  }
   localStorage.setItem(key, payload);
 }
 export async function loadLegacyLedger(): Promise<string | null> {
+  const before4 = localStorage.getItem('qingzhang.ledger.before-v4');
+  if (before4) return before4;
+  const raw = localStorage.getItem(key);
+  if (raw && [1, 2, 3].includes(JSON.parse(raw).version)) return raw;
   const backup = localStorage.getItem('qingzhang.ledger.before-v3');
   if (backup) return backup;
   const current = localStorage.getItem(key);

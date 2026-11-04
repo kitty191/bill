@@ -56,7 +56,7 @@ describe('version 1 migration and category integrity', () => {
       showAccountCards: true,
     };
     const loaded = validateLedger(JSON.parse(JSON.stringify(legacy)));
-    expect(loaded.version).toBe(3);
+    expect(loaded.version).toBe(4);
     expect(loaded.entries).toEqual(legacy.entries);
     expect(loaded.accounts).toEqual(legacy.accounts);
     expect(loaded.monthlyBudget).toBe(legacy.monthlyBudget);

@@ -239,7 +239,7 @@ test('monthly budgets stay independent and round-trip in JSON', async ({
     await readFile((await (await download).path())!, 'utf8'),
   );
   const month = localDate().slice(0, 7);
-  expect(data.version).toBe(3);
+  expect(data.version).toBe(4);
   expect(data.monthBudgets[month]).toBe(100000);
   expect(Object.values(data.monthBudgets).sort()).toEqual([100000, 200000]);
   await page.getByRole('button', { name: '关闭', exact: true }).click();
@@ -339,7 +339,7 @@ test('v2 migration prefers the latest original snapshot and blocks writes when i
   expect(await saved(page)).toEqual(source);
   await page.evaluate(() => (window as any).restoreStorage());
   await page.getByRole('button', { name: '保存预算', exact: true }).click();
-  await expect.poll(async () => (await saved(page)).version).toBe(3);
+  await expect.poll(async () => (await saved(page)).version).toBe(4);
   expect((await saved(page)).entries).toEqual(source.entries);
   expect(
     await page.evaluate(() =>

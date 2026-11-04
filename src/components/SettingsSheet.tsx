@@ -24,6 +24,8 @@ import { loadLegacyLedger } from '../storage/ledgerStore';
 import { useMoney, usePrivacy } from '../state/PrivacyContext';
 import { CategoryManager, TemplateManager } from './LedgerTools';
 import { PrivacySettings } from './PrivacySettings';
+import { SnapshotManager } from './SnapshotManager';
+import { RecurringManager } from './RecurringManager';
 import { useTheme } from '../theme';
 import { Sheet } from './Sheet';
 import { Button, Icon, MonthPicker, SectionTitle, Txt, styles } from './ui';
@@ -34,17 +36,19 @@ export function SettingsSheet({
   onSaved,
   initialPage = 'main',
   month = localDate().slice(0, 7),
+  onRecurring,
 }: {
   onClose: () => void;
   onSaved: (message: string) => void;
-  initialPage?: 'main' | 'privacy';
+  initialPage?: 'main' | 'privacy' | 'recurring';
+  onRecurring: (id: string, date: string) => void;
   month?: string;
 }) {
   const t = useTheme();
   const money = useMoney();
   const privacy = usePrivacy();
   const [page, setPage] = useState<
-    'main' | 'privacy' | 'categories' | 'templates'
+    'main' | 'privacy' | 'categories' | 'templates' | 'snapshots' | 'recurring'
   >(initialPage);
   const [legacy, setLegacy] = useState<string | null>(null);
   useEffect(() => {
@@ -158,18 +162,33 @@ export function SettingsSheet({
   if (page !== 'main')
     return (
       <Sheet
+        key={page === 'recurring' || page === 'snapshots' ? page : undefined}
         visible
         onClose={onClose}
         title={
-          page === 'categories'
-            ? '分类管理'
-            : page === 'templates'
-              ? '常用记账'
-              : '隐私与备份'
+          page === 'snapshots'
+            ? '本机自动快照'
+            : page === 'recurring'
+              ? '周期账单'
+              : page === 'categories'
+                ? '分类管理'
+                : page === 'templates'
+                  ? '常用记账'
+                  : '隐私与备份'
         }
         dismissible={!disabled}
       >
-        {page === 'categories' ? (
+        {page === 'snapshots' ? (
+          <SnapshotManager
+            onBack={() => setPage('main')}
+            onRestored={() => onSaved('账本已从本机快照恢复')}
+          />
+        ) : page === 'recurring' ? (
+          <RecurringManager
+            onBack={() => setPage('main')}
+            onConfirm={onRecurring}
+          />
+        ) : page === 'categories' ? (
           <CategoryManager onBack={() => setPage('main')} />
         ) : page === 'templates' ? (
           <TemplateManager onBack={() => setPage('main')} />
@@ -268,6 +287,13 @@ export function SettingsSheet({
           description="金额隐藏、应用锁与定期备份提醒"
           disabled={disabled}
           onPress={() => setPage('privacy')}
+        />
+        <SettingAction
+          icon="calendar"
+          title="周期账单"
+          description="房租、会员等到期提醒，确认后入账"
+          disabled={disabled}
+          onPress={() => setPage('recurring')}
         />
       </View>
       <SectionTitle title="月度预算" />
@@ -408,6 +434,13 @@ export function SettingsSheet({
       <SectionTitle title="数据与备份" />
       <View style={{ gap: 9 }}>
         <SettingAction
+          icon="shield"
+          title="本机自动快照"
+          description="查看最近 5 个版本，选择恢复或导出"
+          disabled={disabled}
+          onPress={() => setPage('snapshots')}
+        />
+        <SettingAction
           icon="download"
           title="备份账本"
           description="导出完整 JSON 文件，可用于恢复"
@@ -493,10 +526,10 @@ export function SettingsSheet({
           </Txt>
           <Txt size={12} color={t.muted}>
             {confirmation === 'clear'
-              ? `全部账单、账户、预算、分类与常用项将重置。本机隐私设置${legacy ? '和升级前备份' : ''}会保留。此操作无法撤销，建议先备份。`
+              ? `全部账单、账户、预算、分类、常用项与周期账单将重置。当前有效账本会先保留为本机快照，本机隐私设置${legacy ? '和升级前备份' : ''}保留。换机前仍请导出备份。`
               : confirmation === 'demo'
                 ? '示例将替换当前账户和预算，添加 9 条演示记录。你可以随时清空后开始自己的记录。'
-                : `备份包含 ${imported?.entries.length} 笔账单、${imported?.accounts.length} 个账户。当前数据将被替换，此操作无法撤销，建议先备份。`}
+                : `备份包含 ${imported?.entries.length} 笔账单、${imported?.accounts.length} 个账户、${imported?.recurringBills.length} 个周期账单。当前数据将被替换，恢复前会保留当前有效账本的快照。`}
           </Txt>
           <View style={styles.row}>
             <Button
