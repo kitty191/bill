@@ -188,6 +188,7 @@ export function Button({
   disabled,
   style,
   testID,
+  hitSlop,
 }: {
   children: React.ReactNode;
   onPress: () => void;
@@ -196,6 +197,7 @@ export function Button({
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  hitSlop?: number;
 }) {
   const t = useTheme();
   const reduce = useReducedMotion();
@@ -221,6 +223,7 @@ export function Button({
   return (
     <AnimatedPressable
       testID={testID}
+      hitSlop={hitSlop}
       accessibilityRole="button"
       accessibilityLabel={
         label ?? (typeof children === 'string' ? children : undefined)
@@ -265,6 +268,7 @@ export function IconButton({
     <Button
       variant="plain"
       label={label}
+      hitSlop={5}
       disabled={disabled}
       onPress={onPress}
       style={[
