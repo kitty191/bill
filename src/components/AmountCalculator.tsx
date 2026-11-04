@@ -7,13 +7,15 @@ import { Button, Txt, styles } from './ui';
 import { useSheetScroll } from './sheetScroll';
 
 export function AmountCalculator({
-  initial,
+  expression,
+  onExpressionChange,
   onApply,
   onClose,
   disabled,
   returnTo,
 }: {
-  initial: string;
+  expression: string;
+  onExpressionChange: React.Dispatch<React.SetStateAction<string>>;
   onApply: (amount: string) => void;
   onClose: () => void;
   disabled: boolean;
@@ -22,7 +24,6 @@ export function AmountCalculator({
   const t = useTheme();
   const panel = useRef<React.ComponentRef<typeof View>>(null);
   const reveal = useSheetScroll();
-  const [expression, setExpression] = useState(initial);
   const [error, setError] = useState('');
   const close = () => {
     onClose();
@@ -65,7 +66,7 @@ export function AmountCalculator({
         placeholderTextColor={t.subtle}
         value={expression}
         onChangeText={(value) => {
-          setExpression(value);
+          onExpressionChange(value);
           setError('');
         }}
         editable={!disabled}
@@ -121,7 +122,7 @@ export function AmountCalculator({
                 return;
               }
               setError('');
-              setExpression((value) =>
+              onExpressionChange((value) =>
                 key === 'C'
                   ? ''
                   : key === '⌫'

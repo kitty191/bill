@@ -96,6 +96,7 @@ export function EntryEditor({
   const [saveTemplate, setSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const [calculation, setCalculation] = useState(amount);
   const categories = data.categories.filter(
     (category) =>
       category.kind === (kind === 'income' ? 'income' : 'expense') &&
@@ -337,6 +338,7 @@ export function EntryEditor({
         disabled={saving}
         onPress={() => {
           Keyboard.dismiss();
+          if (!calculatorOpen) setCalculation(amount);
           setCalculatorOpen(!calculatorOpen);
         }}
         style={{ alignSelf: 'flex-end', marginTop: -17, marginBottom: 13 }}
@@ -346,7 +348,8 @@ export function EntryEditor({
       {calculatorOpen && (
         <AmountCalculator
           returnTo={amountSection}
-          initial={amount}
+          expression={calculation}
+          onExpressionChange={setCalculation}
           disabled={saving}
           onApply={setAmount}
           onClose={() => setCalculatorOpen(false)}
