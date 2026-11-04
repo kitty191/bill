@@ -27,6 +27,7 @@
 - 网页单次比较：首屏挂载 10,000 → 11 行，唯一搜索 2,145 → 134 ms，清除搜索 11,344 → 131 ms。网页保存未显示改善；原始数据见 `docs/large-ledger-performance-v0.4.1.json`，不能代表手机帧率。
 - 同一万条记录的 Node SQLite 真实 SQL 测量：常规保存写入参数 11,518,362 → 3,338,813 字节，减少约 71%。保留 5 份历史；覆盖旧数组迁移的 ID / 顺序、时间戳相同、最终写入失败回滚、重试和损坏旧历史清理。SQL 参数量不是物理磁盘写入量，耗时包含读回历史，不能代替 Expo 桥或手机性能测试。
 - 1000 条账单、9 次切页，三个页面均 0 次重复渲染，无运行异常，见 `docs/paging-performance-v0.4.1.json`。
+- iOS 代码导出、Android Release 构建通过。版本 0.4.1 / versionCode 15，32,601,143 字节，源码提交 `e65ce45280e1938bde6248180833a4de24f98f4f`。沿用 v0.4.0 签名，APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、独立 Hermes / 原生模块、权限、图标和临时性能计数器缺席检查通过，见 `downloads/qingzhang-v0.4.1-android-arm64-verification.json`。
 - 本轮未进行原生真机安装、SQLite 桥、文件分享、后台唤醒和触摸验收。
 
 ### v0.4.0 自动快照与周期账单
