@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -26,6 +26,8 @@ import { useTheme } from '../theme';
 import { usePrivacy } from '../state/PrivacyContext';
 import { IconButton, Txt, styles } from './ui';
 
+const sheetEntering = FadeInDown.duration(250);
+
 export function Sheet({
   visible,
   onClose,
@@ -50,20 +52,25 @@ export function Sheet({
   const gestureStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translation.value }],
   }));
-  const pan = Gesture.Pan()
-    .enabled(dismissible)
-    .onUpdate((event) => {
-      translation.value = Math.max(0, event.translationY);
-    })
-    .onEnd((event) => {
-      if (event.translationY > 80 || event.velocityY > 800) {
-        translation.value = withTiming(
-          700,
-          { duration: reduce ? 0 : 180 },
-          () => scheduleOnRN(onClose),
-        );
-      } else translation.value = withSpring(0, { damping: 28, stiffness: 320 });
-    });
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(dismissible)
+        .onUpdate((event) => {
+          translation.value = Math.max(0, event.translationY);
+        })
+        .onEnd((event) => {
+          if (event.translationY > 80 || event.velocityY > 800) {
+            translation.value = withTiming(
+              700,
+              { duration: reduce ? 0 : 180 },
+              () => scheduleOnRN(onClose),
+            );
+          } else
+            translation.value = withSpring(0, { damping: 28, stiffness: 320 });
+        }),
+    [dismissible, reduce, onClose, translation],
+  );
   return (
     <Modal
       visible={visible && privacy.phase === 'unlocked'}
@@ -89,7 +96,7 @@ export function Sheet({
             style={{ position: 'absolute', inset: 0 }}
           />
           <Animated.View
-            entering={reduce ? undefined : FadeInDown.duration(250)}
+            entering={reduce ? undefined : sheetEntering}
             accessibilityViewIsModal
             style={[
               {

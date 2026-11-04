@@ -47,7 +47,7 @@ export function SettingsSheet({
       .then(setLegacy)
       .catch(() => {});
   }, []);
-  const { ledger: data, update, saving } = useLedger();
+  const { ledger: data, update, saving, accountDisplay } = useLedger();
   const ledger = data!;
   const [budget, setBudget] = useState(
     ledger.monthlyBudget ? amountInput(ledger.monthlyBudget) : '',
@@ -193,10 +193,10 @@ export function SettingsSheet({
           </Txt>
         </View>
       )}
-      {!!error && (
+      {!!(error || accountDisplay.error) && (
         <View accessibilityLiveRegion="polite" style={{ marginTop: 12 }}>
           <Txt testID="settings-error" size={12} color={t.danger}>
-            {error}
+            {error || accountDisplay.error}
           </Txt>
         </View>
       )}
@@ -223,16 +223,12 @@ export function SettingsSheet({
         <Switch
           accessibilityLabel="首页显示账户卡片"
           accessibilityHint="控制首页账户卡片与总资产的显示"
-          value={ledger.showAccountCards}
+          value={accountDisplay.value}
           disabled={disabled}
           trackColor={{ false: t.border, true: t.accent }}
           thumbColor="#FFFFFF"
           ios_backgroundColor={t.border}
-          onValueChange={(value) =>
-            void perform(() =>
-              update((current) => ({ ...current, showAccountCards: value })),
-            )
-          }
+          onValueChange={accountDisplay.onValueChange}
         />
       </View>
       <SectionTitle title="记账偏好" />

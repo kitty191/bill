@@ -1,0 +1,23 @@
+{
+  "recorded_at": "2026-11-04T01:36:26.130567+00:00",
+  "version": "0.2.1",
+  "method": "Chromium web, 1000 fake records, 9 tab changes, reduced motion. Temporary counters restored before the production build. Not native FPS.",
+  "result": {
+    "records": 1000,
+    "pageChanges": 9,
+    "screenRenders": {
+      "HomeScreen": 0,
+      "EntriesScreen": 0,
+      "StatsScreen": 0
+    },
+    "metrics": {
+      "TaskDuration": 1.194822,
+      "ScriptDuration": 0.256115,
+      "LayoutDuration": 0.016752,
+      "RecalcStyleDuration": 0.0059499999999999996,
+      "LayoutCount": 9
+    },
+    "runtimeErrors": [],
+    "platform": "Chromium web; not native FPS"
+  }
+}

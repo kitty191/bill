@@ -33,7 +33,7 @@ npm run web
 
 当前技术栈：Expo SDK 58、React Native 0.88、React 19.3、TypeScript 6、Reanimated 4、SQLite。版本以 `package-lock.json` 为准。
 
-Android 预览版：[下载 v0.2.0 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.2.0-android-arm64.apk)，约 31 MB，支持 ARM64 系统的 Android 7.0 及以上手机，内含应用代码，无需 Expo Go 或开发服务器。新版增加快捷记账、自定义分类、关联退款、年度统计与隐私 / 备份提醒，并保留原生分页与缓存优化。沿用原签名，可直接覆盖安装旧版并保留账本。该包已通过签名与完整性检查，实际帧率仍待真机验收。详见 [下载说明](downloads/README.md)。
+Android 预览版：[下载 v0.2.1 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.2.1-android-arm64.apk)，约 31 MB，支持 ARM64 系统的 Android 7.0 及以上手机，内含应用代码，无需 Expo Go 或开发服务器。新版修复「首页显示账户卡片」开关的卡顿：即时响应，后台保存，快速切换保留最后一次选择；保存失败会回退并提示。保留 v0.2.0 的全部功能和原生分页优化。沿用原签名，可直接覆盖安装旧版并保留账本。该包已通过签名与完整性检查，实际帧率仍待真机验收。详见 [下载说明](downloads/README.md)。
 
 独立 APK 构建入口为 `npm run build:apk`，工具链、私有签名配置和网络前提见 [Android 构建说明](docs/android-build.md)。IPA 尚未生成，另需 macOS / 远程构建服务及 Apple 签名。
 

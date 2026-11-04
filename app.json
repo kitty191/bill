@@ -2,7 +2,7 @@
   "expo": {
     "name": "清账",
     "slug": "qingzhang",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.kitty191.qingzhang",
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#244F3F"
@@ -37,7 +37,9 @@
       "expo-sharing",
       [
         "expo-local-authentication",
-        { "faceIDPermission": "允许清账使用 Face ID 验证身份，保护本机账本。" }
+        {
+          "faceIDPermission": "允许清账使用 Face ID 验证身份，保护本机账本。"
+        }
       ],
       "expo-secure-store"
     ]

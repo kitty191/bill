@@ -12,6 +12,15 @@ test('account cards are optional, survive reload, and keep the ledger intact', a
   await toggle.check();
   await expect(toggle).toBeChecked();
   await expect(toggle).toBeEnabled();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('qingzhang.ledger.v1')!)
+            ?.showAccountCards,
+      ),
+    )
+    .toBe(true);
   // Loading sample records must preserve the user's display choice.
   await page.getByRole('button', { name: '载入示例账本，看看效果' }).click();
   await page.getByRole('button', { name: '确认载入示例' }).click();
@@ -33,6 +42,15 @@ test('account cards are optional, survive reload, and keep the ledger intact', a
   await toggle.uncheck();
   await expect(toggle).not.toBeChecked();
   await expect(toggle).toBeEnabled();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('qingzhang.ledger.v1')!)
+            ?.showAccountCards,
+      ),
+    )
+    .toBe(false);
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(page.getByTestId('account-carousel')).toHaveCount(0);
   await expect(
@@ -60,6 +78,15 @@ test('a failed display-setting save leaves the switch and ledger unchanged', asy
   const toggle = page.getByRole('switch', { name: '首页显示账户卡片' });
   await toggle.check();
   await expect(toggle).toBeEnabled();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('qingzhang.ledger.v1')!)
+            ?.showAccountCards,
+      ),
+    )
+    .toBe(true);
   const saved = await page.evaluate(() =>
     localStorage.getItem('qingzhang.ledger.v1'),
   );
@@ -79,4 +106,36 @@ test('a failed display-setting save leaves the switch and ledger unchanged', asy
   ).toBe(saved);
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(page.getByTestId('account-carousel')).toHaveCount(1);
+});
+
+test('repeated account-display taps keep settings interactive and persist the last choice after closing', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '打开设置' }).click();
+  const toggle = page.getByRole('switch', { name: '首页显示账户卡片' });
+  const close = page.getByRole('button', { name: '关闭', exact: true });
+  const budget = page.getByRole('button', { name: '保存预算', exact: true });
+  const start = await toggle.boundingBox();
+  for (let i = 0; i < 7; i++) {
+    await toggle.click();
+    await expect(toggle).toBeEnabled();
+    await expect(close).toBeEnabled();
+    await expect(budget).toBeEnabled();
+    const current = await toggle.boundingBox();
+    expect(Math.abs(current!.y - start!.y)).toBeLessThan(2);
+  }
+  await expect(toggle).toBeChecked();
+  await close.click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('qingzhang.ledger.v1')!)
+            ?.showAccountCards,
+      ),
+    )
+    .toBe(true);
+  await page.reload();
+  await expect(page.getByTestId('account-carousel')).toBeVisible();
 });

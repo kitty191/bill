@@ -83,7 +83,8 @@ function Main() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const reduce = useReducedMotion();
-  const { ledger, loading, error, reload, recover, saving } = useLedger();
+  const { ledger, loading, error, backgroundError, reload, recover, saving } =
+    useLedger();
   const [recovery, setRecovery] = useState<Ledger | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
@@ -101,6 +102,9 @@ function Main() {
   const [settings, setSettings] = useState<false | 'main' | 'privacy'>(false);
   const privacy = usePrivacy();
   const [toast, setToast] = useState('');
+  useEffect(() => {
+    if (backgroundError && !settings) setToast(backgroundError);
+  }, [backgroundError, settings]);
   const blurTarget = useRef<React.ComponentRef<typeof View>>(null);
   useEffect(() => {
     if (!toast) return;
@@ -134,6 +138,7 @@ function Main() {
   const onEntry = useCallback((entry: Entry) => setEditor({ entry }), []);
   const openEditor = useCallback(() => setEditor({}), []);
   const openSettings = useCallback(() => setSettings('main'), []);
+  const closeSettings = useCallback(() => setSettings(false), []);
   const openBackup = useCallback(() => setSettings('privacy'), []);
   const openTemplate = useCallback(
     (templateId: string) => setEditor({ templateId }),
@@ -450,7 +455,7 @@ function Main() {
           {settings && (
             <SettingsSheet
               initialPage={settings || 'main'}
-              onClose={() => setSettings(false)}
+              onClose={closeSettings}
               onSaved={setToast}
             />
           )}
