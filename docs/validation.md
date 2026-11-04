@@ -26,6 +26,7 @@
 - 原有 34 项 Chromium 交互回归及新增 2 项通过；新增检查日期 / 退款口径、月份切换、隐藏 / 重载、零点无需交互自动刷新、历史原始账本不变和新日期记账。
 - 已查看实际 320px 深浅色截图，见 `docs/previews/today-v0.3.2-light.png` 和 `today-v0.3.2-dark.png`。未修改 schema 3 和持久化协议，午夜只更新显示日期。
 - 切页基准通过：1000 条模拟账单、9 次切页，三个页面均 0 次重复渲染，无运行错误，见 `docs/paging-performance-v0.3.2.json`；此结果不是原生帧率测量。
+- iOS 代码导出、Android Release 构建通过。版本 0.3.2 / versionCode 12，32,558,223 字节，源码提交 `ce2075254e07acfa20afb498a850afb3d775d312`。沿用 v0.3.1 签名，APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、独立 Hermes / 原生模块、权限、图标和临时性能计数器缺席检查通过，见 `downloads/qingzhang-v0.3.2-android-arm64-verification.json`。
 - 本轮未进行原生真机的安装、系统时间 / 时区切换、后台唤醒和触摸验收。
 
 ### v0.3.1 点加号直接输入金额
