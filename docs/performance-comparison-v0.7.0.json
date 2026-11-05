@@ -1,0 +1,107 @@
+{
+  "baseline_commit": "37dda4dc066b675a113a847894f42c986b66ee23",
+  "candidate_commit": "e916922276300c05bc8421b287c279d38d173dfa",
+  "samples_per_version": 3,
+  "records": 10000,
+  "median_ms": {
+    "baseline": {
+      "startupMs": 1259.5761930000003,
+      "navigationMs": 122.35403999999971,
+      "searchMs": 142.9831250000002,
+      "clearMs": 95.50909499999989,
+      "saveMs": 521.454839
+    },
+    "candidate": {
+      "startupMs": 1328.260329,
+      "navigationMs": 220.54633599999988,
+      "searchMs": 171.90560400000004,
+      "clearMs": 251.7636480000001,
+      "saveMs": 637.884513
+    }
+  },
+  "raw": {
+    "baseline": [
+      {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1259.5761930000003,
+        "navigationMs": 173.7429259999999,
+        "searchMs": 142.9831250000002,
+        "clearMs": 87.81180899999981,
+        "saveMs": 513.2422459999998,
+        "jsHeapBytes": 58434548,
+        "domNodes": 1388,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      },
+      {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1275.547284,
+        "navigationMs": 121.84770600000002,
+        "searchMs": 169.74600999999984,
+        "clearMs": 120.32154700000001,
+        "saveMs": 737.4187459999998,
+        "jsHeapBytes": 55292508,
+        "domNodes": 1388,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      },
+      {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1239.6965699999998,
+        "navigationMs": 122.35403999999971,
+        "searchMs": 124.77905199999987,
+        "clearMs": 95.50909499999989,
+        "saveMs": 521.454839,
+        "jsHeapBytes": 57224208,
+        "domNodes": 1388,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      }
+    ],
+    "candidate": [
+      {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1328.260329,
+        "navigationMs": 196.06649800000014,
+        "searchMs": 171.90560400000004,
+        "clearMs": 145.50087299999996,
+        "saveMs": 469.5573340000001,
+        "jsHeapBytes": 46202848,
+        "domNodes": 1668,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      },
+      {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1130.5588249999998,
+        "navigationMs": 220.54633599999988,
+        "searchMs": 135.7001019999998,
+        "clearMs": 251.7636480000001,
+        "saveMs": 637.884513,
+        "jsHeapBytes": 45113284,
+        "domNodes": 1556,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      },
+      {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 2517.3438129999995,
+        "navigationMs": 279.7386040000001,
+        "searchMs": 207.58664599999975,
+        "clearMs": 478.65595200000007,
+        "saveMs": 1876.749331,
+        "jsHeapBytes": 46469232,
+        "domNodes": 1481,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      }
+    ]
+  },
+  "platform": "Paired Chromium web measurements; not native FPS, physical-device startup or mobile storage timing"
+}
