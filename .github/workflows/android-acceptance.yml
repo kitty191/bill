@@ -1,7 +1,7 @@
 name: Android build and upgrade
 on:
   push:
-    branches: [main, codex/ci-setup-v070]
+    branches: [main]
     paths: ['src/**', 'App.tsx', 'app.json', 'package*.json', 'scripts/**', 'native-deps/**', '.github/workflows/android-acceptance.yml']
   workflow_dispatch:
     inputs:

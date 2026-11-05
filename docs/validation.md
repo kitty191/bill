@@ -260,3 +260,13 @@
 - 1000 条虚构账单、9 次切页，三个页面均 0 次重复渲染，运行错误为空，见 [性能记录](paging-performance-v0.6.1.json)。临时计数代码已恢复，安装包内没有计数标记；这不是原生 FPS。
 - Android Release 构建通过，版本 0.6.1 / versionCode 19，32,637,367 字节，源码提交 `7cdc9dc0dd8908473e428ebb31445232c163f954`。沿用 v0.6.0 签名，APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、独立 Hermes / 原生模块、权限和临时计数器缺席检查通过，见 `downloads/qingzhang-v0.6.1-android-arm64-verification.json`。
 - 原生真机安装、嵌套弹层、键盘、系统动态字体、减少透明度、后台、SQLite 桥、认证、分享与触感尚未验收。浏览器放大文字和云端检查不能代替手机测试。账本 schema 仍为 4，没有可安装 IPA。
+
+## v0.7.0 最终发布校验
+
+2026-11-05（Asia/Shanghai）。类型检查、220 项单元 / 组件测试、79 项完整 Chromium 交互回归、网页 / iOS 资源导出和 Android Release 构建通过。1000 条虚构账单、9 次切页，三个页面均 0 次额外渲染；不代表原生帧率。
+
+Android 版本 0.7.0 / versionCode 20，32,660,207 字节，源码提交 `eb9544a887d5ea609e88e431f89606e403935edf`。沿用 v0.6.1 签名，APK v2、16 KB 对齐、CRC、ARM64、模块、权限与计数器缺席检查通过，见 `downloads/qingzhang-v0.7.0-android-arm64-verification.json`。原生 CI 实际结果、备份边界及性能解释见 [审查记录](review-v0.7.0.md)。
+
+云端没有连接真实手机，真机帧率、中文键盘、触感及 iOS 目录授权仍待实机验收。三组网页性能数据没有显示稳定提速，不宣称百分比性能提升。iOS 可能需要重新选择目录，备份文件不加密、不自动上传。IPA 尚未生成。
+
+Android 原生 CI [#42011898365](https://github.com/kitty191/bill/actions/runs/42011898365) 全部通过，完整结果与模拟器图形性能限制见 [原生报告](native-report-v0.7.0.json) 和 [审查](review-v0.7.0.md)。两份 Release 测试包使用临时 CI 签名，原签名 ARM64 预览包独立核验；不等于已完成真实手机安装或帧率验收。

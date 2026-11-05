@@ -1,0 +1,114 @@
+{
+  "completed": false,
+  "requested_pairs": 3,
+  "completed_samples": [
+    {
+      "version": "baseline",
+      "result": {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1576.473834,
+        "navigationMs": 224.60585599999968,
+        "searchMs": 233.35537399999976,
+        "clearMs": 123.88570800000025,
+        "saveMs": 797.852907,
+        "jsHeapBytes": 55511076,
+        "domNodes": 1388,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      }
+    },
+    {
+      "version": "candidate",
+      "result": {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 2531.816267,
+        "navigationMs": 277.73657600000024,
+        "searchMs": 254.0503720000006,
+        "clearMs": 1475.3648140000005,
+        "saveMs": 3490.15748,
+        "jsHeapBytes": 43996432,
+        "domNodes": 1523,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      }
+    },
+    {
+      "version": "candidate",
+      "result": {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1343.443186,
+        "navigationMs": 204.4027299999998,
+        "searchMs": 290.8909389999999,
+        "clearMs": 235.59064799999942,
+        "saveMs": 2766.1083850000005,
+        "jsHeapBytes": 64369072,
+        "domNodes": 1511,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      }
+    },
+    {
+      "version": "baseline",
+      "result": {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 4610.257375,
+        "navigationMs": 193.88885899999968,
+        "searchMs": 306.23596799999996,
+        "clearMs": 247.707093,
+        "saveMs": 1186.7860609999989,
+        "jsHeapBytes": 59555252,
+        "domNodes": 1452,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      }
+    },
+    {
+      "version": "baseline",
+      "result": {
+        "records": 10000,
+        "mountedEntryRows": 11,
+        "startupMs": 1579.9112539999999,
+        "navigationMs": 216.48334599999998,
+        "searchMs": 213.4115179999999,
+        "clearMs": 127.77923899999996,
+        "saveMs": 734.3451329999998,
+        "jsHeapBytes": 55436184,
+        "domNodes": 1388,
+        "runtimeErrors": [],
+        "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+      }
+    }
+  ],
+  "failure": "Sixth sample: programmatic empty fill did not clear the controlled search field; expected original row not found within 5 s. No complete-pair median is reported.",
+  "manual_clear_button_check": {
+    "records": 10000,
+    "mountedEntryRows": 11,
+    "startupMs": 5728.794963,
+    "navigationMs": 880.056697,
+    "searchMs": 278.2197560000004,
+    "clearMs": 1017.2690550000007,
+    "saveMs": 774.889772999999,
+    "jsHeapBytes": 52648680,
+    "domNodes": 1562,
+    "runtimeErrors": [],
+    "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+  },
+  "platform": "Cloud Chromium, not native FPS; failed run retained rather than counted as a performance improvement",
+  "keyboard_clear_check": {
+    "records": 10000,
+    "mountedEntryRows": 11,
+    "startupMs": 1366.662643,
+    "navigationMs": 250.86246200000005,
+    "searchMs": 122.08583500000032,
+    "clearMs": 223.41857600000003,
+    "saveMs": 693.8748620000006,
+    "jsHeapBytes": 45326880,
+    "domNodes": 1458,
+    "runtimeErrors": [],
+    "platform": "Chromium web, one sample; not native FPS or mobile storage timing"
+  }
+}
