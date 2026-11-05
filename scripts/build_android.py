@@ -61,6 +61,10 @@ def main():
               '-PreactNativeArchitectures=' + architecture,
               '-Porg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m',
               '-I', str(ROOT / 'scripts/android-release.init.gradle')]
+    # Hosted acceptance can select an available public SDK independently of
+    # the managed preview toolchain. Production builds keep their defaults.
+    for variable, property_name in [('QINGZHANG_COMPILE_SDK', 'android.compileSdkVersion'), ('QINGZHANG_BUILD_TOOLS_VERSION', 'android.buildToolsVersion')]:
+        if env.get(variable): gradle += ['-P' + property_name + '=' + env[variable]]
     installations = [str(path) for path in (TOOLS / 'java').glob('jdk-*') if path.is_dir()]
     installations += [value for value in env.get('QINGZHANG_JAVA_INSTALLATIONS', '').split(os.pathsep) if value and Path(value).is_dir()]
     if installations:

@@ -115,7 +115,7 @@ def main():
     parser.add_argument('--serial',default=os.environ.get('ANDROID_SERIAL'))
     args=parser.parse_args(); args.output.mkdir(parents=True,exist_ok=True)
     sdk=Path(os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT','')))
-    binaries=sdk/'build-tools'/'37.0.0'
+    binaries=sdk/'build-tools'/os.environ.get('QINGZHANG_BUILD_TOOLS_VERSION','37.0.0')
     def apk_info(file):
         info=subprocess.check_output([str(binaries/'aapt'),'dump','badging',str(file.resolve())],text=True)
         package=re.search(r"package: name='([^']+)' versionCode='(\d+)'",info)
