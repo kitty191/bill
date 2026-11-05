@@ -1,3 +1,4 @@
+import { MonthPicker } from '../components/MonthPicker';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -17,7 +18,6 @@ import {
   Button,
   EmptyState,
   Icon,
-  MonthPicker,
   MoneyText,
   SectionTitle,
   Txt,

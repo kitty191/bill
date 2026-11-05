@@ -6,6 +6,7 @@ import {
   refundAmounts,
   type Entry,
   parseAmount,
+  amountInput,
 } from './ledger';
 
 export type EntryFilters = {
@@ -42,6 +43,21 @@ export function validateFilters(filters: EntryFilters) {
 }
 export function amountBound(value?: string): number | null {
   return value?.trim() ? parseAmount(value, true) : null;
+}
+export function amountFilterLabel(
+  filters: EntryFilters,
+  hidden: boolean,
+): string {
+  const min = amountBound(filters.minAmount),
+    max = amountBound(filters.maxAmount);
+  if (min === null && max === null) return '';
+  if (hidden) return '金额条件';
+  const display = (amount: number) => amountInput(amount).replace(/\.00$/, '');
+  if (min !== null && max !== null)
+    return min === max
+      ? `¥${display(min)}`
+      : `¥${display(min)}–${display(max)}`;
+  return min !== null ? `≥¥${display(min)}` : `≤¥${display(max!)}`;
 }
 function queryAmount(value: string): number | null {
   try {

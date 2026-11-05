@@ -87,12 +87,12 @@ export function Sheet({
   const closing = useSharedValue(false);
   const close = useCallback(() => {
     if (closing.value) return;
+    closing.value = true;
     Keyboard.dismiss();
     if (reduce) {
       onClose();
       return;
     }
-    closing.value = true;
     translation.value = withTiming(
       panelHeight.value + 30,
       { duration: motion.dismiss },

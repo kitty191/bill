@@ -8,6 +8,12 @@ export function useEntryDraft(draft: EntryDraft, restored: boolean) {
   const latest = useRef(draft);
   latest.current = draft;
   const stopped = useRef(false);
+  const identity = useRef(draft.id);
+  if (identity.current !== draft.id) {
+    identity.current = draft.id;
+    initial.current = JSON.stringify(draft);
+    stopped.current = false;
+  }
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState('');
   const flush = async () => {
@@ -56,6 +62,7 @@ export function useEntryDraft(draft: EntryDraft, restored: boolean) {
       if (timer.current) clearTimeout(timer.current);
       try {
         await clearEntryDraft(draft.id);
+        setError('');
       } catch {
         stopped.current = false;
         throw new Error('草稿清除失败，请重试关闭');

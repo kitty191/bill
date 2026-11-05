@@ -1,3 +1,4 @@
+import { MonthPicker } from '../components/MonthPicker';
 import React, {
   useCallback,
   useDeferredValue,
@@ -28,16 +29,16 @@ import {
   filterEntryIndex,
   emptyFilters,
   entryGroups,
+  amountFilterLabel,
 } from '../domain/entryFilters';
 import { EntryFilterSheet } from '../components/EntryFilterSheet';
-import { useMoney } from '../state/PrivacyContext';
+import { useAmountsHidden, useMoney } from '../state/PrivacyContext';
 import {
   Button,
   Card,
   EmptyState,
   EntryRow,
   Icon,
-  MonthPicker,
   MoneyText,
   Txt,
   dateHeading,
@@ -108,12 +109,14 @@ export function EntriesScreen({
   );
   useImperativeHandle(listRef, () => ({ scrollToTop }), [scrollToTop]);
   const money = useMoney();
+  const amountsHidden = useAmountsHidden();
   const [filter, setFilter] = useState<EntryKind | 'all'>('all');
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const filtering = query !== deferredQuery;
   const [advanced, setAdvanced] = useState(emptyFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const amountLabel = amountFilterLabel(advanced, amountsHidden);
   const active =
     !!deferredQuery ||
     filter !== 'all' ||
@@ -406,11 +409,9 @@ export function EntriesScreen({
               : ''}
             {advanced.accountId !== 'all'
               ? ` · ${ledger.accounts.find((account) => account.id === advanced.accountId)?.name}`
-              : ''}{' '}
-            {advanced.minAmount?.trim() || advanced.maxAmount?.trim()
-              ? ' · 金额条件'
               : ''}
-            · {entries.length} 笔
+            {amountLabel ? ` · ${amountLabel}` : ''}
+            {` · ${entries.length} 笔`}
           </Txt>
           <Button
             variant="plain"

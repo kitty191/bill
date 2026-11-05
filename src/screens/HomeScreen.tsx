@@ -1,3 +1,4 @@
+import { MonthPicker } from '../components/MonthPicker';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,7 +22,6 @@ import {
   EmptyState,
   EntryRow,
   Icon,
-  MonthPicker,
   MoneyText,
   SectionTitle,
   Txt,

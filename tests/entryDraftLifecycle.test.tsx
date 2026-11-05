@@ -105,3 +105,20 @@ it('reports autosave failures and refuses silent cancellation if clearing failed
   expect(controls.error).toContain('草稿未能自动保存');
   await expect(controls.cancel()).rejects.toThrow('草稿清除失败');
 });
+
+it('restarting with a new identity resumes autosave without creating a blank persisted draft', async () => {
+  await act(async () => renderer.update(<Probe value={changed} />));
+  await act(async () => controls.cancel());
+  const fresh = { ...draft, id: 'draft-b', recordId: 'record-b' };
+  await act(async () => renderer.update(<Probe value={fresh} />));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(151);
+  });
+  expect(mocks.save).not.toHaveBeenCalled();
+  const input = { ...fresh, fields: { ...fresh.fields, note: '新草稿' } };
+  await act(async () => renderer.update(<Probe value={input} />));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(151);
+  });
+  expect(mocks.save).toHaveBeenCalledExactlyOnceWith(input);
+});

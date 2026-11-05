@@ -436,54 +436,6 @@ export function SectionTitle({
   );
 }
 
-export function MonthPicker({
-  month,
-  onChange,
-  labelPrefix = '',
-  disabled = false,
-}: {
-  month: string;
-  onChange: (offset: number) => void;
-  labelPrefix?: string;
-  disabled?: boolean;
-}) {
-  const t = useTheme();
-  const [year, m] = month.split('-');
-  return (
-    <View style={[styles.row, { gap: 4, flexShrink: 1, minWidth: 0 }]}>
-      <Button
-        variant="plain"
-        label={`${labelPrefix}上个月`}
-        disabled={disabled || month === '1900-01'}
-        onPress={() => onChange(-1)}
-        style={{ width: 44, paddingHorizontal: 0 }}
-      >
-        <Icon name="left" size={17} color={t.muted} />
-      </Button>
-      <Txt
-        size={13}
-        weight="500"
-        style={{
-          fontVariant: ['tabular-nums'],
-          flexShrink: 1,
-          textAlign: 'center',
-        }}
-      >
-        {year} 年 {Number(m)} 月
-      </Txt>
-      <Button
-        variant="plain"
-        label={`${labelPrefix}下个月`}
-        disabled={disabled || month === '2200-12'}
-        onPress={() => onChange(1)}
-        style={{ width: 44, paddingHorizontal: 0 }}
-      >
-        <Icon name="right" size={17} color={t.muted} />
-      </Button>
-    </View>
-  );
-}
-
 export function EntryRow({
   entry,
   ledger,

@@ -252,3 +252,29 @@ it('commits one entry when save is pressed twice before persistence or the exit 
   expect(props.onSaved).toHaveBeenCalledOnce();
   expect(props.onClose).toHaveBeenCalledOnce();
 });
+
+it('waits for draft cleanup before closing even if dismissal fires twice', async () => {
+  const { clearEntryDraft } = await import('../src/storage/entryDraftStore');
+  const { Sheet } = await import('../src/components/Sheet');
+  let finish: () => void = () => {};
+  vi.mocked(clearEntryDraft).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  mocks.ledger = emptyLedger();
+  mocks.visible = true;
+  const props = { onClose: vi.fn(), onRefund: vi.fn(), onSaved: vi.fn() };
+  await act(async () => {
+    renderer = create(<EntryEditor {...props} />);
+  });
+  const close = renderer.root.findByType(Sheet).props.onClose;
+  await act(async () => {
+    close();
+    close();
+  });
+  expect(props.onClose).not.toHaveBeenCalled();
+  await act(async () => finish());
+  expect(props.onClose).toHaveBeenCalledOnce();
+});

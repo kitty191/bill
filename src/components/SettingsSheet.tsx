@@ -1,3 +1,4 @@
+import { MonthPicker } from './MonthPicker';
 import React, { useEffect, useState } from 'react';
 import { Switch, TextInput, View } from 'react-native';
 import { useLedger } from '../state/LedgerProvider';
@@ -28,7 +29,7 @@ import { SnapshotManager } from './SnapshotManager';
 import { RecurringManager } from './RecurringManager';
 import { useTheme } from '../theme';
 import { Sheet } from './Sheet';
-import { Button, Icon, MonthPicker, SectionTitle, Txt, styles } from './ui';
+import { Button, Icon, SectionTitle, Txt, styles } from './ui';
 import appConfig from '../../app.json';
 
 export function SettingsSheet({

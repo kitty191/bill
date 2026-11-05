@@ -1,5 +1,5 @@
 import React, { useReducer, useRef, useState } from 'react';
-import { ScrollView, Switch, TextInput, View } from 'react-native';
+import { Keyboard, ScrollView, Switch, TextInput, View } from 'react-native';
 import { feedback } from '../motion';
 import {
   type Entry,
@@ -31,13 +31,13 @@ import {
 } from '../domain/calculator';
 
 export function EntryEditor({
-  entry,
-  repeatSource,
-  refundOf,
-  templateId,
-  recurringId,
-  recurringDate,
-  restoredDraft,
+  entry: sourceEntry,
+  repeatSource: sourceRepeat,
+  refundOf: sourceRefund,
+  templateId: sourceTemplateId,
+  recurringId: sourceRecurringId,
+  recurringDate: sourceRecurringDate,
+  restoredDraft: sourceDraft,
   draftWarning,
   onRefund,
   onRepeat,
@@ -57,12 +57,22 @@ export function EntryEditor({
   onClose: () => void;
   onSaved: (message: string, date: string, entryId?: string) => void;
 }) {
+  const [restarted, setRestarted] = useState(false);
+  const entry = restarted ? undefined : sourceEntry;
+  const repeatSource = restarted ? undefined : sourceRepeat;
+  const refundOf = restarted ? undefined : sourceRefund;
+  const templateId = restarted ? undefined : sourceTemplateId;
+  const recurringId = restarted ? undefined : sourceRecurringId;
+  const recurringDate = restarted ? undefined : sourceRecurringDate;
+  const restoredDraft = restarted ? undefined : sourceDraft;
   const t = useTheme();
   const details = useRef<React.ComponentRef<typeof View>>(null);
   const sheet = useRef<SheetHandle>(null);
   const operation = useRef(false);
+  const committed = useRef(false);
   const [closing, setClosing] = useState(false);
   const [working, setWorking] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const {
     ledger,
     update,
@@ -71,12 +81,13 @@ export function EntryEditor({
   } = useLedger();
   const saving = persistenceSaving || closing || working;
   const closeAfterSave = () => {
+    committed.current = true;
     setClosing(true);
     if (sheet.current) sheet.current.close();
     else onClose();
   };
   const data = ledger!;
-  const [identity] = useState(
+  const [identity, setIdentity] = useState(
     () =>
       restoredDraft ??
       draftIdentity(
@@ -170,7 +181,7 @@ export function EntryEditor({
   );
   const dismiss = async () => {
     if (operation.current) {
-      onClose();
+      if (committed.current) onClose();
       return;
     }
     operation.current = true;
@@ -183,6 +194,41 @@ export function EntryEditor({
       setWorking(false);
       sheet.current?.reopen();
       setError(failure instanceof Error ? failure.message : '关闭失败，请重试');
+    }
+  };
+  const restart = async () => {
+    if (operation.current || saving) return;
+    operation.current = true;
+    setWorking(true);
+    setResetting(true);
+    setError('');
+    try {
+      await autosave.cancel();
+      const defaults = entryDefault(data, 'expense');
+      Keyboard.dismiss();
+      setRestarted(true);
+      setIdentity(draftIdentity({}, data));
+      setKind('expense');
+      dispatchAmount({ type: 'seed', value: '' });
+      setCategoryId(defaults.categoryId);
+      setAccountId(defaults.accountId);
+      setToAccountId(
+        data.accounts.find((account) => account.id !== defaults.accountId)
+          ?.id ?? '',
+      );
+      setDate(localDate());
+      setNote('');
+      setSaveTemplate(false);
+      setTemplateName('');
+      setConfirmDelete(false);
+    } catch (failure) {
+      setError(
+        failure instanceof Error ? failure.message : '重新记账失败，请重试',
+      );
+    } finally {
+      operation.current = false;
+      setWorking(false);
+      setResetting(false);
     }
   };
   const changeAmount = (action: CalculatorAction) => {
@@ -333,21 +379,39 @@ export function EntryEditor({
             onPress={() => void save()}
             style={{ minHeight: 50, borderRadius: 18 }}
           >
-            {saving
-              ? '正在保存…'
-              : entry
-                ? '保存修改'
-                : kind === 'refund'
-                  ? '确认退款'
-                  : '记好了'}
+            {resetting
+              ? '正在清除草稿…'
+              : saving
+                ? '正在保存…'
+                : entry
+                  ? '保存修改'
+                  : kind === 'refund'
+                    ? '确认退款'
+                    : '记好了'}
           </Button>
         </View>
       }
     >
       {!!restoredDraft && (
-        <Txt size={12} color={t.muted} style={{ marginBottom: 10 }}>
-          已恢复上次未完成的记账，确认后才会保存。
-        </Txt>
+        <View
+          style={[
+            styles.row,
+            { marginBottom: 10, alignItems: 'center', gap: 6 },
+          ]}
+        >
+          <Txt size={12} color={t.muted} style={{ flex: 1 }}>
+            已恢复上次未完成的记账，确认后才会保存。
+          </Txt>
+          <Button
+            label="放弃草稿，重新记一笔"
+            variant="plain"
+            disabled={saving}
+            onPress={() => void restart()}
+            style={{ paddingHorizontal: 8, minHeight: 44 }}
+          >
+            重新记
+          </Button>
+        </View>
       )}
       {kind !== 'refund' && !recurringId && (
         <View

@@ -3,6 +3,18 @@ import { localDate, validDate } from './ledger';
 export function validMonth(month: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(month) && validDate(`${month}-01`);
 }
+export function pickerYear(value: string): number | null {
+  const year = Number(value);
+  return /^\d{4}$/.test(value) && year >= 1900 && year <= 2200 ? year : null;
+}
+export function monthOffset(from: string, to: string): number {
+  if (!validMonth(from) || !validMonth(to)) throw new Error('月份无效');
+  return (
+    (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 +
+    Number(to.slice(5)) -
+    Number(from.slice(5))
+  );
+}
 export function monthRange(month: string) {
   if (!validMonth(month)) throw new Error('月份无效');
   return {
