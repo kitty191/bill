@@ -199,6 +199,7 @@ test('recurring reminders default off, survive reload, prefill without recording
     .getByRole('switch', { name: '启用周期账单提醒', exact: true })
     .check();
   await page.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(
     page.getByRole('button', { name: '确认周期账单房租', exact: true }),
   ).toBeVisible();

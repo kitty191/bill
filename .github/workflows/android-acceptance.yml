@@ -21,8 +21,8 @@ jobs:
     env:
       CI: 'true'
       EXPO_OFFLINE: '1'
-      QINGZHANG_COMPILE_SDK: '36'
-      QINGZHANG_BUILD_TOOLS_VERSION: '36.0.0'
+      QINGZHANG_COMPILE_SDK: '37'
+      QINGZHANG_BUILD_TOOLS_VERSION: '37.0.0'
       BASELINE_REF: ${{ inputs.baseline_ref || 'v0.6.1-android-preview' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
@@ -43,7 +43,7 @@ jobs:
         with:
           packages: platform-tools
       - name: Android SDK components
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
       - name: Emulator-only release builds
         run: |
           export QINGZHANG_JAVA_INSTALLATIONS="${JAVA_HOME_17_X64:-}:$JAVA_HOME"
