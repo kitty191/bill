@@ -11,7 +11,7 @@ export default defineConfig({
     timezoneId: 'Asia/Shanghai',
     reducedMotion: 'reduce',
     launchOptions: {
-      executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
+      executablePath: process.env.CHROMIUM_PATH || (process.env.CI ? undefined : '/usr/bin/chromium'),
       args: ['--no-sandbox'],
     },
     screenshot: 'only-on-failure',
