@@ -54,6 +54,7 @@ test('large amounts remain fully readable on narrow screens, after resize and pr
   await expect(page.getByTestId('month-expense')).toHaveText('••••');
   await page.setViewportSize({ width: 320, height: 740 });
   await page.getByRole('button', { name: '显示金额', exact: true }).click();
+  await expect(page.getByTestId('month-expense')).toHaveText('9,999,999.99');
   await expectReadable(page, 'month-expense');
   await expectReadable(page, 'today-expense');
   await expectReadable(page, 'month-net');

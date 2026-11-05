@@ -31,9 +31,15 @@ async function longPress(page: Page, row: Locator) {
   await row.scrollIntoViewIfNeeded();
   const box = (await row.boundingBox())!;
   const touch = await page.context().newCDPSession(page);
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
+  });
   await expect(page.getByText('账单快捷操作', { exact: true })).toBeVisible();
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
   await expect(
     page.getByRole('textbox', { name: '金额', exact: true }),
   ).toHaveCount(0);

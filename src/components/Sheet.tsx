@@ -3,6 +3,7 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
+  useEffect,
 } from 'react';
 import {
   KeyboardAvoidingView,
@@ -63,6 +64,19 @@ export function Sheet({
   const reduce = useReducedMotion();
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const content = useRef<React.ComponentRef<typeof View>>(null);
+  const focusedInput = useRef<number | null>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (focusedInput.current !== null)
+        scroll.current?.scrollResponderScrollNativeHandleToKeyboard(
+          focusedInput.current,
+          16,
+          true,
+        );
+    });
+    return () => subscription.remove();
+  }, []);
   const reveal = useCallback(
     (target: React.RefObject<React.ComponentRef<typeof View> | null>) => {
       requestAnimationFrame(() => {
@@ -177,12 +191,15 @@ export function Sheet({
       visible={visible && privacy.phase === 'unlocked'}
       transparent
       animationType="none"
-      onRequestClose={dismiss}
+      onRequestClose={() => {
+        if (Keyboard.isVisible?.()) Keyboard.dismiss();
+        else dismiss();
+      }}
       statusBarTranslucent
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{
             flex: 1,
             justifyContent: 'flex-end',
@@ -286,6 +303,13 @@ export function Sheet({
             </View>
             <ScrollView
               ref={scroll}
+              onFocus={(event) => {
+                if (Platform.OS !== 'web')
+                  focusedInput.current = event.nativeEvent.target;
+              }}
+              onBlur={() => {
+                focusedInput.current = null;
+              }}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               contentContainerStyle={{

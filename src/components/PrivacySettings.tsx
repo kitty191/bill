@@ -3,6 +3,7 @@ import { Switch, View } from 'react-native';
 import { usePrivacy } from '../state/PrivacyContext';
 import { useTheme } from '../theme';
 import { Button, SectionTitle, Txt, styles } from './ui';
+import { AutomaticBackupSettings } from './AutomaticBackupSettings';
 
 export function PrivacySettings({
   onBack,
@@ -149,6 +150,7 @@ export function PrivacySettings({
           {error}
         </Txt>
       )}
+      <AutomaticBackupSettings />
     </>
   );
 }

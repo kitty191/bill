@@ -253,6 +253,9 @@ export function SwipePager({
                   style={{
                     width,
                     height: viewport.height,
+                    ...(IS_WEB
+                      ? { scrollSnapAlign: 'start', scrollSnapStop: 'always' }
+                      : {}),
                   }}
                 >
                   {page.content}

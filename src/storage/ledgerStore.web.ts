@@ -44,7 +44,7 @@ export async function loadLedger(): Promise<Ledger> {
 export async function saveLedger(
   ledger: Ledger,
   options?: SaveLedgerOptions,
-): Promise<void> {
+): Promise<Ledger> {
   const valid = validateLedger(ledger);
   const payload = JSON.stringify(valid);
   const current = localStorage.getItem(key);
@@ -89,6 +89,7 @@ export async function saveLedger(
       /* Entry is already committed. */
     }
   }
+  return valid;
 }
 export async function loadLegacyLedger(): Promise<string | null> {
   const before4 = localStorage.getItem('qingzhang.ledger.before-v4');

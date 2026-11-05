@@ -11,6 +11,7 @@ import {
 const faults = vi.hoisted(() => ({
   failSnapshot: false,
   failLedger: false,
+  failDraft: false,
   writes: [] as { sql: string; bytes: number }[],
 }));
 let database: DatabaseSync;
@@ -42,6 +43,8 @@ vi.mock('expo-sqlite', () => ({
           throw new Error('快照空间不足');
         if (faults.failLedger && sql.startsWith('INSERT INTO ledger'))
           throw new Error('账本写入失败');
+        if (faults.failDraft && sql.startsWith('DELETE FROM entry_draft'))
+          throw new Error('草稿消费失败');
         database.prepare(sql).run(...args);
       },
       withExclusiveTransactionAsync: async (
@@ -68,6 +71,7 @@ const key = 'qingzhang.ledger.v1',
 let failWebKey = '';
 beforeEach(async () => {
   faults.failLedger = false;
+  faults.failDraft = false;
   faults.failSnapshot = false;
   failWebKey = '';
   data.clear();
@@ -343,4 +347,34 @@ it('conditionally clears web drafts without discarding newer work and clears dra
   await web.saveEntryDraftRaw('{"id":"draft-a"}');
   await web.saveLedger(changed(2), { clearDraft: true });
   expect(await web.loadEntryDraftRaw()).toBeNull();
+});
+
+it('failure consuming a draft after the ledger write rolls back the complete native transaction', async () => {
+  await native.saveLedger(changed(100));
+  await native.saveEntryDraftRaw('{"id":"pending-draft"}');
+  const history = await native.loadSnapshots();
+  faults.failDraft = true;
+  await expect(
+    native.saveLedger(changed(200), { consumeDraftId: 'pending-draft' }),
+  ).rejects.toThrow('草稿消费失败');
+  expect(await native.loadLedger()).toEqual(changed(100));
+  expect(await native.loadEntryDraftRaw()).toBe('{"id":"pending-draft"}');
+  expect(await native.loadSnapshots()).toEqual(history);
+  faults.failDraft = false;
+  const committed = await native.saveLedger(changed(200), {
+    consumeDraftId: 'pending-draft',
+  });
+  expect(committed).toEqual(await native.loadLedger());
+  expect(await native.loadEntryDraftRaw()).toBeNull();
+});
+it('returns the validated canonical value and rejects invalid money before changing native storage', async () => {
+  const input = changed(100);
+  input.accounts[0]!.name = '  现金账户  ';
+  const committed = await native.saveLedger(input);
+  expect(committed.accounts[0]!.name).toBe('现金账户');
+  expect(await native.loadLedger()).toEqual(committed);
+  await expect(
+    native.saveLedger({ ...input, monthlyBudget: 0.1 }),
+  ).rejects.toThrow();
+  expect(await native.loadLedger()).toEqual(committed);
 });

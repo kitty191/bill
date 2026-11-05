@@ -1,5 +1,6 @@
 import React, {
   memo,
+  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -67,6 +68,10 @@ import { usePrivacy } from './src/state/PrivacyContext';
 import { useLocalDate } from './src/state/useLocalDate';
 import { SnapshotManager } from './src/components/SnapshotManager';
 import { Sheet } from './src/components/Sheet';
+import {
+  AutomaticBackupProvider,
+  useAutomaticBackup,
+} from './src/state/AutomaticBackupProvider';
 
 const PAGE_KEYS: Tab[] = ['home', 'entries', 'stats'];
 const MemoHomeScreen = memo(HomeScreen);
@@ -81,9 +86,11 @@ export default function App() {
         <ThemeProvider>
           <PrivacyProvider>
             <LedgerProvider>
-              <PrivacyGuard>
-                <Main />
-              </PrivacyGuard>
+              <AutomaticBackupProvider>
+                <PrivacyGuard>
+                  <Main />
+                </PrivacyGuard>
+              </AutomaticBackupProvider>
             </LedgerProvider>
           </PrivacyProvider>
         </ThemeProvider>
@@ -110,6 +117,20 @@ function Main() {
   const [recovery, setRecovery] = useState<Ledger | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
+  const [statsReady, setStatsReady] = useState(false);
+  useEffect(() => {
+    if (!ledger || statsReady) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() =>
+        startTransition(() => setStatsReady(true)),
+      );
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      if (second) cancelAnimationFrame(second);
+    };
+  }, [ledger, statsReady]);
   const [navigationKey, setNavigationKey] = useState(0);
   const tabRef = useRef<Tab>('home');
   const pageProgress = useSharedValue(0);
@@ -134,6 +155,7 @@ function Main() {
   >(false);
   const [snapshotRecovery, setSnapshotRecovery] = useState(false);
   const privacy = usePrivacy();
+  const automaticBackup = useAutomaticBackup();
   const [notice, setNotice] = useState<{
     message: string;
     entryId?: string;
@@ -150,6 +172,9 @@ function Main() {
   useEffect(() => {
     if (backgroundError && !settings) setToast(backgroundError);
   }, [backgroundError, settings]);
+  useEffect(() => {
+    if (automaticBackup.error && !settings) setToast(automaticBackup.error);
+  }, [automaticBackup.error, settings]);
   const blurTarget = useRef<React.ComponentRef<typeof View>>(null);
   useEffect(() => {
     if (!notice) return;
@@ -160,6 +185,7 @@ function Main() {
     return () => clearTimeout(timer);
   }, [notice]);
   const selectTab = useCallback((next: Tab) => {
+    if (next === 'stats') setStatsReady(true);
     if (tabRef.current === next) return;
     tabRef.current = next;
     Keyboard.dismiss();
@@ -334,13 +360,23 @@ function Main() {
                       onRecurring={openRecurring}
                       onRecurringSettings={openRecurringSettings}
                     />
-                  ) : (
+                  ) : statsReady ? (
                     <MemoStatsScreen
                       today={today}
                       ledger={ledger}
                       month={month}
                       onMonth={onMonth}
                     />
+                  ) : (
+                    <View
+                      style={{
+                        minHeight: 200,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <ActivityIndicator accessibilityLabel="正在准备统计" />
+                    </View>
                   )}
                 </ScrollView>
               ),
@@ -363,6 +399,7 @@ function Main() {
       entriesTarget,
       insets.bottom,
       today,
+      statsReady,
     ],
   );
 

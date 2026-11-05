@@ -35,7 +35,13 @@ class Device:
             time.sleep(.25)
         raise AssertionError('Native control did not appear: '+label)
     def tap(self,label):
-        _,b = self.wait(label); self.shell('input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2))
+        end=time.monotonic()+30
+        while time.monotonic()<end:
+            node,b = self.wait(label)
+            if node.get('enabled','true')!='false':
+                self.shell('input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)); return
+            time.sleep(.2)
+        raise AssertionError('Native control remained disabled: '+label)
     def launch(self):
         self.shell('am','force-stop',PACKAGE)
         result = self.shell('am','start','-W','-n',PACKAGE+'/.MainActivity')
@@ -57,6 +63,50 @@ class Device:
             draft = connection.execute('SELECT payload FROM entry_draft WHERE id = 1').fetchone()
         return json.loads(payload[0]) if payload else None, json.loads(draft[0]) if draft else None
 
+    def contains(self, text, timeout=40):
+        end=time.monotonic()+timeout
+        while time.monotonic()<end:
+            for node in self.tree().iter('node'):
+                if text in node.get('text','') or text in node.get('content-desc',''): return
+            time.sleep(.25)
+        raise AssertionError('Native text did not appear: '+text)
+    def tap_any(self, labels, timeout=30):
+        end=time.monotonic()+timeout
+        while time.monotonic()<end:
+            for node in self.tree().iter('node'):
+                if any(node.get('text','').casefold()==value.casefold() or node.get('content-desc','').casefold()==value.casefold() for value in labels):
+                    b=[int(value) for value in re.findall(r'\d+',node.get('bounds',''))]
+                    if len(b)==4 and b[2]>b[0] and b[3]>b[1]: self.shell('input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)); return
+            time.sleep(.25)
+        raise AssertionError('Native picker control missing: '+str(labels))
+    def scroll_to(self,label):
+        for _ in range(10):
+            if self.find(label): return
+            self.shell('input','swipe','500','1400','500','650','250')
+        self.wait(label)
+    def storage_gate(self, mode):
+        self.shell('am','force-stop',PACKAGE)
+        location=self.shell('find','/data/user/0/'+PACKAGE,'-name','qingzhang.db').strip().splitlines()
+        if len(location)!=1: raise AssertionError('Native fixture database missing')
+        remote=location[0]
+        owner=self.shell('stat','-c','%u:%g',remote).strip()
+        with tempfile.TemporaryDirectory() as temporary:
+            folder=Path(temporary)
+            for suffix in ['', '-wal','-shm']:
+                try: (folder/('qingzhang.db'+suffix)).write_bytes(self.call('exec-out','cat',remote+suffix,binary=True))
+                except subprocess.CalledProcessError:
+                    if not suffix: raise
+            file=folder/'qingzhang.db'
+            with sqlite3.connect(file) as connection:
+                connection.execute('DROP TRIGGER IF EXISTS qingzhang_ci_storage_gate')
+                if mode=='fail': connection.execute("CREATE TRIGGER qingzhang_ci_storage_gate BEFORE INSERT ON ledger BEGIN SELECT RAISE(ABORT, 'ci-storage-failure'); END")
+                if mode=='delay': connection.execute("CREATE TRIGGER qingzhang_ci_storage_gate BEFORE INSERT ON ledger BEGIN SELECT sum(x) FROM (WITH RECURSIVE numbers(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM numbers WHERE x<100000000) SELECT x FROM numbers); END")
+                connection.commit(); connection.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+            self.call('push',str(file),'/data/local/tmp/qingzhang-ci-ledger.db')
+            self.shell('rm','-f',remote+'-wal',remote+'-shm')
+            self.shell('cp','/data/local/tmp/qingzhang-ci-ledger.db',remote)
+            self.shell('chown',owner,remote); self.shell('chmod','600',remote)
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline',type=Path,required=True)
@@ -64,13 +114,27 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--serial',default=os.environ.get('ANDROID_SERIAL'))
     args=parser.parse_args(); args.output.mkdir(parents=True,exist_ok=True)
+    sdk=Path(os.environ.get('ANDROID_HOME',os.environ.get('ANDROID_SDK_ROOT','')))
+    binaries=sdk/'build-tools'/'37.0.0'
+    def apk_info(file):
+        info=subprocess.check_output([str(binaries/'aapt'),'dump','badging',str(file.resolve())],text=True)
+        package=re.search(r"package: name='([^']+)' versionCode='(\d+)'",info)
+        assert package and package.group(1)==PACKAGE,'Acceptance APK package differs'
+        signature=subprocess.check_output([str(binaries/'apksigner'),'verify','--print-certs',str(file.resolve())],text=True)
+        certificate=re.search(r'certificate SHA-256 digest: (\S+)',signature).group(1)
+        assert 'application-debuggable' not in info,'Acceptance requires a standalone release build'
+        return int(package.group(2)),certificate
+    old_version,old_certificate=apk_info(args.baseline)
+    new_version,new_certificate=apk_info(args.candidate)
+    assert new_version>old_version,'Candidate must be a newer installed version'
+    assert old_certificate==new_certificate,'Baseline and candidate upgrade signatures must match'
     device=Device(args.serial)
     # This destructive fixture workflow never targets a user's real phone.
     if device.shell('getprop','ro.kernel.qemu').strip()!='1': raise SystemExit('Acceptance fixtures require a fresh emulator; no real-phone data is modified.')
     if PACKAGE in device.shell('pm','list','packages',PACKAGE): raise SystemExit('Use a fresh emulator: the acceptance test will not erase existing app data.')
     device.call('root'); device.call('wait-for-device')
     device.shell('settings','put','secure','show_ime_with_hard_keyboard','1')
-    results={'platform':'Android emulator; not a physical phone or 120 Hz FPS claim','checks':{}}
+    results={'platform':'Android emulator; not a physical phone or 120 Hz FPS claim','baseline_version_code':old_version,'candidate_version_code':new_version,'same_test_signer':True,'checks':{}}
     try:
         device.call('install','-r',str(args.baseline.resolve()))
         results['baseline_start']=device.launch()
@@ -83,6 +147,7 @@ def main():
         device.tap('备注'); device.shell('input','text','upgrade-check')
         device.shell('input','keyevent','4')
         device.wait('记好了'); device.tap('记好了'); device.wait('记一笔')
+        device.tap('隐藏金额')
         device.tap('记一笔')
         for key in '8+2': device.tap('计算键'+key)
         device.shell('input','keyevent','3'); time.sleep(1)
@@ -92,12 +157,14 @@ def main():
         assert old_draft['fields']['calculator']['expression']=='8+2'
         device.call('install','-r',str(args.candidate.resolve()))
         results['candidate_start']=device.launch()
+        device.wait('显示金额')
+        results['checks']['upgrade_preserves_privacy_preference']=True
         with tempfile.TemporaryDirectory() as temporary:
             after,new_draft=device.data(Path(temporary))
         assert after==before,'Upgrade changed persisted financial data'
         assert new_draft==old_draft,'Upgrade lost the unfinished calculator draft'
         results['checks']['upgrade_preserves_ledger_and_draft']=True
-        device.launch(); device.tap('记一笔'); device.wait('放弃草稿，重新记一笔')
+        device.launch(); device.tap('显示金额'); device.tap('记一笔'); device.wait('放弃草稿，重新记一笔')
         device.tap('放弃草稿，重新记一笔')
         for key in '5': device.tap('计算键'+key)
         device.tap('选择分类、账户和日期')
@@ -113,6 +180,46 @@ def main():
         assert len(final['entries'])==2 and sorted(item['amount'] for item in final['entries'])==[500,1234]
         assert draft is None
         results['checks']['calculator_restart_keyboard_save']=True
+        before_failure=final
+        device.storage_gate('fail'); device.launch(); device.tap('记一笔'); device.tap('计算键9'); device.tap('记好了')
+        device.contains('ci-storage-failure')
+        with tempfile.TemporaryDirectory() as temporary: unchanged,retry_draft=device.data(Path(temporary))
+        assert unchanged==before_failure and retry_draft['fields']['calculator']['expression']=='9'
+        device.storage_gate(None); device.launch(); device.tap('记一笔'); device.wait('放弃草稿，重新记一笔'); device.tap('记好了'); device.wait('记一笔')
+        with tempfile.TemporaryDirectory() as temporary: before_kill,_=device.data(Path(temporary))
+        assert len(before_kill['entries'])==3
+        results['checks']['native_write_failure_preserves_ledger_and_retry_draft']=True
+        device.storage_gate('delay'); device.launch(); device.tap('记一笔'); device.tap('计算键7'); device.tap('记好了'); device.wait('正在保存…')
+        device.shell('am','force-stop',PACKAGE)
+        with tempfile.TemporaryDirectory() as temporary: unchanged,killed_draft=device.data(Path(temporary))
+        assert unchanged==before_kill and killed_draft['fields']['calculator']['expression']=='7'
+        device.storage_gate(None); device.launch(); device.tap('记一笔'); device.tap('记好了'); device.wait('记一笔')
+        with tempfile.TemporaryDirectory() as temporary: final,draft=device.data(Path(temporary))
+        assert len(final['entries'])==4 and draft is None
+        results['checks']['process_kill_during_native_transaction_rolls_back']=True
+        device.launch(); device.tap('打开设置'); device.tap('隐私与备份提醒')
+        device.scroll_to('选择自动备份目录')
+        device.shell('mkdir','-p','/sdcard/Documents/QingzhangBackupTest')
+        device.tap('选择自动备份目录'); device.tap_any(['QingzhangBackupTest'])
+        device.tap_any(['USE THIS FOLDER','使用此文件夹']); device.tap_any(['ALLOW','允许'])
+        device.tap('每天备份')
+        end=time.monotonic()+30
+        archives=[]
+        while time.monotonic()<end:
+            archives=[name for name in device.shell('ls','/sdcard/Documents/QingzhangBackupTest').splitlines() if name.endswith('.json')]
+            if archives: break
+            time.sleep(.3)
+        assert archives,'Native automatic backup file was not created'
+        archived=json.loads(device.call('exec-out','cat','/sdcard/Documents/QingzhangBackupTest/'+archives[-1]))
+        assert archived==final
+        device.launch(); device.tap('打开设置'); device.tap('隐私与备份提醒'); device.scroll_to('立即生成自动备份'); device.tap('立即生成自动备份')
+        end=time.monotonic()+30
+        while time.monotonic()<end:
+            archives=[name for name in device.shell('ls','/sdcard/Documents/QingzhangBackupTest').splitlines() if name.endswith('.json')]
+            if len(archives)>=2: break
+            time.sleep(.3)
+        assert len(archives)>=2,'Directory grant did not survive a process restart'
+        results['checks']['native_automatic_backup_and_persisted_directory_grant']=True
         device.launch(); device.shell('dumpsys','gfxinfo',PACKAGE,'reset')
         for label in ['账单','统计','账单','首页']: device.tap(label)
         dimensions = [int(value) for value in re.findall(r'\d+',device.shell('wm','size'))][-2:]
