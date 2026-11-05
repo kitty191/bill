@@ -20,9 +20,30 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', default='v0.6.1-android-preview')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--reuse-run', default='')
     args = parser.parse_args()
     output = args.output.resolve(); output.mkdir(parents=True, exist_ok=True)
     ref = subprocess.check_output(['git','rev-parse','--verify','--end-of-options',args.baseline+'^{commit}'],cwd=ROOT,text=True).strip()
+    if args.reuse_run:
+        if not args.reuse_run.isdecimal(): raise SystemExit('Reuse run must be a numeric GitHub Actions run ID')
+        with tempfile.TemporaryDirectory(prefix='qingzhang-apk-reuse-') as temporary:
+            call(['gh','run','download',args.reuse_run,'--repo',os.environ.get('GITHUB_REPOSITORY','kitty191/bill'),'--pattern','emulator-only-apks-*','--dir',temporary])
+            manifests=list(Path(temporary).rglob('test-builds.json'))
+            if len(manifests)!=1: raise SystemExit('Expected one prior emulator build manifest')
+            manifest=manifests[0]; metadata=json.loads(manifest.read_text())
+            assert metadata['baseline_commit']==ref and metadata['architecture']=='x86_64'
+            # Reuse only when every app/build input is identical. Test scripts,
+            # workflow wiring and documentation may change independently.
+            difference=subprocess.check_output(['git','diff',metadata['candidate_commit'],'HEAD','--','App.tsx','src','assets','app.json','package.json','package-lock.json','native-deps','babel.config.js','metro.config.js','index.ts','scripts/build_android.py','scripts/android-release.init.gradle'],cwd=ROOT,text=True)
+            assert not difference,'App/build inputs changed; build fresh acceptance APKs'
+            for name in ['baseline.apk','candidate.apk']:
+                file=manifest.parent/name
+                assert hashlib.sha256(file.read_bytes()).hexdigest()==metadata['files'][name]
+                shutil.copy2(file,output/name)
+            shutil.copy2(manifest,output/'test-builds.json')
+            (output/'reused-build.json').write_text(json.dumps({'from_run':args.reuse_run,'app_source_commit':metadata['candidate_commit'],'acceptance_commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()},indent=2)+'\n')
+        print('Reused checksum-verified APKs with identical app/build inputs.')
+        return
     with tempfile.TemporaryDirectory(prefix='qingzhang-ci-') as temporary:
         work = Path(temporary); baseline = work/'baseline'; baseline.mkdir()
         names = set(subprocess.check_output(['git','ls-tree','--name-only',ref],cwd=ROOT,text=True).splitlines())

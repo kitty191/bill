@@ -36,12 +36,23 @@ class Device:
         raise AssertionError('Native control did not appear: '+label)
     def tap(self,label):
         end=time.monotonic()+30
+        previous=None
         while time.monotonic()<end:
             node,b = self.wait(label)
-            if node.get('enabled','true')!='false':
+            if node.get('enabled','true')!='false' and b==previous:
                 self.shell('input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)); return
+            previous=b
             time.sleep(.2)
         raise AssertionError('Native control remained disabled: '+label)
+    def input_value(self,label,value,timeout=15):
+        end=time.monotonic()+timeout; observed=None
+        while time.monotonic()<end:
+            result=self.find(label)
+            if result:
+                observed=result[0].get('text')
+                if observed==value: return
+            time.sleep(.2)
+        raise AssertionError(f'Native input {label}: expected {value!r}, observed {observed!r}')
     def launch(self):
         self.shell('am','force-stop',PACKAGE)
         result = self.shell('am','start','-W','-n',PACKAGE+'/.MainActivity')
@@ -150,11 +161,14 @@ def main():
         device.tap('隐藏金额')
         device.tap('记一笔')
         for key in '8+2': device.tap('计算键'+key)
+        device.input_value('金额','8+2')
+        (args.output/'baseline-draft-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
         device.shell('input','keyevent','3'); time.sleep(1)
         with tempfile.TemporaryDirectory() as temporary:
             before,old_draft=device.data(Path(temporary))
+        results['baseline_draft']=old_draft
         assert len(before['entries'])==1 and before['entries'][0]['amount']==1234 and before['entries'][0]['note']=='upgrade-check'
-        assert old_draft['fields']['calculator']['expression']=='8+2'
+        assert old_draft['fields']['calculator']['expression']=='8+2',old_draft
         device.call('install','-r',str(args.candidate.resolve()))
         results['candidate_start']=device.launch()
         device.wait('显示金额')

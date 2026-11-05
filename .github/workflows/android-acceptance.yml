@@ -9,8 +9,13 @@ on:
         description: Historical app source used for the upgrade fixture
         default: v0.6.1-android-preview
         required: true
+      reuse_build_run:
+        description: Optional previous run whose unchanged app APKs can be reused
+        default: ''
+        required: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: android-acceptance-${{ github.ref }}
   cancel-in-progress: true
@@ -24,6 +29,7 @@ jobs:
       QINGZHANG_COMPILE_SDK: '37'
       QINGZHANG_BUILD_TOOLS_VERSION: '37.0.0'
       BASELINE_REF: ${{ inputs.baseline_ref || 'v0.6.1-android-preview' }}
+      REUSE_BUILD_RUN: ${{ inputs.reuse_build_run }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -45,9 +51,11 @@ jobs:
       - name: Android SDK components
         run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
       - name: Emulator-only release builds
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           export QINGZHANG_JAVA_INSTALLATIONS="${JAVA_HOME_17_X64:-}:$JAVA_HOME"
-          python3 scripts/ci_android_build.py --baseline "$BASELINE_REF" --output "$RUNNER_TEMP/acceptance-apks"
+          python3 scripts/ci_android_build.py --baseline "$BASELINE_REF" --reuse-run "$REUSE_BUILD_RUN" --output "$RUNNER_TEMP/acceptance-apks"
       - name: Retain test APKs and checksums
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
