@@ -119,7 +119,9 @@ export function EntriesScreen({
     filter !== 'all' ||
     advanced.range ||
     advanced.accountId !== 'all' ||
-    advanced.categoryId !== 'all';
+    advanced.categoryId !== 'all' ||
+    !!advanced.minAmount?.trim() ||
+    !!advanced.maxAmount?.trim();
   const todayOnly =
     filter === 'expense' &&
     !query.trim() &&
@@ -127,7 +129,9 @@ export function EntriesScreen({
     advanced.startDate === today &&
     advanced.endDate === today &&
     advanced.accountId === 'all' &&
-    advanced.categoryId === 'all';
+    advanced.categoryId === 'all' &&
+    !advanced.minAmount?.trim() &&
+    !advanced.maxAmount?.trim();
   useEffect(() => {
     setAdvanced((value) => {
       const categoryId =
@@ -228,7 +232,12 @@ export function EntriesScreen({
       <View
         style={[
           styles.row,
-          { justifyContent: 'space-between', marginBottom: 7 },
+          {
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 8,
+            marginBottom: 7,
+          },
         ]}
       >
         <Txt size={29} weight="600">
@@ -307,7 +316,9 @@ export function EntriesScreen({
             color={
               advanced.range ||
               advanced.categoryId !== 'all' ||
-              advanced.accountId !== 'all'
+              advanced.accountId !== 'all' ||
+              !!advanced.minAmount?.trim() ||
+              !!advanced.maxAmount?.trim()
                 ? t.accent
                 : t.muted
             }
@@ -315,7 +326,7 @@ export function EntriesScreen({
         </Button>
         <TextInput
           accessibilityLabel="搜索账单"
-          placeholder="搜索备注、分类或账户"
+          placeholder="搜索备注、分类、账户或金额"
           placeholderTextColor={t.subtle}
           value={query}
           onChangeText={setQuery}
@@ -396,6 +407,9 @@ export function EntriesScreen({
             {advanced.accountId !== 'all'
               ? ` · ${ledger.accounts.find((account) => account.id === advanced.accountId)?.name}`
               : ''}{' '}
+            {advanced.minAmount?.trim() || advanced.maxAmount?.trim()
+              ? ' · 金额条件'
+              : ''}
             · {entries.length} 笔
           </Txt>
           <Button

@@ -32,13 +32,17 @@ type Context = {
   restoreSnapshot: (id: string, expectedPayload?: string) => Promise<void>;
   clearSnapshotHistory: () => Promise<void>;
   undo: { entry: Entry; expiresAt: number } | null;
-  removeEntry: (id: string) => Promise<void>;
+  removeEntry: (id: string, consumeDraftId?: string) => Promise<void>;
   restoreDeleted: () => Promise<void>;
   reload: () => void;
   recover: (backup: Ledger) => Promise<void>;
   update: (
     change: (current: Ledger) => Ledger,
-    options?: { background?: boolean; resetUndo?: boolean },
+    options?: {
+      background?: boolean;
+      resetUndo?: boolean;
+      consumeDraftId?: string;
+    },
   ) => Promise<void>;
 };
 const LedgerContext = createContext<Context | null>(null);
@@ -93,7 +97,7 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
       try {
         await enqueue(async () => {
           const next = validateLedger(backup);
-          await saveLedger(next);
+          await saveLedger(next, { clearDraft: true });
           current.current = next;
           setLedger(next);
           setError(null);
@@ -110,7 +114,11 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
   const update = useCallback(
     async (
       change: (data: Ledger) => Ledger,
-      options?: { background?: boolean; resetUndo?: boolean },
+      options?: {
+        background?: boolean;
+        resetUndo?: boolean;
+        consumeDraftId?: string;
+      },
     ) => {
       const foreground = !options?.background;
       if (!current.current || (foreground && pending.current))
@@ -124,7 +132,12 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
         // the settings sheet. Each change reads the latest committed ledger.
         await enqueue(async () => {
           const next = validateLedger(change(current.current!));
-          await saveLedger(next);
+          if (options?.consumeDraftId || options?.resetUndo)
+            await saveLedger(next, {
+              consumeDraftId: options.consumeDraftId,
+              clearDraft: options.resetUndo,
+            });
+          else await saveLedger(next);
           current.current = next;
           setLedger(next);
           if (options?.resetUndo) clearUndo();
@@ -145,13 +158,16 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
     [enqueue, clearUndo],
   );
   const removeEntry = useCallback(
-    async (entryId: string) => {
+    async (entryId: string, consumeDraftId?: string) => {
       let removed: Entry | undefined;
-      await update((ledger) => {
-        removed = ledger.entries.find((entry) => entry.id === entryId);
-        if (!removed) throw new Error('账单不存在或已删除');
-        return deleteEntry(ledger, entryId);
-      });
+      await update(
+        (ledger) => {
+          removed = ledger.entries.find((entry) => entry.id === entryId);
+          if (!removed) throw new Error('账单不存在或已删除');
+          return deleteEntry(ledger, entryId);
+        },
+        consumeDraftId ? { consumeDraftId } : undefined,
+      );
       const record = { entry: removed!, expiresAt: Date.now() + 8000 };
       undoRef.current = record;
       setUndo(record);
@@ -207,7 +223,7 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
           )
             throw new Error('快照内容已变化，请重新选择');
           const next = validateLedger(JSON.parse(snapshot.payload));
-          await saveLedger(next);
+          await saveLedger(next, { clearDraft: true });
           current.current = next;
           setLedger(next);
           setError(null);

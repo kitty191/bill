@@ -9,11 +9,16 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
 }));
 vi.mock('react-native', () => ({
+  AppState: { addEventListener: () => ({ remove: vi.fn() }) },
   View: 'View',
   TextInput: 'TextInput',
   ScrollView: 'ScrollView',
   Switch: 'Switch',
   Keyboard: { dismiss: vi.fn() },
+}));
+vi.mock('../src/storage/entryDraftStore', () => ({
+  saveEntryDraft: vi.fn().mockResolvedValue(undefined),
+  clearEntryDraft: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('expo-haptics', () => ({
   notificationAsync: vi.fn(() => Promise.resolve()),

@@ -38,7 +38,7 @@ import { motion } from '../motion';
 import { SheetScrollContext } from './sheetScroll';
 
 const sheetEntering = FadeInDown.duration(motion.sheet);
-export type SheetHandle = { close: () => void };
+export type SheetHandle = { close: () => void; reopen: () => void };
 
 export function Sheet({
   visible,
@@ -101,7 +101,17 @@ export function Sheet({
       },
     );
   }, [closing, reduce, onClose, panelHeight, translation]);
-  useImperativeHandle(controlRef, () => ({ close }), [close]);
+  useImperativeHandle(
+    controlRef,
+    () => ({
+      close,
+      reopen: () => {
+        closing.value = false;
+        translation.value = reduce ? 0 : withSpring(0, motion.spring);
+      },
+    }),
+    [close, closing, translation, reduce],
+  );
   const dismiss = () => {
     if (dismissible) close();
   };
@@ -254,7 +264,11 @@ export function Sheet({
                 },
               ]}
             >
-              <Txt size={21} weight="600">
+              <Txt
+                size={21}
+                weight="600"
+                style={{ flex: 1, minWidth: 0, paddingRight: 12 }}
+              >
                 {title}
               </Txt>
               <IconButton

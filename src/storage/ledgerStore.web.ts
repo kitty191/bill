@@ -7,6 +7,28 @@ import {
 
 const key = 'qingzhang.ledger.v1';
 const snapshotsKey = 'qingzhang.ledger.snapshots.v1';
+const draftKey = 'qingzhang.entry-draft.v1';
+export type SaveLedgerOptions = {
+  consumeDraftId?: string;
+  clearDraft?: boolean;
+};
+export async function loadEntryDraftRaw() {
+  return localStorage.getItem(draftKey);
+}
+export async function saveEntryDraftRaw(payload: string) {
+  localStorage.setItem(draftKey, payload);
+}
+export async function clearEntryDraftRaw(id?: string) {
+  const raw = localStorage.getItem(draftKey);
+  if (id && raw) {
+    try {
+      if (JSON.parse(raw)?.id !== id) return;
+    } catch {
+      return;
+    }
+  }
+  localStorage.removeItem(draftKey);
+}
 export async function loadSnapshots() {
   return validateSnapshots(
     JSON.parse(localStorage.getItem(snapshotsKey) ?? '[]'),
@@ -19,7 +41,10 @@ export async function loadLedger(): Promise<Ledger> {
   const data = localStorage.getItem(key);
   return data === null ? emptyLedger() : validateLedger(JSON.parse(data));
 }
-export async function saveLedger(ledger: Ledger): Promise<void> {
+export async function saveLedger(
+  ledger: Ledger,
+  options?: SaveLedgerOptions,
+): Promise<void> {
   const valid = validateLedger(ledger);
   const payload = JSON.stringify(valid);
   const current = localStorage.getItem(key);
@@ -53,7 +78,17 @@ export async function saveLedger(ledger: Ledger): Promise<void> {
       );
     }
   }
+  if (options?.clearDraft) await clearEntryDraftRaw();
   localStorage.setItem(key, payload);
+  // localStorage has no multi-key transactions. The stable record ID and edit
+  // fingerprint reject already-saved drafts if cleanup fails after this write.
+  if (options?.consumeDraftId) {
+    try {
+      await clearEntryDraftRaw(options.consumeDraftId);
+    } catch {
+      /* Entry is already committed. */
+    }
+  }
 }
 export async function loadLegacyLedger(): Promise<string | null> {
   const before4 = localStorage.getItem('qingzhang.ledger.before-v4');

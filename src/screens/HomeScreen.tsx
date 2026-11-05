@@ -106,7 +106,7 @@ export function HomeScreen({
           { justifyContent: 'space-between', marginBottom: 20 },
         ]}
       >
-        <View>
+        <View style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
           <Txt
             color={t.muted}
             size={11}
@@ -121,6 +121,7 @@ export function HomeScreen({
         <View
           style={{
             width: 42,
+            flexShrink: 0,
             height: 42,
             borderRadius: 21,
             backgroundColor: t.accentSoft,
@@ -178,7 +179,13 @@ export function HomeScreen({
         <View
           style={[
             styles.row,
-            { justifyContent: 'space-between', marginTop: -7, marginBottom: 8 },
+            {
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 8,
+              marginTop: -7,
+              marginBottom: 8,
+            },
           ]}
         >
           <Txt color={t.dark ? '#B6C9B8' : '#6B826B'} size={12}>

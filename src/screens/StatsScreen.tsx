@@ -57,7 +57,12 @@ function MonthlyStats({
       <View
         style={[
           styles.row,
-          { justifyContent: 'space-between', marginBottom: 7 },
+          {
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 8,
+            marginBottom: 7,
+          },
         ]}
       >
         <Txt size={29} weight="600">

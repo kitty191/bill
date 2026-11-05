@@ -298,6 +298,7 @@ export function IconButton({
           paddingVertical: 0,
         },
         style,
+        { minWidth: 44, minHeight: 44 },
       ]}
     >
       <Icon name={name} size={19} />
@@ -361,7 +362,7 @@ export function Glass({
         style,
       ]}
     >
-      {Platform.OS !== 'android' && (
+      {Platform.OS !== 'android' && !t.reduceTransparency && (
         <BlurView
           pointerEvents="none"
           intensity={variant === 'sheet' ? 34 : 48}
@@ -371,14 +372,16 @@ export function Glass({
           style={StyleSheet.absoluteFill}
         />
       )}
-      <LinearGradient
-        pointerEvents="none"
-        colors={[t.glassHighlight, 'rgba(255,255,255,0)', t.glassShade]}
-        locations={[0, 0.48, 1]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      {!t.reduceTransparency && (
+        <LinearGradient
+          pointerEvents="none"
+          colors={[t.glassHighlight, 'rgba(255,255,255,0)', t.glassShade]}
+          locations={[0, 0.48, 1]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
       <View
         pointerEvents="none"
         style={{
@@ -447,17 +450,25 @@ export function MonthPicker({
   const t = useTheme();
   const [year, m] = month.split('-');
   return (
-    <View style={[styles.row, { gap: 4 }]}>
+    <View style={[styles.row, { gap: 4, flexShrink: 1, minWidth: 0 }]}>
       <Button
         variant="plain"
         label={`${labelPrefix}上个月`}
         disabled={disabled || month === '1900-01'}
         onPress={() => onChange(-1)}
-        style={{ width: 36, paddingHorizontal: 0 }}
+        style={{ width: 44, paddingHorizontal: 0 }}
       >
         <Icon name="left" size={17} color={t.muted} />
       </Button>
-      <Txt size={13} weight="500" style={{ fontVariant: ['tabular-nums'] }}>
+      <Txt
+        size={13}
+        weight="500"
+        style={{
+          fontVariant: ['tabular-nums'],
+          flexShrink: 1,
+          textAlign: 'center',
+        }}
+      >
         {year} 年 {Number(m)} 月
       </Txt>
       <Button
@@ -465,7 +476,7 @@ export function MonthPicker({
         label={`${labelPrefix}下个月`}
         disabled={disabled || month === '2200-12'}
         onPress={() => onChange(1)}
-        style={{ width: 36, paddingHorizontal: 0 }}
+        style={{ width: 44, paddingHorizontal: 0 }}
       >
         <Icon name="right" size={17} color={t.muted} />
       </Button>

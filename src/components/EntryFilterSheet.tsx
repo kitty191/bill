@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import {
   type Ledger,
   type EntryKind,
@@ -84,6 +84,35 @@ export function EntryFilterSheet({
           />
         </View>
       )}
+      <SectionTitle title="金额区间" />
+      <View style={[styles.row, { flexWrap: 'wrap' }]}>
+        {(['minAmount', 'maxAmount'] as const).map((field) => (
+          <View key={field} style={{ flex: 1, minWidth: 100, gap: 6 }}>
+            <Txt size={12} color={t.muted}>
+              {field === 'minAmount' ? '最低金额' : '最高金额'}
+            </Txt>
+            <TextInput
+              accessibilityLabel={
+                field === 'minAmount' ? '最低金额' : '最高金额'
+              }
+              placeholder="不限"
+              placeholderTextColor={t.subtle}
+              inputMode="decimal"
+              value={draft[field] ?? ''}
+              maxLength={10}
+              onChangeText={(value) => setDraft({ ...draft, [field]: value })}
+              style={{
+                minHeight: 48,
+                borderRadius: 13,
+                paddingHorizontal: 12,
+                fontSize: 16,
+                color: t.text,
+                backgroundColor: t.surfaceAlt,
+              }}
+            />
+          </View>
+        ))}
+      </View>
       <SectionTitle title="分类" />
       <View style={[styles.row, { flexWrap: 'wrap', gap: 7 }]}>
         <Button

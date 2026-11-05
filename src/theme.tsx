@@ -1,8 +1,20 @@
-import React, { createContext, useContext } from 'react';
-import { useColorScheme } from 'react-native';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import {
+  AccessibilityInfo,
+  AppState,
+  Platform,
+  useColorScheme,
+} from 'react-native';
 
 const light = {
   dark: false,
+  reduceTransparency: false,
   background: '#F6F7F3',
   surface: '#FFFFFF',
   surfaceAlt: '#F0F3EE',
@@ -25,6 +37,7 @@ const light = {
 };
 const dark: typeof light = {
   dark: true,
+  reduceTransparency: false,
   background: '#111B16',
   surface: '#1B2921',
   surfaceAlt: '#24362B',
@@ -49,10 +62,53 @@ export type Theme = typeof light;
 const Context = createContext(light);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const scheme = useColorScheme();
-  return (
-    <Context.Provider value={scheme === 'dark' ? dark : light}>
-      {children}
-    </Context.Provider>
-  );
+  const [reduceTransparency, setReduceTransparency] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const preference = window.matchMedia(
+        '(prefers-reduced-transparency: reduce)',
+      );
+      const update = () => setReduceTransparency(preference.matches);
+      update();
+      preference.addEventListener('change', update);
+      return () => preference.removeEventListener('change', update);
+    }
+    let mounted = true;
+    const read = () => {
+      void AccessibilityInfo.isReduceTransparencyEnabled()
+        .then((value) => {
+          if (mounted) setReduceTransparency(value);
+        })
+        .catch(() => {});
+    };
+    read();
+    const change = AccessibilityInfo.addEventListener(
+      'reduceTransparencyChanged',
+      setReduceTransparency,
+    );
+    const active = AppState.addEventListener('change', (state) => {
+      if (state === 'active') read();
+    });
+    return () => {
+      mounted = false;
+      change.remove();
+      active.remove();
+    };
+  }, []);
+  const value = useMemo(() => {
+    const base = scheme === 'dark' ? dark : light;
+    return reduceTransparency
+      ? {
+          ...base,
+          reduceTransparency,
+          glass: base.surface,
+          sheet: base.surface,
+          glassEdge: base.border,
+          glassHighlight: base.surface,
+          glassShade: base.surface,
+        }
+      : base;
+  }, [scheme, reduceTransparency]);
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export const useTheme = () => useContext(Context);

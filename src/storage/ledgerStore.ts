@@ -14,6 +14,9 @@ async function db() {
       await connection.execAsync(
         'PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS upgrade_backup (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS legacy_backup (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS upgrade_backup_v4 (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS local_snapshots (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS snapshot_versions (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, createdAt TEXT NOT NULL, payload TEXT NOT NULL);',
       );
+      await connection.execAsync(
+        'CREATE TABLE IF NOT EXISTS entry_draft (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL)',
+      );
       return connection;
     })().catch((error) => {
       database = undefined;
@@ -31,7 +34,14 @@ export async function loadLedger(): Promise<Ledger> {
   return row ? validateLedger(JSON.parse(row.payload)) : emptyLedger();
 }
 
-export async function saveLedger(ledger: Ledger): Promise<void> {
+export type SaveLedgerOptions = {
+  consumeDraftId?: string;
+  clearDraft?: boolean;
+};
+export async function saveLedger(
+  ledger: Ledger,
+  options?: SaveLedgerOptions,
+): Promise<void> {
   const valid = validateLedger(ledger);
   const payload = JSON.stringify(valid);
   await (
@@ -109,6 +119,58 @@ export async function saveLedger(ledger: Ledger): Promise<void> {
       'INSERT INTO ledger (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
       payload,
     );
+    if (options?.clearDraft)
+      await transaction.runAsync('DELETE FROM entry_draft WHERE id = 1');
+    else if (options?.consumeDraftId) {
+      const draft = await transaction.getFirstAsync<{ payload: string }>(
+        'SELECT payload FROM entry_draft WHERE id = 1',
+      );
+      let matches = false;
+      try {
+        matches =
+          JSON.parse(draft?.payload ?? 'null')?.id === options.consumeDraftId;
+      } catch {
+        /* Invalid drafts never block a valid entry. */
+      }
+      if (matches)
+        await transaction.runAsync('DELETE FROM entry_draft WHERE id = 1');
+    }
+  });
+}
+export async function loadEntryDraftRaw(): Promise<string | null> {
+  return (
+    (
+      await (
+        await db()
+      ).getFirstAsync<{ payload: string }>(
+        'SELECT payload FROM entry_draft WHERE id = 1',
+      )
+    )?.payload ?? null
+  );
+}
+export async function saveEntryDraftRaw(payload: string): Promise<void> {
+  await (
+    await db()
+  ).runAsync(
+    'INSERT INTO entry_draft (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
+    payload,
+  );
+}
+export async function clearEntryDraftRaw(id?: string): Promise<void> {
+  await (
+    await db()
+  ).withExclusiveTransactionAsync(async (transaction) => {
+    const row = await transaction.getFirstAsync<{ payload: string }>(
+      'SELECT payload FROM entry_draft WHERE id = 1',
+    );
+    if (id && row) {
+      try {
+        if (JSON.parse(row.payload)?.id !== id) return;
+      } catch {
+        return;
+      }
+    }
+    await transaction.runAsync('DELETE FROM entry_draft WHERE id = 1');
   });
 }
 export async function loadLegacyLedger(): Promise<string | null> {

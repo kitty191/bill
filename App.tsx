@@ -7,6 +7,12 @@ import React, {
   useState,
 } from 'react';
 import {
+  type EntryDraft,
+  type EditorIntent,
+  resumeEntryDraft,
+} from './src/domain/entryDraft';
+import { clearEntryDraft, loadEntryDraft } from './src/storage/entryDraftStore';
+import {
   ActivityIndicator,
   Keyboard,
   Platform,
@@ -113,14 +119,15 @@ function Main() {
     date?: string;
   }>({ key: 0 });
   const entriesScroll = useRef<EntriesListHandle>(null);
-  const [editor, setEditor] = useState<{
-    entry?: Entry;
-    repeatSource?: Entry;
-    refundOf?: Entry;
-    templateId?: string;
-    recurringId?: string;
-    recurringDate?: string;
-  } | null>(null);
+  const homeScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const statsScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const [editor, setEditor] = useState<
+    | (EditorIntent & { restoredDraft?: EntryDraft; draftWarning?: string })
+    | null
+  >(null);
+  const ledgerRef = useRef(ledger);
+  ledgerRef.current = ledger;
+  const openingEditor = useRef(false);
   const [actionEntryId, setActionEntryId] = useState<string | null>(null);
   const [settings, setSettings] = useState<
     false | 'main' | 'privacy' | 'recurring'
@@ -161,10 +168,23 @@ function Main() {
   }, []);
   const navigate = useCallback(
     (next: Tab) => {
+      if (
+        tabRef.current === next &&
+        Math.abs(pageProgress.value - PAGE_KEYS.indexOf(next)) < 0.01
+      ) {
+        Keyboard.dismiss();
+        if (next === 'entries') entriesScroll.current?.scrollToTop();
+        else
+          (next === 'home' ? homeScroll : statsScroll).current?.scrollTo({
+            y: 0,
+            animated: false,
+          });
+        return;
+      }
       setNavigationKey((value) => value + 1);
       selectTab(next);
     },
-    [selectTab],
+    [selectTab, pageProgress],
   );
   const onPageChange = useCallback(
     (index: number) => selectTab(PAGE_KEYS[index]!),
@@ -184,7 +204,36 @@ function Main() {
     setActionEntryId(null);
     setEditor({ repeatSource });
   }, []);
-  const openEditor = useCallback(() => setEditor({}), []);
+  const openEditor = useCallback(() => {
+    if (openingEditor.current) return;
+    openingEditor.current = true;
+    void (async () => {
+      try {
+        const draft = await loadEntryDraft();
+        const current = ledgerRef.current;
+        if (draft && current) {
+          try {
+            setEditor({
+              ...resumeEntryDraft(draft, current),
+              restoredDraft: draft,
+            });
+          } catch (error) {
+            await clearEntryDraft(draft.id);
+            setEditor({
+              draftWarning:
+                error instanceof Error ? error.message : '旧草稿已失效',
+            });
+          }
+        } else setEditor({});
+      } catch (error) {
+        setEditor({
+          draftWarning: error instanceof Error ? error.message : '草稿读取失败',
+        });
+      } finally {
+        openingEditor.current = false;
+      }
+    })();
+  }, [setToast]);
   const openSettings = useCallback(() => setSettings('main'), []);
   const closeSettings = useCallback(() => setSettings(false), []);
   const openBackup = useCallback(() => setSettings('privacy'), []);
@@ -257,6 +306,7 @@ function Main() {
                 />
               ) : (
                 <ScrollView
+                  ref={key === 'home' ? homeScroll : statsScroll}
                   testID={`page-${key}-scroll`}
                   nestedScrollEnabled
                   directionalLockEnabled
@@ -512,7 +562,7 @@ function Main() {
             onTab={navigate}
             bottom={Math.max(insets.bottom, 18)}
             onAdd={() => {
-              setEditor({});
+              openEditor();
               feedback('light');
             }}
           />
@@ -613,6 +663,7 @@ function Main() {
           {editor && (
             <EntryEditor
               key={
+                editor.restoredDraft?.id ??
                 editor.entry?.id ??
                 (editor.repeatSource
                   ? `repeat-${editor.repeatSource.id}`
@@ -628,6 +679,8 @@ function Main() {
               templateId={editor.templateId}
               recurringId={editor.recurringId}
               recurringDate={editor.recurringDate}
+              restoredDraft={editor.restoredDraft}
+              draftWarning={editor.draftWarning}
               onRefund={openRefund}
               onRepeat={onRepeat}
               onClose={() => setEditor(null)}

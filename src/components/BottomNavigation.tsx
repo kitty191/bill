@@ -108,6 +108,7 @@ export function BottomNavigation({
               style={({ pressed }) => ({
                 flex: 1,
                 minHeight: 49,
+                paddingVertical: 5,
                 borderRadius: 23,
                 alignItems: 'center',
                 justifyContent: 'center',

@@ -5,6 +5,7 @@ import {
   validDate,
   refundAmounts,
   type Entry,
+  parseAmount,
 } from './ledger';
 
 export type EntryFilters = {
@@ -13,6 +14,8 @@ export type EntryFilters = {
   endDate: string;
   categoryId: string;
   accountId: string;
+  minAmount?: string;
+  maxAmount?: string;
 };
 export const emptyFilters = (): EntryFilters => ({
   range: false,
@@ -20,6 +23,8 @@ export const emptyFilters = (): EntryFilters => ({
   endDate: '',
   categoryId: 'all',
   accountId: 'all',
+  minAmount: '',
+  maxAmount: '',
 });
 export function validateFilters(filters: EntryFilters) {
   if (
@@ -29,7 +34,21 @@ export function validateFilters(filters: EntryFilters) {
     throw new Error('请选择有效的开始和结束日期');
   if (filters.range && filters.startDate > filters.endDate)
     throw new Error('开始日期不能晚于结束日期');
+  const min = amountBound(filters.minAmount);
+  const max = amountBound(filters.maxAmount);
+  if (min !== null && max !== null && min > max)
+    throw new Error('最低金额不能大于最高金额');
   return filters;
+}
+export function amountBound(value?: string): number | null {
+  return value?.trim() ? parseAmount(value, true) : null;
+}
+function queryAmount(value: string): number | null {
+  try {
+    return parseAmount(value.replace(/^[¥￥]\s*/, ''), true);
+  } catch {
+    return null;
+  }
 }
 
 export function entryGroups(entries: Entry[], allEntries: Entry[]) {
@@ -82,6 +101,9 @@ export function filterEntryIndex(
 ): Entry[] {
   validateFilters(filters);
   const needle = query.trim().toLowerCase();
+  const amount = queryAmount(needle);
+  const min = amountBound(filters.minAmount),
+    max = amountBound(filters.maxAmount);
   return index
     .filter(
       ({ entry, text }) =>
@@ -94,7 +116,9 @@ export function filterEntryIndex(
         (filters.accountId === 'all' ||
           entry.accountId === filters.accountId ||
           entry.toAccountId === filters.accountId) &&
-        (!needle || text.includes(needle)),
+        (min === null || entry.amount >= min) &&
+        (max === null || entry.amount <= max) &&
+        (!needle || text.includes(needle) || entry.amount === amount),
     )
     .map(({ entry }) => entry);
 }

@@ -21,6 +21,8 @@ import { Button, Icon, Txt, styles } from './ui';
 import { DateField } from './DateField';
 import { AmountCalculator } from './AmountCalculator';
 import { confirmRecurring } from '../domain/recurring';
+import { draftIdentity, type EntryDraft } from '../domain/entryDraft';
+import { useEntryDraft } from '../state/useEntryDraft';
 import {
   calculateAmount,
   calculatorDraft,
@@ -35,6 +37,8 @@ export function EntryEditor({
   templateId,
   recurringId,
   recurringDate,
+  restoredDraft,
+  draftWarning,
   onRefund,
   onRepeat,
   onClose,
@@ -46,6 +50,8 @@ export function EntryEditor({
   templateId?: string;
   recurringId?: string;
   recurringDate?: string;
+  restoredDraft?: EntryDraft;
+  draftWarning?: string;
   onRefund: (entry: Entry) => void;
   onRepeat?: (entry: Entry) => void;
   onClose: () => void;
@@ -56,19 +62,29 @@ export function EntryEditor({
   const sheet = useRef<SheetHandle>(null);
   const operation = useRef(false);
   const [closing, setClosing] = useState(false);
+  const [working, setWorking] = useState(false);
   const {
     ledger,
     update,
     saving: persistenceSaving,
     removeEntry,
   } = useLedger();
-  const saving = persistenceSaving || closing;
+  const saving = persistenceSaving || closing || working;
   const closeAfterSave = () => {
     setClosing(true);
     if (sheet.current) sheet.current.close();
     else onClose();
   };
   const data = ledger!;
+  const [identity] = useState(
+    () =>
+      restoredDraft ??
+      draftIdentity(
+        { entry, repeatSource, refundOf, recurringId, recurringDate },
+        data,
+      ),
+  );
+  const restored = restoredDraft?.fields;
   const recurring = data.recurringBills.find((bill) => bill.id === recurringId);
   const preset =
     recurring ?? data.templates.find((template) => template.id === templateId);
@@ -85,15 +101,16 @@ export function EntryEditor({
     data,
     initialKind === 'income' ? 'income' : 'expense',
   );
-  const [kind, setKind] = useState<EntryKind>(initialKind);
+  const [kind, setKind] = useState<EntryKind>(restored?.kind ?? initialKind);
   const [draft, dispatchAmount] = useReducer(
     calculatorReducer,
     seed ? amountInput(seed.amount) : preset ? amountInput(preset.amount) : '',
-    calculatorDraft,
+    (value) => restored?.calculator ?? calculatorDraft(value),
   );
   const amount = draft.expression;
   const [categoryId, setCategoryId] = useState(
-    original?.categoryId ??
+    restored?.categoryId ??
+      original?.categoryId ??
       seed?.categoryId ??
       preset?.categoryId ??
       initialDefault.categoryId,
@@ -103,15 +120,21 @@ export function EntryEditor({
     original?.accountId ??
     preset?.accountId ??
     initialDefault.accountId;
-  const [accountId, setAccountId] = useState(initialAccountId);
+  const [accountId, setAccountId] = useState(
+    restored?.accountId ?? initialAccountId,
+  );
   const [toAccountId, setToAccountId] = useState(
-    seed?.toAccountId ??
+    restored?.toAccountId ??
+      seed?.toAccountId ??
       data.accounts.find((account) => account.id !== initialAccountId)?.id ??
       '',
   );
-  const [date, setDate] = useState(entry?.date ?? localDate());
+  const [date, setDate] = useState(
+    restored?.date ?? entry?.date ?? localDate(),
+  );
   const [note, setNote] = useState(
-    seed?.note ??
+    restored?.note ??
+      seed?.note ??
       (recurring ? recurring.note || recurring.name : preset?.note) ??
       (original
         ? `${original.note || categoryFor(data, original.categoryId).label}退款`.slice(
@@ -120,10 +143,48 @@ export function EntryEditor({
           )
         : ''),
   );
-  const [error, setError] = useState('');
+  const [error, setError] = useState(draftWarning ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [saveTemplate, setSaveTemplate] = useState(false);
-  const [templateName, setTemplateName] = useState('');
+  const [saveTemplate, setSaveTemplate] = useState(
+    restored?.saveTemplate ?? false,
+  );
+  const [templateName, setTemplateName] = useState(
+    restored?.templateName ?? '',
+  );
+  const autosave = useEntryDraft(
+    {
+      ...identity,
+      fields: {
+        kind,
+        calculator: draft,
+        categoryId,
+        accountId,
+        toAccountId,
+        date,
+        note,
+        saveTemplate,
+        templateName,
+      },
+    },
+    !!restoredDraft,
+  );
+  const dismiss = async () => {
+    if (operation.current) {
+      onClose();
+      return;
+    }
+    operation.current = true;
+    setWorking(true);
+    try {
+      await autosave.cancel();
+      onClose();
+    } catch (failure) {
+      operation.current = false;
+      setWorking(false);
+      sheet.current?.reopen();
+      setError(failure instanceof Error ? failure.message : '关闭失败，请重试');
+    }
+  };
   const changeAmount = (action: CalculatorAction) => {
     dispatchAmount(action);
     setError('');
@@ -132,7 +193,8 @@ export function EntryEditor({
     (category) =>
       category.kind === (kind === 'income' ? 'income' : 'expense') &&
       (!category.hidden ||
-        ((entry || recurring || repeatSource) && category.id === categoryId)),
+        ((entry || recurring || repeatSource || restoredDraft) &&
+          category.id === categoryId)),
   );
   const shortcuts = data.templates.filter(
     (template) =>
@@ -148,58 +210,70 @@ export function EntryEditor({
   const save = async () => {
     if (operation.current || saving) return;
     operation.current = true;
+    setWorking(true);
     setError('');
     try {
       if (!amount.trim()) throw new Error('请输入金额');
       const value = calculateAmount(amount);
       if (!validDate(date))
         throw new Error('请填写有效日期，格式为 YYYY-MM-DD');
-      const entryId = entry?.id ?? id();
-      await update((current) => {
-        const record: Entry = {
-          id: entryId,
-          kind,
-          amount: value,
-          categoryId: kind === 'transfer' ? 'transfer' : categoryId,
-          accountId,
-          ...(kind === 'transfer' ? { toAccountId } : {}),
-          ...(kind === 'refund' ? { originalEntryId: original?.id } : {}),
-          date,
-          note,
-          createdAt: entry?.createdAt ?? new Date().toISOString(),
-          ...(entry?.recurringId
-            ? {
-                recurringId: entry.recurringId,
-                recurringDate: entry.recurringDate,
-              }
-            : {}),
-        };
-        const next = recurringId
-          ? confirmRecurring(current, recurringId, recurringDate ?? '', record)
-          : upsertEntry(current, record, !entry && kind !== 'refund');
-        if (!saveTemplate || kind === 'refund' || kind === 'transfer')
-          return next;
-        return validateLedger({
-          ...next,
-          templates: [
-            ...next.templates,
-            {
-              id: `template-${id()}`,
-              name: templateName,
-              kind,
-              amount: value,
-              categoryId,
-              accountId,
-              note,
-            },
-          ],
-        });
-      });
+      const entryId = identity.recordId;
+      await autosave.pause();
+      await update(
+        (current) => {
+          const record: Entry = {
+            id: entryId,
+            kind,
+            amount: value,
+            categoryId: kind === 'transfer' ? 'transfer' : categoryId,
+            accountId,
+            ...(kind === 'transfer' ? { toAccountId } : {}),
+            ...(kind === 'refund' ? { originalEntryId: original?.id } : {}),
+            date,
+            note,
+            createdAt: entry?.createdAt ?? new Date().toISOString(),
+            ...(entry?.recurringId
+              ? {
+                  recurringId: entry.recurringId,
+                  recurringDate: entry.recurringDate,
+                }
+              : {}),
+          };
+          const next = recurringId
+            ? confirmRecurring(
+                current,
+                recurringId,
+                recurringDate ?? '',
+                record,
+              )
+            : upsertEntry(current, record, !entry && kind !== 'refund');
+          if (!saveTemplate || kind === 'refund' || kind === 'transfer')
+            return next;
+          return validateLedger({
+            ...next,
+            templates: [
+              ...next.templates,
+              {
+                id: `template-${id()}`,
+                name: templateName,
+                kind,
+                amount: value,
+                categoryId,
+                accountId,
+                note,
+              },
+            ],
+          });
+        },
+        { consumeDraftId: identity.id },
+      );
       feedback('success');
       onSaved(entry ? '账单已更新' : '已记好', date, entryId);
       closeAfterSave();
     } catch (e) {
       operation.current = false;
+      setWorking(false);
+      autosave.retry();
       feedback('warning');
       setError(
         e instanceof Error ? e.message : '保存失败，请重试。输入内容已保留。',
@@ -209,13 +283,17 @@ export function EntryEditor({
   const remove = async () => {
     if (!entry || operation.current || saving) return;
     operation.current = true;
+    setWorking(true);
     try {
-      await removeEntry(entry.id);
+      await autosave.pause();
+      await removeEntry(entry.id, identity.id);
       feedback('success');
       onSaved('账单已删除，余额与统计已更新', entry.date);
       closeAfterSave();
     } catch (error) {
       operation.current = false;
+      setWorking(false);
+      autosave.retry();
       setError(error instanceof Error ? error.message : '删除失败，请稍后重试');
     }
   };
@@ -223,7 +301,7 @@ export function EntryEditor({
     <Sheet
       visible
       controlRef={sheet}
-      onClose={onClose}
+      onClose={() => void dismiss()}
       title={
         recurringId
           ? '确认周期账单'
@@ -240,14 +318,14 @@ export function EntryEditor({
       dismissible={!saving}
       footer={
         <View>
-          {!!error && (
+          {!!(error || autosave.error) && (
             <Txt
               testID="entry-error"
               size={12}
               color={t.danger}
               style={{ marginBottom: 9 }}
             >
-              {error}
+              {error || autosave.error}
             </Txt>
           )}
           <Button
@@ -266,6 +344,11 @@ export function EntryEditor({
         </View>
       }
     >
+      {!!restoredDraft && (
+        <Txt size={12} color={t.muted} style={{ marginBottom: 10 }}>
+          已恢复上次未完成的记账，确认后才会保存。
+        </Txt>
+      )}
       {kind !== 'refund' && !recurringId && (
         <View
           style={[

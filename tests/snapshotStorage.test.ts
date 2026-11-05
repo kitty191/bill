@@ -81,7 +81,7 @@ beforeEach(async () => {
   });
   await native.loadLedger();
   database.exec(
-    'DELETE FROM ledger; DELETE FROM local_snapshots; DELETE FROM snapshot_versions; DELETE FROM upgrade_backup; DELETE FROM upgrade_backup_v4; DELETE FROM legacy_backup;',
+    'DELETE FROM ledger; DELETE FROM entry_draft; DELETE FROM local_snapshots; DELETE FROM snapshot_versions; DELETE FROM upgrade_backup; DELETE FROM upgrade_backup_v4; DELETE FROM legacy_backup;',
   );
 });
 afterAll(() => {
@@ -315,4 +315,32 @@ it('does not capture corrupt main data during explicit recovery and validates sn
   expect(addSnapshot(history, history[0]!.payload)).toBe(history);
   expect(() => addSnapshot(history, '{}')).toThrow();
   expect(() => validateSnapshots([...history, ...history])).toThrow();
+});
+
+it('atomically consumes only the saved native draft and retains it if the ledger write fails', async () => {
+  await native.clearEntryDraftRaw();
+  await native.saveEntryDraftRaw(JSON.stringify({ id: 'draft-a' }));
+  faults.failLedger = true;
+  await expect(
+    native.saveLedger(changed(99), { consumeDraftId: 'draft-a' }),
+  ).rejects.toThrow('账本写入失败');
+  expect(await native.loadEntryDraftRaw()).toBe('{"id":"draft-a"}');
+  faults.failLedger = false;
+  await native.saveLedger(changed(99), { consumeDraftId: 'draft-b' });
+  expect(await native.loadEntryDraftRaw()).toBe('{"id":"draft-a"}');
+  await native.saveLedger(changed(100), { consumeDraftId: 'draft-a' });
+  expect(await native.loadEntryDraftRaw()).toBeNull();
+  await native.saveEntryDraftRaw('{"id":"draft-c"}');
+  await native.saveLedger(changed(101), { clearDraft: true });
+  expect(await native.loadEntryDraftRaw()).toBeNull();
+});
+it('conditionally clears web drafts without discarding newer work and clears drafts on data replacement', async () => {
+  await web.saveEntryDraftRaw('{"id":"draft-a"}');
+  await web.clearEntryDraftRaw('draft-b');
+  expect(await web.loadEntryDraftRaw()).toBe('{"id":"draft-a"}');
+  await web.saveLedger(changed(1), { consumeDraftId: 'draft-a' });
+  expect(await web.loadEntryDraftRaw()).toBeNull();
+  await web.saveEntryDraftRaw('{"id":"draft-a"}');
+  await web.saveLedger(changed(2), { clearDraft: true });
+  expect(await web.loadEntryDraftRaw()).toBeNull();
 });
