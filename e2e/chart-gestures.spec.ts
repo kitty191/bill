@@ -111,10 +111,16 @@ test('narrow dark quick actions respect hidden amounts while repeat retains the 
     .getByRole('button', { name: /交互验收.*查看详情/ });
   await row.scrollIntoViewIfNeeded();
   const box = (await row.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(500);
-  await page.mouse.up();
+  const touch = await page.context().newCDPSession(page);
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
+  });
+  await expect(page.getByText('账单快捷操作', { exact: true })).toBeVisible();
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
   const repeat = page.getByRole('button', { name: '再记一笔', exact: true });
   await expect(repeat).toBeVisible();
   const body = repeat.locator('..');
