@@ -31,7 +31,8 @@ def main():
     env['ANDROID_SDK_ROOT'] = env['ANDROID_HOME']
     env['EXPO_OFFLINE'] = '1'
     env['CI'] = '1'
-    env['GRADLE_USER_HOME'] = env.get('GRADLE_USER_HOME', str(TOOLS / 'gradle-home'))
+    default_gradle = TOOLS / 'gradle-home' if TOOLS.is_dir() else Path.home() / '.gradle'
+    env['GRADLE_USER_HOME'] = env.get('GRADLE_USER_HOME', str(default_gradle))
     signing = json.loads(Path(env['QINGZHANG_SIGNING_CONFIG']).read_text())
     for variable, key in [('QINGZHANG_KEYSTORE', 'keystore'), ('QINGZHANG_STORE_PASSWORD', 'storePassword'), ('QINGZHANG_KEY_ALIAS', 'alias'), ('QINGZHANG_KEY_PASSWORD', 'keyPassword')]:
         env[variable] = signing[key]

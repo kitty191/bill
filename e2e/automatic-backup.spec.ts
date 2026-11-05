@@ -111,6 +111,7 @@ test('manual independent backups keep seven valid owned versions and preserve un
   await page
     .getByRole('button', { name: '选择自动备份目录', exact: true })
     .click();
+  await expect.poll(async () => (await pref(page))?.directory ?? null).not.toBeNull();
   await page.evaluate(async () => {
     const dir = await (
       await navigator.storage.getDirectory()
