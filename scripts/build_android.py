@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a standalone, privately signed ARM64 preview APK; never commit keys."""
 import hashlib
+import argparse
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,10 @@ TOOLS = Path(os.environ.get('QINGZHANG_TOOLCHAINS', '/workspace/shared/qingzhang
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--arch', choices=['arm64-v8a', 'x86_64'])
+    parser.add_argument('--output', type=Path)
+    args = parser.parse_args()
     env = os.environ.copy()
     if not env.get('JAVA_HOME') and (TOOLS / 'java-home.txt').exists():
         env['JAVA_HOME'] = (TOOLS / 'java-home.txt').read_text().strip()
@@ -26,7 +31,8 @@ def main():
     env['ANDROID_SDK_ROOT'] = env['ANDROID_HOME']
     env['EXPO_OFFLINE'] = '1'
     env['CI'] = '1'
-    env['GRADLE_USER_HOME'] = env.get('GRADLE_USER_HOME', str(TOOLS / 'gradle-home'))
+    default_gradle = TOOLS / 'gradle-home' if TOOLS.is_dir() else Path.home() / '.gradle'
+    env['GRADLE_USER_HOME'] = env.get('GRADLE_USER_HOME', str(default_gradle))
     signing = json.loads(Path(env['QINGZHANG_SIGNING_CONFIG']).read_text())
     for variable, key in [('QINGZHANG_KEYSTORE', 'keystore'), ('QINGZHANG_STORE_PASSWORD', 'storePassword'), ('QINGZHANG_KEY_ALIAS', 'alias'), ('QINGZHANG_KEY_PASSWORD', 'keyPassword')]:
         env[variable] = signing[key]
@@ -51,11 +57,17 @@ def main():
         lines += ['distributionUrl=' + archive.resolve().as_uri(), 'distributionSha256Sum=' + expected]
         wrapper.write_text('\n'.join(lines) + '\n')
 
+    architecture = args.arch or env.get('QINGZHANG_ARCHITECTURES', 'arm64-v8a')
     gradle = [str(ROOT / 'android/gradlew'), ':app:assembleRelease', '--no-daemon', '--max-workers=2',
-              '-PreactNativeArchitectures=' + env.get('QINGZHANG_ARCHITECTURES', 'arm64-v8a'),
+              '-PreactNativeArchitectures=' + architecture,
               '-Porg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m',
               '-I', str(ROOT / 'scripts/android-release.init.gradle')]
+    # Hosted acceptance can select an available public SDK independently of
+    # the managed preview toolchain. Production builds keep their defaults.
+    for variable, property_name in [('QINGZHANG_COMPILE_SDK', 'android.compileSdkVersion'), ('QINGZHANG_BUILD_TOOLS_VERSION', 'android.buildToolsVersion')]:
+        if env.get(variable): gradle += ['-P' + property_name + '=' + env[variable]]
     installations = [str(path) for path in (TOOLS / 'java').glob('jdk-*') if path.is_dir()]
+    installations += [value for value in env.get('QINGZHANG_JAVA_INSTALLATIONS', '').split(os.pathsep) if value and Path(value).is_dir()]
     if installations:
         gradle += ['-Porg.gradle.java.installations.paths=' + ','.join(installations),
                    '-Porg.gradle.java.installations.auto-download=false']
@@ -71,7 +83,8 @@ def main():
         env['JAVA_TOOL_OPTIONS'] = (env.get('JAVA_TOOL_OPTIONS', '') + ' -Djavax.net.ssl.trustStore=' + str(trust)).strip()
     subprocess.run(gradle, cwd=ROOT / 'android', env=env, check=True)
     version = json.loads((ROOT / 'app.json').read_text())['expo']['version']
-    output = ROOT / f'downloads/qingzhang-v{version}-android-arm64.apk'
+    suffix = 'arm64' if architecture == 'arm64-v8a' else architecture
+    output = args.output or ROOT / f'downloads/qingzhang-v{version}-android-{suffix}.apk'
     output.parent.mkdir(exist_ok=True)
     shutil.copy2(ROOT / 'android/app/build/outputs/apk/release/app-release.apk', output)
     digest = hashlib.file_digest(output.open('rb'), 'sha256').hexdigest()

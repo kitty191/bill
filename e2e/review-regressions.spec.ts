@@ -23,6 +23,15 @@ async function seed(page: Page) {
   await page.goto('/');
 }
 async function expectReadable(page: Page, id: string) {
+  // setViewportSize completes before RN Web's onLayout updates the page's
+  // explicit width. Check the actual new layout before comparing font sizes.
+  await expect
+    .poll(async () => {
+      const screen = await page.getByTestId('page-home').boundingBox();
+      const pager = await page.getByTestId('page-pager').boundingBox();
+      return Math.abs(screen!.width - pager!.width);
+    })
+    .toBeLessThanOrEqual(1);
   await expect
     .poll(() =>
       page.getByTestId(id).evaluate((element) => {
@@ -54,6 +63,7 @@ test('large amounts remain fully readable on narrow screens, after resize and pr
   await expect(page.getByTestId('month-expense')).toHaveText('••••');
   await page.setViewportSize({ width: 320, height: 740 });
   await page.getByRole('button', { name: '显示金额', exact: true }).click();
+  await expect(page.getByTestId('month-expense')).toHaveText('9,999,999.99');
   await expectReadable(page, 'month-expense');
   await expectReadable(page, 'today-expense');
   await expectReadable(page, 'month-net');

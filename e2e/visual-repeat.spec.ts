@@ -30,11 +30,16 @@ async function saved(page: Page): Promise<Ledger> {
 async function longPress(page: Page, row: Locator) {
   await row.scrollIntoViewIfNeeded();
   const box = (await row.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(500);
-  await page.mouse.up();
+  const touch = await page.context().newCDPSession(page);
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
+  });
   await expect(page.getByText('账单快捷操作', { exact: true })).toBeVisible();
+  await touch.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
   await expect(
     page.getByRole('textbox', { name: '金额', exact: true }),
   ).toHaveCount(0);

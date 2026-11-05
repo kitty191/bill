@@ -38,18 +38,32 @@ function MonthlyStats({
 }) {
   const t = useTheme();
   const money = useMoney();
-  const entries = monthEntries(ledger, month);
-  const { expense, income } = totals(entries, ledger.entries);
-  const previous = totals(
-    monthEntries(ledger, shiftMonth(month, -1)),
-    ledger.entries,
-  ).expense;
-  const categories = categoryTotals(entries, ledger.categories, ledger.entries);
+  const entries = useMemo(
+    () => monthEntries(ledger, month),
+    [ledger.entries, month],
+  );
+  const { expense, income } = useMemo(
+    () => totals(entries, ledger.entries),
+    [entries, ledger.entries],
+  );
+  const previous = useMemo(
+    () =>
+      totals(monthEntries(ledger, shiftMonth(month, -1)), ledger.entries)
+        .expense,
+    [ledger.entries, month],
+  );
+  const categories = useMemo(
+    () => categoryTotals(entries, ledger.categories, ledger.entries),
+    [entries, ledger.categories, ledger.entries],
+  );
   const daily = useMemo(
     () => dailyExpenseValues(ledger.entries, month, today),
     [ledger.entries, month, today],
   );
-  const totalDays = new Set(entries.map((e) => e.date)).size;
+  const totalDays = useMemo(
+    () => new Set(entries.map((e) => e.date)).size,
+    [entries],
+  );
   const circumference = 2 * Math.PI * 66;
   let running = 0;
   return (

@@ -64,6 +64,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useTheme } from '../theme';
+import { guardLongPressRelease } from './longPressRelease';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -464,6 +465,7 @@ export function EntryRow({
       onLongPress={
         onLongPress
           ? () => {
+              guardLongPressRelease();
               feedback('light');
               onLongPress();
             }

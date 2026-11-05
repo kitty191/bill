@@ -41,7 +41,7 @@ export type SaveLedgerOptions = {
 export async function saveLedger(
   ledger: Ledger,
   options?: SaveLedgerOptions,
-): Promise<void> {
+): Promise<Ledger> {
   const valid = validateLedger(ledger);
   const payload = JSON.stringify(valid);
   await (
@@ -136,6 +136,7 @@ export async function saveLedger(
         await transaction.runAsync('DELETE FROM entry_draft WHERE id = 1');
     }
   });
+  return valid;
 }
 export async function loadEntryDraftRaw(): Promise<string | null> {
   return (

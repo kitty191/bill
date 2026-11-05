@@ -131,13 +131,17 @@ export function LedgerProvider({ children }: { children: React.ReactNode }) {
         // Display preferences use the same queue, without dimming or disabling
         // the settings sheet. Each change reads the latest committed ledger.
         await enqueue(async () => {
-          const next = validateLedger(change(current.current!));
+          const candidate = change(current.current!);
+          let persisted: Ledger | undefined;
           if (options?.consumeDraftId || options?.resetUndo)
-            await saveLedger(next, {
+            persisted = await saveLedger(candidate, {
               consumeDraftId: options.consumeDraftId,
               clearDraft: options.resetUndo,
             });
-          else await saveLedger(next);
+          else persisted = await saveLedger(candidate);
+          // Storage validates before touching disk and returns its canonical
+          // committed value. The fallback supports alternate storage adapters.
+          const next = persisted ?? validateLedger(candidate);
           current.current = next;
           setLedger(next);
           if (options?.resetUndo) clearUndo();

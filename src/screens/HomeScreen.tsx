@@ -77,7 +77,10 @@ export function HomeScreen({
     () => monthEntries(ledger, month),
     [ledger.entries, month],
   );
-  const { income, expense } = totals(entries, ledger.entries);
+  const { income, expense } = useMemo(
+    () => totals(entries, ledger.entries),
+    [entries, ledger.entries],
+  );
   const todayExpense = useMemo(
     () =>
       totals(
