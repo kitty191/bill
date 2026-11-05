@@ -1,0 +1,76 @@
+name: Android build and upgrade
+on:
+  push:
+    branches: [main, codex/ci-setup-v070]
+    paths: ['src/**', 'App.tsx', 'app.json', 'package*.json', 'scripts/**', 'native-deps/**', '.github/workflows/android-acceptance.yml']
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: Historical app source used for the upgrade fixture
+        default: v0.6.1-android-preview
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: android-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      CI: 'true'
+      EXPO_OFFLINE: '1'
+      BASELINE_REF: ${{ inputs.baseline_ref || 'v0.6.1-android-preview' }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: gradle
+      - run: npm ci --no-audit --no-fund
+      - name: Android SDK components
+        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;27.1.12297006' 'cmake;3.22.1'
+      - name: Emulator-only release builds
+        run: |
+          export QINGZHANG_JAVA_INSTALLATIONS="${JAVA_HOME_17_X64:-}:$JAVA_HOME"
+          python3 scripts/ci_android_build.py --baseline "$BASELINE_REF" --output "$RUNNER_TEMP/acceptance-apks"
+      - name: Retain test APKs and checksums
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: emulator-only-apks-${{ github.sha }}
+          path: ${{ runner.temp }}/acceptance-apks/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Native persistence, keyboard, upgrade and navigation
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048
+          script: python3 scripts/native_acceptance.py --baseline "$RUNNER_TEMP/acceptance-apks/baseline.apk" --candidate "$RUNNER_TEMP/acceptance-apks/candidate.apk" --output "$RUNNER_TEMP/native-report"
+      - name: Native diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-diagnostics-${{ github.sha }}
+          path: ${{ runner.temp }}/native-report/
+          if-no-files-found: ignore
+          retention-days: 7

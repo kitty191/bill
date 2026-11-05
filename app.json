@@ -2,7 +2,7 @@
   "expo": {
     "name": "清账",
     "slug": "qingzhang",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.kitty191.qingzhang",
-      "versionCode": 19,
+      "versionCode": 20,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#244F3F"
