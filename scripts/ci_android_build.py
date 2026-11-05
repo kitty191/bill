@@ -26,7 +26,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='qingzhang-ci-') as temporary:
         work = Path(temporary); baseline = work/'baseline'; baseline.mkdir()
         names = set(subprocess.check_output(['git','ls-tree','--name-only',ref],cwd=ROOT,text=True).splitlines())
-        allowed = [name for name in ['src','assets','native-deps','scripts','app.json','package.json','package-lock.json','babel.config.js','metro.config.js','index.ts','tsconfig.json'] if name in names]
+        allowed = [name for name in ['App.tsx','src','assets','native-deps','scripts','app.json','package.json','package-lock.json','babel.config.js','metro.config.js','index.ts','tsconfig.json'] if name in names]
         archive = subprocess.check_output(['git','archive','--format=tar',ref,'--',*allowed],cwd=ROOT)
         with tarfile.open(fileobj=io.BytesIO(archive)) as files: files.extractall(baseline,filter='data')
         def dependencies(path):
