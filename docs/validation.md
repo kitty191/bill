@@ -27,6 +27,7 @@
 - 已查看生成账本截图 `docs/previews/large-money-v0.5.1-light.png`，未上传私人数据或录屏。
 - 一次完整回归出现设置入口等待超时；该周期流程独立连续复查 3 次通过，随后最终完整 58 项回归全部通过。
 - 1000 条记录、9 次切页，三个页面均 0 次重复渲染，无运行异常，见 `docs/paging-performance-v0.5.1.json`。
+- iOS 代码导出、Android Release 构建通过。版本 0.5.1 / versionCode 17，32,613,755 字节，源码提交 `ef085c492aa90e3f1090b32372ec7ce110655556`。沿用 v0.5.0 签名，APK v2 签名、16 KB ZIP 对齐、ZIP CRC、ARM64、独立 Hermes / 原生模块、权限、图标和临时性能计数器缺席检查通过，见 `downloads/qingzhang-v0.5.1-android-arm64-verification.json`。
 - 本轮未进行原生真机安装、SQLite 桥、文件分享、系统认证、触感和后台验收。
 
 ### v0.5.0 视觉与交互精修
