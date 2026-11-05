@@ -34,7 +34,7 @@ npm run web
 
 当前技术栈：Expo SDK 58、React Native 0.88、React 19.3、TypeScript 6、Reanimated 4、SQLite。版本以 `package-lock.json` 为准。
 
-Android 预览版：[下载 v0.5.0 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.5.0-android-arm64.apk)，约 31 MB，支持 ARM64 系统的 Android 7.0 及以上手机，内含应用代码，无需 Expo Go 或开发服务器。本轮精修视觉与玻璃材质、统一动效和触感，增加图表拖动探索与「再记一笔」，保留大账本优化、今日明细、计算器、预算、备份与隐私功能。沿用原签名，可直接覆盖安装旧版并保留账本。安装包校验与真机验收范围详见 [下载说明](downloads/README.md)。
+Android 预览版：[下载 v0.5.1 APK](https://github.com/kitty191/bill/raw/refs/heads/main/downloads/qingzhang-v0.5.1-android-arm64.apk)，约 31 MB，支持 ARM64 系统的 Android 7.0 及以上手机，内含应用代码，无需 Expo Go 或开发服务器。本轮整体审查修复大账本备份回导、带 UTF-8 标记的 JSON、窄屏大金额和旧账单改为转账时的默认账户，保留玻璃材质、动效、图表拖动、「再记一笔」及现有记账功能。沿用原签名，可直接覆盖安装旧版并保留账本。安装包校验与真机验收范围详见 [下载说明](downloads/README.md)。
 
 独立 APK 构建入口为 `npm run build:apk`，工具链、私有签名配置和网络前提见 [Android 构建说明](docs/android-build.md)。IPA 尚未生成，另需 macOS / 远程构建服务及 Apple 签名。
 
@@ -73,7 +73,7 @@ EXPO_OFFLINE=1 npx expo export --platform ios --platform android --output-dir /t
 - 隐私偏好仅保存在本机：手机使用 SecureStore，网页为独立 localStorage 键，不随账本导出或恢复。应用锁是访问验证，不会加密账本或导出的文件；系统生物识别失败或取消时保持锁定，可使用系统提供的设备凭据回退。网页不能启用应用锁；Face ID 需独立 iOS 构建。
 - 备份提醒只在应用内显示，不发送系统通知，不自动上传。JSON 文件生成后记录导出时间；系统分享面板不能确认是否已保存，请自行确认，CSV 不重置提醒。
 - 数据保存在本机，尚未实现额外的应用层加密、云同步和自动备份。卸载 / 清除应用数据可能丢失账本，请定期导出 JSON。CSV 用于查看，不用于恢复。
-- JSON 备份包含全部财务数据和按月预算，请妥善保管；恢复会替换当前账本，应用内需再次确认。撤销仅针对最近一次单笔删除，8 秒有效；清空、示例载入或恢复备份会清除撤销状态。
+- JSON 备份包含全部财务数据和按月预算，文件上限为 64 MB，导入与导出均检查实际 UTF-8 字节数；兼容文件开头的 UTF-8 标记，仍严格验证账本内容。请妥善保管，恢复会替换当前账本，应用内需再次确认。撤销仅针对最近一次单笔删除，8 秒有效；清空、示例载入或恢复备份会清除撤销状态。
 
 ## 设计与后续
 

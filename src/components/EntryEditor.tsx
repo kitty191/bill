@@ -98,16 +98,15 @@ export function EntryEditor({
       preset?.categoryId ??
       initialDefault.categoryId,
   );
-  const [accountId, setAccountId] = useState(
+  const initialAccountId =
     seed?.accountId ??
-      original?.accountId ??
-      preset?.accountId ??
-      initialDefault.accountId,
-  );
+    original?.accountId ??
+    preset?.accountId ??
+    initialDefault.accountId;
+  const [accountId, setAccountId] = useState(initialAccountId);
   const [toAccountId, setToAccountId] = useState(
     seed?.toAccountId ??
-      data.accounts.find((account) => account.id !== initialDefault.accountId)
-        ?.id ??
+      data.accounts.find((account) => account.id !== initialAccountId)?.id ??
       '',
   );
   const [date, setDate] = useState(entry?.date ?? localDate());
@@ -301,6 +300,20 @@ export function EntryEditor({
                   value === 'transfer' ? 'transfer' : defaults.categoryId,
                 );
                 if (!entry) setAccountId(defaults.accountId);
+                const sourceAccount = entry ? accountId : defaults.accountId;
+                if (
+                  value === 'transfer' &&
+                  (toAccountId === sourceAccount ||
+                    !data.accounts.some(
+                      (account) => account.id === toAccountId,
+                    ))
+                ) {
+                  setToAccountId(
+                    data.accounts.find(
+                      (account) => account.id !== sourceAccount,
+                    )?.id ?? '',
+                  );
+                }
                 setError('');
               }}
               style={{

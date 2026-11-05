@@ -3,6 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { type Ledger, csv, localDate, validateLedger } from '../domain/ledger';
+import { assertBackupSize, assertBackupTextSize } from '../domain/backup';
 
 export async function exportLedger(ledger: Ledger, format: 'json' | 'csv') {
   const content =
@@ -33,6 +34,7 @@ export async function exportSnapshot(content: string, snapshotId: string) {
 }
 
 async function exportContent(content: string, name: string, mimeType: string) {
+  if (mimeType === 'application/json') assertBackupTextSize(content);
   if (Platform.OS === 'web') {
     const url = URL.createObjectURL(
       new Blob([content], { type: `${mimeType};charset=utf-8` }),
@@ -66,16 +68,16 @@ export async function importLedger(): Promise<Ledger | null> {
   if (result.canceled) return null;
   const asset = result.assets[0];
   if (!asset) return null;
-  if (asset.size && asset.size > 10_000_000)
-    throw new Error('备份文件不能超过 10 MB');
+  if (asset.size !== undefined) assertBackupSize(asset.size);
   let text: string;
   if (Platform.OS === 'web') {
     const response = await fetch(asset.uri);
+    if (!response.ok) throw new Error('无法读取备份文件，请重新选择');
     text = await response.text();
   } else text = await new File(asset.uri).text();
-  if (text.length > 10_000_000) throw new Error('备份文件不能超过 10 MB');
+  assertBackupTextSize(text);
   try {
-    return validateLedger(JSON.parse(text));
+    return validateLedger(JSON.parse(text.replace(/^\uFEFF/, '')));
   } catch (error) {
     throw new Error(
       `无法导入：${error instanceof Error ? error.message : '文件格式无效'}`,

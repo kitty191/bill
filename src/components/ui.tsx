@@ -1,10 +1,19 @@
-import React, { createContext, useContext, type RefObject } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import {
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
+  type TextProps,
   type StyleProp,
   type ViewStyle,
   type TextStyle,
@@ -143,6 +152,7 @@ export function Txt({
   testID,
   adjustsFontSizeToFit,
   minimumFontScale,
+  onLayout,
 }: {
   children: React.ReactNode;
   size?: number;
@@ -153,6 +163,7 @@ export function Txt({
   testID?: string;
   adjustsFontSizeToFit?: boolean;
   minimumFontScale?: number;
+  onLayout?: TextProps['onLayout'];
 }) {
   const theme = useTheme();
   return (
@@ -161,6 +172,7 @@ export function Txt({
       numberOfLines={numberOfLines}
       adjustsFontSizeToFit={adjustsFontSizeToFit}
       minimumFontScale={minimumFontScale}
+      onLayout={onLayout}
       style={[
         {
           fontSize: size,
@@ -577,33 +589,105 @@ export function MoneyText({
 }) {
   const t = useTheme();
   const money = useMoney();
-  const [whole, fraction] = money(amount).split('.');
+  const formatted = money(amount);
+  const [whole = '', fraction] = formatted.split('.');
+  const { width, fontScale } = useWindowDimensions();
+  const profile = `${width}:${fontScale}:${size}:${currency}:${prefix}:${formatted}`;
+  const [layout, setLayout] = useState<{
+    profile: string;
+    width: number;
+    naturalWidth: number;
+  } | null>(null);
+  const currentProfile = useRef(profile);
+  useLayoutEffect(() => {
+    currentProfile.current = profile;
+  }, [profile]);
+  const measured = layout?.profile === profile ? layout : null;
+  const available = measured?.width ?? 0;
+  // RN Web ignores adjustsFontSizeToFit. Scale from the original glyph width,
+  // rather than repeatedly scaling a previous fitted size after layout events.
+  const fitted =
+    Platform.OS === 'web' && measured
+      ? Math.max(
+          Math.min(6, size),
+          Math.min(size, (size * (measured.width - 1)) / measured.naturalWidth),
+        )
+      : size;
   return (
     <Txt
+      key={Platform.OS === 'web' ? profile : undefined}
       testID={testID}
-      size={size}
+      size={fitted}
       weight="500"
       color={color}
       numberOfLines={1}
       adjustsFontSizeToFit
-      minimumFontScale={0.6}
+      minimumFontScale={0.4}
+      onLayout={
+        Platform.OS === 'web'
+          ? (event) => {
+              const node = (
+                event.nativeEvent as typeof event.nativeEvent & {
+                  target?: HTMLElement;
+                }
+              ).target;
+              if (currentProfile.current !== profile || !node?.isConnected)
+                return;
+              const measuredWidth = Math.min(
+                event.nativeEvent.layout.width,
+                node.getBoundingClientRect().width,
+              );
+              if (measuredWidth <= 0) return;
+              const walker = node.ownerDocument.createTreeWalker(
+                node,
+                NodeFilter.SHOW_TEXT,
+              );
+              let contentWidth = 0;
+              while (walker.nextNode()) {
+                const range = node.ownerDocument.createRange();
+                range.selectNodeContents(walker.currentNode);
+                contentWidth += range.getBoundingClientRect().width;
+              }
+              const computed =
+                node.ownerDocument.defaultView!.getComputedStyle(node);
+              const actualFont = Number.parseFloat(computed.fontSize) || size;
+              const spacing =
+                (Number.parseFloat(computed.letterSpacing) || 0) *
+                (node.textContent?.length ?? 0);
+              const naturalWidth = Math.max(
+                1,
+                ((contentWidth - spacing) * size) / actualFont + spacing,
+              );
+              setLayout((current) =>
+                current?.profile === profile
+                  ? Math.abs(current.width - measuredWidth) < 0.5
+                    ? current
+                    : { ...current, width: measuredWidth }
+                  : { profile, width: measuredWidth, naturalWidth },
+              );
+            }
+          : undefined
+      }
       style={[
         {
           fontVariant: ['tabular-nums'],
           letterSpacing: size >= 28 ? -0.8 : -0.15,
         },
         style,
+        Platform.OS === 'web' && available > 0
+          ? { width: available, maxWidth: '100%' }
+          : undefined,
       ]}
     >
       {currency && (
-        <Txt size={size * 0.6} color={color ?? t.muted}>
+        <Txt size={fitted * 0.6} color={color ?? t.muted}>
           ¥
         </Txt>
       )}
       {prefix}
       {whole}
       {fraction !== undefined && (
-        <Txt size={size * 0.72} weight="500" color={color ?? t.muted}>
+        <Txt size={fitted * 0.72} weight="500" color={color ?? t.muted}>
           .{fraction}
         </Txt>
       )}
