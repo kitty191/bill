@@ -155,11 +155,13 @@ def main():
         results['baseline_start']=device.launch()
         device.tap('记一笔')
         for key in '12.34': device.tap('计算键'+key)
+        device.input_value('金额','12.34')
         device.tap('选择分类、账户和日期')
         for _ in range(5):
             if device.find('备注'): break
             device.shell('input','swipe','500','1400','500','700','250')
         device.tap('备注'); device.shell('input','text','upgrade-check')
+        device.input_value('备注','upgrade-check')
         device.shell('input','keyevent','4')
         device.wait('记好了'); device.tap('记好了'); device.wait('记一笔')
         device.tap('隐藏金额')
@@ -171,7 +173,8 @@ def main():
         with tempfile.TemporaryDirectory() as temporary:
             before,old_draft=device.data(Path(temporary))
         results['baseline_draft']=old_draft
-        assert len(before['entries'])==1 and before['entries'][0]['amount']==1234 and before['entries'][0]['note']=='upgrade-check'
+        results['baseline_ledger']=before
+        assert len(before['entries'])==1 and before['entries'][0]['amount']==1234 and before['entries'][0]['note']=='upgrade-check',before
         assert old_draft['fields']['calculator']['expression']=='8+2',old_draft
         device.call('install','-r',str(args.candidate.resolve()))
         results['candidate_start']=device.launch()
@@ -185,11 +188,13 @@ def main():
         device.launch(); device.tap('显示金额'); device.tap('记一笔'); device.wait('放弃草稿，重新记一笔')
         device.tap('放弃草稿，重新记一笔')
         for key in '5': device.tap('计算键'+key)
+        device.input_value('金额','5')
         device.tap('选择分类、账户和日期')
         for _ in range(5):
             if device.find('备注'): break
             device.shell('input','swipe','500','1400','500','700','250')
         device.tap('备注'); device.shell('input','text','keyboard-check')
+        device.input_value('备注','keyboard-check')
         # First hardware back hides the IME, without cancelling the draft.
         device.shell('input','keyevent','4'); device.wait('记好了')
         device.tap('记好了'); device.wait('记一笔')
