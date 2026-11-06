@@ -58,6 +58,9 @@ def main():
             assert matching, 'Launcher resource missing: ' + icon
             icons[icon] = matching
     digest = hashlib.sha256(apk.read_bytes()).hexdigest()
+    mapping = (ROOT / 'android/app/build/outputs/mapping/release/mapping.txt').read_text()
+    section = re.search(r'^androidx\.work\.impl\.WorkDatabase_Impl -> [^\n]+\n((?:[ \t#].*\n)*)', mapping, re.M)
+    assert section and re.search(r'void <init>\(\)', section.group(1)), 'WorkManager reflective database constructor was removed by R8'
     assert apk.with_suffix('.apk.sha256').read_text().split()[0] == digest
     metadata = {
         'same_signer_as': previous['version'], 'file': apk.name, 'bytes': apk.stat().st_size, 'sha256': digest,
@@ -68,6 +71,7 @@ def main():
         'native_pager_dex_verified': True, 'benchmark_instrumentation_absent': True,
         'native_authentication_and_secure_store_dex_verified': True, 'biometric_permission_verified': True,
         'native_background_modules_dex_verified': True,
+        'work_manager_constructor_mapping_verified': True,
         'pager_license_verified': True, 'new_launcher_resources_verified': icons,
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'verified_at': datetime.now(timezone.utc).isoformat(), 'device_installation_tested': False,

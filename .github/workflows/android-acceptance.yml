@@ -13,6 +13,10 @@ on:
         description: Optional previous run whose unchanged app APKs can be reused
         default: ''
         required: false
+      baseline_apk_run:
+        description: Optional previous run providing only the historical APK; candidate is rebuilt
+        default: ''
+        required: false
 permissions:
   contents: read
   actions: read
@@ -30,6 +34,7 @@ jobs:
       QINGZHANG_BUILD_TOOLS_VERSION: '37.0.0'
       BASELINE_REF: ${{ inputs.baseline_ref || 'v0.6.1-android-preview' }}
       REUSE_BUILD_RUN: ${{ inputs.reuse_build_run }}
+      BASELINE_APK_RUN: ${{ inputs.baseline_apk_run }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -59,7 +64,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           export QINGZHANG_JAVA_INSTALLATIONS="${JAVA_HOME_17_X64:-}:$JAVA_HOME"
-          python3 scripts/ci_android_build.py --baseline "$BASELINE_REF" --reuse-run "$REUSE_BUILD_RUN" --output "$RUNNER_TEMP/acceptance-apks"
+          python3 scripts/ci_android_build.py --baseline "$BASELINE_REF" --reuse-run "$REUSE_BUILD_RUN" --baseline-run "$BASELINE_APK_RUN" --output "$RUNNER_TEMP/acceptance-apks"
       - name: Retain test APKs and checksums
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
