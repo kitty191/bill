@@ -27,8 +27,8 @@ gradle.beforeProject { targetProject ->
             signing.keyAlias = System.getenv('QINGZHANG_KEY_ALIAS')
             signing.keyPassword = System.getenv('QINGZHANG_KEY_PASSWORD')
             android.buildTypes.getByName('release').signingConfig = signing
-            def roomRules = new File(targetProject.rootProject.projectDir.parentFile, 'native-deps/background-backup/room.pro')
-            if (roomRules.isFile()) android.buildTypes.getByName('release').proguardFiles(roomRules)
+            def backgroundRules = new File(targetProject.rootProject.projectDir.parentFile, 'native-deps/background-backup/proguard-rules.pro')
+            if (backgroundRules.isFile()) android.buildTypes.getByName('release').proguardFiles(backgroundRules)
         }
     }
 }
