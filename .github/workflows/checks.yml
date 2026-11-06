@@ -23,6 +23,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: python3 -m unittest discover -s tests -p release_android_test.py
       - run: npm run typecheck
       - run: npm test -- --maxWorkers=2
       - run: npm run export:web -- --max-workers 2
