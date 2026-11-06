@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import socket
 from pathlib import Path
 import subprocess
 import tempfile
@@ -99,10 +100,15 @@ def prepare(app, head, notes, wait_native=0):
         ('apk-verify', ['python3', 'scripts/verify_android.py']),
     ]
     completed = []
+    # An interrupted Playwright run may leave its detached server alive. Use a
+    # fresh port instead of connecting to an unrelated/stale process.
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        test_port = str(probe.getsockname()[1])
     for name, command in steps:
         print(f'Running {name}; log: {logs/name}', flush=True)
         with (logs/name).open('w') as output:
-            result = subprocess.run(command, cwd=ROOT, env={**os.environ, 'EXPO_OFFLINE': '1'}, stdout=output, stderr=subprocess.STDOUT)
+            result = subprocess.run(command, cwd=ROOT, env={**os.environ, 'EXPO_OFFLINE': '1', 'QINGZHANG_E2E_PORT': test_port}, stdout=output, stderr=subprocess.STDOUT)
         if result.returncode:
             raise ReleaseError(f'{name} failed; publication stopped. See {logs/name}')
         completed.append(name)
