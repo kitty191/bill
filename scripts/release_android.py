@@ -94,7 +94,7 @@ def prepare(app, head, notes, wait_native=0):
         ('typecheck', ['npm', 'run', 'typecheck']),
         ('unit', ['npm', 'test', '--', '--maxWorkers=2']),
         ('web-export', ['npm', 'run', 'export:web', '--', '--max-workers', '2']),
-        ('browser', ['npm', 'run', 'test:e2e', '--', '--workers=1']),
+        ('browser', ['npm', 'run', 'test:e2e', '--', '--workers=1', '--output', str(logs/'browser-results')]),
         ('ios-export', ['npx', 'expo', 'export', '--platform', 'ios', '--output-dir', str(logs/'ios'), '--max-workers', '2']),
         ('apk-build', ['npm', 'run', 'build:apk']),
         ('apk-verify', ['python3', 'scripts/verify_android.py']),
