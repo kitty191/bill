@@ -21,7 +21,9 @@ const IS_WEB = Platform.OS === 'web';
 const PAGER_STYLE = {
   flex: 1,
   direction: 'ltr',
-  ...(IS_WEB ? { overscrollBehaviorX: 'contain' } : {}),
+  ...(IS_WEB
+    ? { overscrollBehaviorX: 'contain', scrollSnapType: 'x mandatory' }
+    : {}),
 } as const;
 
 /** Page positions match the left-to-right dock order on native and web. */
@@ -49,6 +51,7 @@ export function SwipePager({
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [locked, setLocked] = useState(false);
   const lockedRef = useRef(false);
+  const webRange = useRef<{ minimum: number; maximum: number } | null>(null);
   const scrollLock = useMemo(
     () => ({
       lock: () => {
@@ -89,11 +92,22 @@ export function SwipePager({
     if (!node) return;
     let startX = 0,
       startY = 0;
+    let origin = 0;
+    let stop: ReturnType<typeof setTimeout> | undefined;
+    const stopped = () => {
+      if (stop) clearTimeout(stop);
+      stop = setTimeout(() => {
+        webRange.current = null;
+      }, 150);
+    };
     const start = (event: TouchEvent) => {
       const touch = event.touches[0];
       if (touch) {
         startX = touch.clientX;
         startY = touch.clientY;
+        origin = Math.round(pagerProgress(node.scrollLeft, count, width));
+        webRange.current = null;
+        if (stop) clearTimeout(stop);
       }
     };
     const move = (event: TouchEvent) => {
@@ -103,20 +117,53 @@ export function SwipePager({
         dy = touch.clientY - startY;
       if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy)) return;
       if (lockedRef.current) return;
+      webRange.current = {
+        minimum: Math.max(0, origin - 1) * width,
+        maximum: Math.min(count - 1, origin + 1) * width,
+      };
       const position = pagerProgress(node.scrollLeft, count, width);
       const outside =
         (position <= 0.01 && dx > 0) ||
         (position >= count - 1 - 0.01 && dx < 0);
       if (outside && event.cancelable) event.preventDefault();
     };
+    const constrain = () => {
+      const range = webRange.current;
+      if (!range) return;
+      const offset = Math.min(
+        range.maximum,
+        Math.max(range.minimum, node.scrollLeft),
+      );
+      if (Math.abs(offset - node.scrollLeft) > 0.5) node.scrollLeft = offset;
+      // Keep the constraint through browser momentum, not just touchEnd. A new
+      // gesture or explicit dock navigation can immediately select a new range.
+      stopped();
+    };
     node.addEventListener('touchstart', start, {
       passive: true,
       capture: true,
     });
     node.addEventListener('touchmove', move, { passive: false, capture: true });
+    node.addEventListener('touchend', stopped, {
+      passive: true,
+      capture: true,
+    });
+    node.addEventListener('touchcancel', stopped, {
+      passive: true,
+      capture: true,
+    });
+    node.addEventListener('scroll', constrain, {
+      passive: true,
+      capture: true,
+    });
     return () => {
       node.removeEventListener('touchstart', start, true);
       node.removeEventListener('touchmove', move, true);
+      node.removeEventListener('touchend', stopped, true);
+      node.removeEventListener('touchcancel', stopped, true);
+      node.removeEventListener('scroll', constrain, true);
+      if (stop) clearTimeout(stop);
+      webRange.current = null;
     };
   }, [width, count]);
 
@@ -154,6 +201,7 @@ export function SwipePager({
     previousNavigation.current = navigationKey;
     previousWidth.current = width;
     if (!resized && !requested && knownIndex.current === index) return;
+    if (resized || requested) webRange.current = null;
     if (timer.current) clearTimeout(timer.current);
     knownIndex.current = index;
     if (resized || reduce) progress.value = index;
@@ -210,7 +258,10 @@ export function SwipePager({
             ref={ref}
             testID="page-pager"
             horizontal
-            pagingEnabled
+            // Web uses the page's single snap target below. RN Web's paging
+            // wrapper adds a second target without scrollSnapStop and can let
+            // a fast fling skip over the intervening page.
+            pagingEnabled={!IS_WEB}
             directionalLockEnabled
             keyboardDismissMode="on-drag"
             nestedScrollEnabled

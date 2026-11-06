@@ -32,3 +32,9 @@ python3 scripts/native_profile.py --serial DEVICE_SERIAL --seconds 20 --output /
 采集期间手动完成冷启动后的页面滑动、加号、计算器和列表操作。脚本只重置 / 读取图形统计与设备型号信息，不安装应用、清除数据或读取账本，也不自动截图。它不能替代现场观察中文键盘、安全区、大字体、触感和玻璃材质。
 
 iOS 已验证资源 / Hermes 导出，不代表原生文件授权或键盘验收通过；IPA 仍需 macOS 和 Apple 签名。
+
+## v0.8 后台任务验收
+
+在全新 API 35 模拟器中显式开启后台开关，确认系统 WorkManager 作业已注册。返回桌面后使用 `am kill` 回收缓存进程（不使用会禁止后台任务的 `am force-stop`），再用 Android JobScheduler 强制触发已注册作业，核对后台生成的新 JSON 与已提交账本一致、最近后台成功时间可见，以及开关关闭。强制触发仅用于加速验收，不代表真实设备会按固定时刻调度。
+
+Android 输入比较只额外忽略已有、未改变 `.native.tsx` 实现所覆盖的网页 `SwipePager.tsx`；原生实现被修改 / 删除及其他源码、依赖、配置、构建输入改变都会拒绝复用。

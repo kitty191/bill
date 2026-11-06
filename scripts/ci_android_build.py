@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+from android_inputs import changed_android_inputs
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -34,7 +35,7 @@ def main():
             assert metadata['baseline_commit']==ref and metadata['architecture']=='x86_64'
             # Reuse only when every app/build input is identical. Test scripts,
             # workflow wiring and documentation may change independently.
-            difference=subprocess.check_output(['git','diff',metadata['candidate_commit'],'HEAD','--','App.tsx','src','assets','app.json','package.json','package-lock.json','native-deps','babel.config.js','metro.config.js','index.ts','scripts/build_android.py','scripts/android-release.init.gradle'],cwd=ROOT,text=True)
+            difference=changed_android_inputs(ROOT,metadata['candidate_commit'],'HEAD')
             assert not difference,'App/build inputs changed; build fresh acceptance APKs'
             for name in ['baseline.apk','candidate.apk']:
                 file=manifest.parent/name

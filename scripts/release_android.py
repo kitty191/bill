@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+from android_inputs import changed_android_inputs
 
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = 'kitty191/bill'
@@ -41,7 +42,7 @@ def context():
 
 def check_source(source, head):
     subprocess.run(['git', 'merge-base', '--is-ancestor', source, head], cwd=ROOT, check=True)
-    if git('diff', source, head, '--', *APP_INPUTS):
+    if changed_android_inputs(ROOT, source, head):
         raise ReleaseError('App/build inputs changed after verification; prepare a new APK')
 
 def verify_artifact(meta, previous, apk):
@@ -62,7 +63,7 @@ def verify_artifact(meta, previous, apk):
 def native_receipt(head):
     runs = json.loads(run(['gh', 'run', 'list', '--repo', REPOSITORY, '--workflow', 'android-acceptance.yml', '--branch', 'main', '--limit', '30', '--json', 'databaseId,headSha,conclusion']))
     for item in runs:
-        if item['conclusion'] == 'success' and not git('diff', item['headSha'], head, '--', *APP_INPUTS):
+        if item['conclusion'] == 'success' and not changed_android_inputs(ROOT, item['headSha'], head):
             return {'run': item['databaseId'], 'app_source_commit': item['headSha'], 'url': f"https://github.com/{REPOSITORY}/actions/runs/{item['databaseId']}"}
     raise ReleaseError('No successful native acceptance run matches these app/build inputs; wait for CI')
 
