@@ -42,7 +42,7 @@ def context():
 
 def check_source(source, head):
     subprocess.run(['git', 'merge-base', '--is-ancestor', source, head], cwd=ROOT, check=True)
-    if changed_android_inputs(ROOT, source, head):
+    if git('diff', source, head, '--', *APP_INPUTS):
         raise ReleaseError('App/build inputs changed after verification; prepare a new APK')
 
 def verify_artifact(meta, previous, apk):
@@ -106,15 +106,14 @@ def prepare(app, head, notes, wait_native=0):
         if result.returncode:
             raise ReleaseError(f'{name} failed; publication stopped. See {logs/name}')
         completed.append(name)
-    if git('rev-parse', 'HEAD') != head:
-        raise ReleaseError('Source commit changed during preparation')
+    check_source(head, git('rev-parse', 'HEAD'))
     version = app['version']; paths = generated(version)
     meta = json.loads((ROOT/paths[2]).read_text())
     verify_artifact(meta, previous_metadata(app['android']['versionCode']), ROOT/paths[0])
     deadline = time.monotonic() + wait_native * 60
     while True:
         try:
-            native = native_receipt(head)
+            native = native_receipt(meta['source_commit'])
             break
         except ReleaseError:
             if time.monotonic() >= deadline:
@@ -122,7 +121,7 @@ def prepare(app, head, notes, wait_native=0):
             print('Waiting for matching native acceptance CI; APK checks are complete.', flush=True)
             time.sleep(30)
     check_source(head, git('rev-parse', 'HEAD'))
-    receipt = {'version': version, 'source_commit': head, 'completed_checks': completed, 'native_acceptance': native, 'apk_sha256': meta['sha256'], 'prepared_at': datetime.now(timezone.utc).isoformat()}
+    receipt = {'version': version, 'source_commit': meta['source_commit'], 'checked_source_commit': head, 'completed_checks': completed, 'native_acceptance': native, 'apk_sha256': meta['sha256'], 'prepared_at': datetime.now(timezone.utc).isoformat()}
     (ROOT/paths[3]).write_text(json.dumps(receipt, ensure_ascii=False, indent=2)+'\n')
     url = f'https://github.com/{REPOSITORY}/raw/refs/tags/v{version}-android-preview/{paths[0]}'
     (ROOT/'downloads/README.md').write_text(f'''# 清账 Android 预览版

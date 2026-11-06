@@ -21,6 +21,8 @@ QINGZHANG_SIGNING_CONFIG=/path/to/existing/private-signing.json \
 python3 scripts/release_android.py --publish-prepared
 ```
 
+准备期间如仅增加文档或验收基础设施提交，脚本会核对应用 / 构建输入完全一致，并分别记录检查源提交与 APK 验证源提交；应用、依赖或构建规则改变仍立即停止。
+
 第二阶段严格复核已准备的 APK、完整检查回执和源码差异，不跳过验收或更换签名。它也可在推送 / 创建 Release / 下载中断后恢复，复用已经完成的检查和构建。
 
 这是可在现有私有构建机运行的一键流程。当前集成没有 GitHub Secrets 与 Runner 管理权限（API 返回 403），没有启用 GitHub 上常驻、无人值守的原签名发布，也没有将私钥迁入仓库。常驻自动触发需另行配置长期在线的私有构建服务；不可把生产签名暴露给公开 PR 的构建任务。
