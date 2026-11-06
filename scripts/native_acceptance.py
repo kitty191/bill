@@ -151,6 +151,10 @@ def main():
     device.shell('settings','put','secure','show_ime_with_hard_keyboard','1')
     results={'platform':'Android emulator; not a physical phone or 120 Hz FPS claim','baseline_version_code':old_version,'candidate_version_code':new_version,'same_test_signer':True,'checks':{}}
     try:
+        device.call('install','-r',str(args.candidate.resolve()))
+        results['candidate_fresh_start']=device.launch()
+        results['checks']['candidate_fresh_install_launch']=True
+        device.call('uninstall',PACKAGE)
         device.call('install','-r',str(args.baseline.resolve()))
         results['baseline_start']=device.launch()
         device.tap('记一笔')
