@@ -234,6 +234,41 @@ def main():
             time.sleep(.3)
         assert len(archives)>=2,'Directory grant did not survive a process restart'
         results['checks']['native_automatic_backup_and_persisted_directory_grant']=True
+        device.scroll_to('允许系统后台备份'); device.tap('允许系统后台备份')
+        device.contains('已加入系统后台调度')
+        before_background=set(archives)
+        jobs=device.shell('dumpsys','jobscheduler')
+        (args.output/'scheduled-jobs.txt').write_text(jobs)
+        job_ids=re.findall(r'JOB #[^/\s]+/(\d+):[^\n]*'+re.escape(PACKAGE)+r'/androidx\.work\.impl\.background\.systemjob\.SystemJobService',jobs)
+        assert job_ids,'System WorkManager job was not registered'
+        # Background the app and kill its cached process without force-stopping
+        # the package. Force-stop intentionally prevents Android background jobs.
+        device.shell('input','keyevent','3'); time.sleep(1)
+        device.shell('am','kill',PACKAGE)
+        launch_job=device.shell('cmd','jobscheduler','run','-f','-u','0',PACKAGE,job_ids[-1])
+        results['background_job_trigger']=launch_job
+        assert 'Running job' in launch_job,launch_job
+        end=time.monotonic()+120
+        restored=[]
+        while time.monotonic()<end:
+            candidates=[name for name in device.shell('ls','/sdcard/Documents/QingzhangBackupTest').splitlines() if name.endswith('.json') and name not in before_background]
+            for name in candidates:
+                try:
+                    payload=json.loads(device.call('exec-out','cat','/sdcard/Documents/QingzhangBackupTest/'+name))
+                    if payload==final: restored.append(name)
+                except (json.JSONDecodeError,subprocess.CalledProcessError): pass
+            if restored: break
+            time.sleep(.5)
+        assert restored,'Headless WorkManager did not produce a verified copy of the committed ledger'
+        time.sleep(1)
+        device.launch(); device.tap('打开设置'); device.tap('隐私与备份提醒'); device.scroll_to('允许系统后台备份')
+        tree=device.tree()
+        labels=' '.join(node.get('text','')+' '+node.get('content-desc','') for node in tree.iter('node'))
+        assert '最近后台成功' in labels and '最近后台成功：尚无成功记录' not in labels,labels
+        (args.output/'background-backup-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
+        device.tap('允许系统后台备份'); device.contains('后台备份尚未启用')
+        results['checks']['headless_background_backup_after_cached_process_kill']=True
+        results['checks']['background_opt_out']=True
         device.launch(); device.shell('dumpsys','gfxinfo',PACKAGE,'reset')
         for label in ['账单','统计','账单','首页']: device.tap(label)
         dimensions = [int(value) for value in re.findall(r'\d+',device.shell('wm','size'))][-2:]

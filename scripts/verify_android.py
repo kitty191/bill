@@ -46,6 +46,8 @@ def main():
         assert any(b'RNCViewPager' in archive.read(name) for name in names if name.endswith('.dex')), 'Native pager implementation missing'
         for module in [b'ExpoLocalAuthentication', b'ExpoSecureStore']:
             assert any(module in archive.read(name) for name in names if name.endswith('.dex')), 'Native privacy module missing: ' + module.decode()
+        for module in [b'ExpoBackgroundTask', b'ExpoTaskManager']:
+            assert any(module in archive.read(name) for name in names if name.endswith('.dex')), 'Native background module missing: ' + module.decode()
         assert 'assets/third-party/BlurView-LICENSE.txt' in names
         assert archive.read('assets/third-party/react-native-pager-view-LICENSE.txt') == (ROOT / 'node_modules/react-native-pager-view/LICENSE').read_bytes()
         icons = {}
@@ -65,6 +67,7 @@ def main():
         'zip_alignment_16k_verified': True, 'zip_crc_verified': True, 'standalone_bundles': bundles,
         'native_pager_dex_verified': True, 'benchmark_instrumentation_absent': True,
         'native_authentication_and_secure_store_dex_verified': True, 'biometric_permission_verified': True,
+        'native_background_modules_dex_verified': True,
         'pager_license_verified': True, 'new_launcher_resources_verified': icons,
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'verified_at': datetime.now(timezone.utc).isoformat(), 'device_installation_tested': False,

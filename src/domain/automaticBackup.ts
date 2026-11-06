@@ -11,6 +11,8 @@ export type BackupPreferences = {
   lastFileName: string | null;
   lastAttemptAt: string | null;
   error: string;
+  background: boolean;
+  lastBackgroundSuccessAt: string | null;
 };
 export const BACKUP_VERSIONS = 7;
 export function defaultBackupPreferences(): BackupPreferences {
@@ -24,6 +26,8 @@ export function defaultBackupPreferences(): BackupPreferences {
     lastFileName: null,
     lastAttemptAt: null,
     error: '',
+    background: false,
+    lastBackgroundSuccessAt: null,
   };
 }
 export function validateBackupPreferences(input: unknown): BackupPreferences {
@@ -41,12 +45,17 @@ export function validateBackupPreferences(input: unknown): BackupPreferences {
     typeof v.directoryName !== 'string' ||
     v.directoryName.length > 120 ||
     typeof v.error !== 'string' ||
+    (v.background !== undefined && typeof v.background !== 'boolean') ||
     v.error.length > 500 ||
     (v.lastFileName !== null &&
       (typeof v.lastFileName !== 'string' || v.lastFileName.length > 200))
   )
     throw new Error('自动备份设置无效');
-  for (const time of [v.lastSuccessAt, v.lastAttemptAt])
+  for (const time of [
+    v.lastSuccessAt,
+    v.lastAttemptAt,
+    v.lastBackgroundSuccessAt ?? null,
+  ])
     if (
       time !== null &&
       (typeof time !== 'string' || !Number.isFinite(Date.parse(time)))
@@ -63,6 +72,8 @@ export function validateBackupPreferences(input: unknown): BackupPreferences {
     lastFileName: v.lastFileName,
     lastAttemptAt: v.lastAttemptAt,
     error: v.error,
+    background: v.background ?? false,
+    lastBackgroundSuccessAt: v.lastBackgroundSuccessAt ?? null,
   };
 }
 export function backupDue(p: BackupPreferences, now = Date.now()) {

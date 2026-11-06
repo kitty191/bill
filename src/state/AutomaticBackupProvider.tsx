@@ -6,19 +6,27 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 import {
   type BackupPreferences,
   backupDue,
   defaultBackupPreferences,
-  writeVerifiedBackup,
 } from '../domain/automaticBackup';
 import {
   automaticBackupSupported,
-  backupFiles,
   loadBackupPreferences,
   pickBackupDirectory,
-  saveBackupPreferences,
 } from '../storage/automaticBackup';
+import {
+  changeBackupPreferences,
+  executeBackup,
+  resetBackupPreferences,
+} from '../storage/backupJob';
+import {
+  backgroundBackupSupported,
+  syncBackgroundBackup,
+  type BackgroundStatus,
+} from '../background/backgroundBackup';
 import { useLedger } from './LedgerProvider';
 import { usePrivacy } from './PrivacyContext';
 
@@ -27,7 +35,12 @@ type State = {
   busy: boolean;
   error: string;
   supported: boolean;
+  backgroundSupported: boolean;
+  backgroundStatus: BackgroundStatus;
+  backgroundError: string;
   configure: (days: BackupPreferences['days']) => Promise<void>;
+  configureBackground: (enabled: boolean) => Promise<void>;
+  retryBackground: () => Promise<void>;
   selectDirectory: () => Promise<void>;
   run: () => Promise<void>;
   reload: () => void;
@@ -41,8 +54,6 @@ export function AutomaticBackupProvider({
 }) {
   const { ledger } = useLedger();
   const privacy = usePrivacy();
-  const ledgerRef = useRef(ledger);
-  ledgerRef.current = ledger;
   const [preferences, setPreferences] = useState<BackupPreferences | null>(
     null,
   );
@@ -50,126 +61,160 @@ export function AutomaticBackupProvider({
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const [error, setError] = useState('');
+  const [backgroundStatus, setBackgroundStatus] =
+    useState<BackgroundStatus>('off');
+  const [backgroundError, setBackgroundError] = useState('');
   const supported = automaticBackupSupported();
   const mounted = useRef(true);
+  const generation = useRef(0);
+  const accept = (value: BackupPreferences) => {
+    current.current = value;
+    if (mounted.current) {
+      setPreferences(value);
+      setError(value.error);
+    }
+  };
+  const schedule = async (value: BackupPreferences) => {
+    try {
+      const status = await syncBackgroundBackup(value);
+      if (mounted.current) {
+        setBackgroundStatus(status);
+        setBackgroundError('');
+      }
+    } catch (failure) {
+      if (mounted.current) {
+        setBackgroundStatus('off');
+        setBackgroundError(
+          failure instanceof Error
+            ? failure.message
+            : '后台备份尚未启用，请重试',
+        );
+      }
+    }
+  };
   const reload = useCallback(() => {
+    if (pending.current) return;
+    const request = ++generation.current;
     void loadBackupPreferences()
       .then((value) => {
-        current.current = value;
-        if (mounted.current) {
-          setPreferences(value);
-          setError(value.error);
-        }
+        if (
+          pending.current ||
+          request !== generation.current ||
+          !mounted.current
+        )
+          return;
+        accept(value);
+        void schedule(value);
       })
       .catch(() => {
-        if (mounted.current)
+        if (mounted.current && request === generation.current)
           setError('无法读取自动备份设置，请重试；账本仍可正常使用');
       });
   }, []);
   useEffect(() => {
     mounted.current = true;
     reload();
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') reload();
+    });
     return () => {
       mounted.current = false;
+      listener.remove();
     };
   }, [reload]);
-  const persist = async (value: BackupPreferences) => {
-    await saveBackupPreferences(value);
-    current.current = value;
-    if (mounted.current) setPreferences(value);
-  };
   const perform = async (operation: () => Promise<void>) => {
     if (pending.current) throw new Error('自动备份正在进行，请稍后再试');
     pending.current = true;
-    if (mounted.current) {
-      setBusy(true);
-    }
+    generation.current++;
+    if (mounted.current) setBusy(true);
     try {
       await operation();
     } catch (failure) {
-      const message =
-        failure instanceof Error ? failure.message : '自动备份操作失败，请重试';
-      if (mounted.current) setError(message);
+      if (mounted.current)
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : '自动备份操作失败，请重试',
+        );
       throw failure;
     } finally {
       pending.current = false;
       if (mounted.current) setBusy(false);
     }
   };
+  const change = async (
+    operation: (old: BackupPreferences) => BackupPreferences,
+  ) => {
+    const next = await changeBackupPreferences(operation);
+    accept(next);
+    await schedule(next);
+  };
   const selectDirectory = () =>
     perform(async () => {
-      const old = current.current;
-      if (!old) throw new Error('请先重新读取自动备份设置');
+      if (!current.current) throw new Error('请先重新读取自动备份设置');
       const selected = await pickBackupDirectory();
       if (!selected) return;
-      await persist({
+      await change((old) => ({
         ...old,
         directory: selected.directory,
         directoryName: selected.name,
         lastSuccessAt: null,
+        lastBackgroundSuccessAt: null,
         lastFileName: null,
         lastAttemptAt: null,
         error: '',
-      });
-      if (mounted.current) setError('');
+      }));
     });
   const reset = () =>
     perform(async () => {
-      await persist(defaultBackupPreferences());
-      if (mounted.current) setError('');
+      const next = await resetBackupPreferences(defaultBackupPreferences());
+      accept(next);
+      await schedule(next);
     });
   const configure = (days: BackupPreferences['days']) =>
     perform(async () => {
       const old = current.current;
       if (!old) throw new Error('请先重新读取自动备份设置');
-      let directory = old.directory,
-        directoryName = old.directoryName;
-      if (days && !directory) {
-        const selected = await pickBackupDirectory();
-        if (!selected) return;
-        directory = selected.directory;
-        directoryName = selected.name;
-      }
-      await persist({
-        ...old,
+      const selected =
+        days && !old.directory ? await pickBackupDirectory() : null;
+      if (days && !old.directory && !selected) return;
+      await change((latest) => ({
+        ...latest,
         days,
-        directory,
-        directoryName,
+        ...(days ? {} : { background: false }),
+        ...(selected
+          ? { directory: selected.directory, directoryName: selected.name }
+          : {}),
         error: '',
         lastAttemptAt: null,
-      });
-      if (mounted.current) setError('');
+      }));
     });
-  const run = async () =>
+  const configureBackground = (background: boolean) =>
     perform(async () => {
-      const old = current.current,
-        snapshot = ledgerRef.current;
-      if (!old || !snapshot) throw new Error('账本尚未准备好，请稍后再试');
+      if (!backgroundBackupSupported) throw new Error('当前平台使用前台备份');
+      await change((old) => {
+        if (background && (!old.days || !old.directory))
+          throw new Error('请先选择备份目录和频率');
+        return {
+          ...old,
+          background,
+          lastBackgroundSuccessAt:
+            background && !old.background ? null : old.lastBackgroundSuccessAt,
+        };
+      });
+    });
+  const retryBackground = () =>
+    perform(async () => {
+      const latest = await loadBackupPreferences();
+      accept(latest);
+      await schedule(latest);
+    });
+  const run = (scheduled = false) =>
+    perform(async () => {
       if (!supported)
         throw new Error('当前浏览器不支持自动文件备份，请使用导出 JSON 备份');
-      const attemptedAt = new Date().toISOString();
-      try {
-        const result = await writeVerifiedBackup(backupFiles, old, snapshot);
-        await persist({
-          ...old,
-          lastAttemptAt: attemptedAt,
-          lastSuccessAt: result.at,
-          lastFileName: result.file.name,
-          error: result.warning,
-        });
-        if (mounted.current) setError(result.warning);
-      } catch (failure) {
-        const message =
-          failure instanceof Error
-            ? failure.message.slice(0, 500)
-            : '自动备份失败';
-        await persist({
-          ...old,
-          lastAttemptAt: attemptedAt,
-          error: message,
-        }).catch(() => {});
-        throw failure;
-      }
+      const next = await executeBackup({ scheduled });
+      accept(next);
     });
   const runRef = useRef(run);
   runRef.current = run;
@@ -184,9 +229,8 @@ export function AutomaticBackupProvider({
       return;
     const check = () => {
       if (current.current && !pending.current && backupDue(current.current))
-        void runRef.current().catch(() => {});
+        void runRef.current(true).catch(() => {});
     };
-    // Keep initial rendering, navigation and text entry ahead of backup I/O.
     const first = setTimeout(check, 1500);
     const interval = setInterval(check, 60000);
     return () => {
@@ -208,9 +252,14 @@ export function AutomaticBackupProvider({
         busy,
         error,
         supported,
+        backgroundSupported: backgroundBackupSupported,
+        backgroundStatus,
+        backgroundError,
         configure,
+        configureBackground,
+        retryBackground,
         selectDirectory,
-        run,
+        run: () => run(),
         reload,
         reset,
       }}

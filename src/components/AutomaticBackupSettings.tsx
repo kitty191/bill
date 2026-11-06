@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, Switch, View } from 'react-native';
 import { useAutomaticBackup } from '../state/AutomaticBackupProvider';
 import { useTheme } from '../theme';
 import { Button, SectionTitle, Txt, styles } from './ui';
@@ -20,8 +20,10 @@ export function AutomaticBackupSettings() {
     <>
       <SectionTitle title="自动文件备份" />
       <Txt size={11} color={t.muted} style={{ marginBottom: 12 }}>
-        选择目录后，打开或回到应用时检查是否到期，保留最近 7
-        份完整备份。关闭应用时不保证定时执行。
+        选择目录后，到期生成完整备份，保留最近 7 份。
+        {backup.backgroundSupported
+          ? '可另行允许系统后台调度，执行时间由系统安排。'
+          : '打开或回到应用时检查是否到期。'}
       </Txt>
       {!backup.supported && (
         <Txt size={11} color={t.muted} style={{ marginBottom: 12 }}>
@@ -54,6 +56,50 @@ export function AutomaticBackupSettings() {
           </Button>
         ))}
       </View>
+      {backup.backgroundSupported && (
+        <View style={{ marginTop: 14, gap: 8 }}>
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <Txt size={12} style={{ flex: 1 }}>
+              允许系统后台备份
+            </Txt>
+            <Switch
+              accessibilityLabel="允许系统后台备份"
+              value={p?.background ?? false}
+              disabled={backup.busy || !p?.days || !p?.directory}
+              onValueChange={(enabled) =>
+                perform(() => backup.configureBackground(enabled))
+              }
+              trackColor={{ false: t.border, true: t.accent }}
+            />
+          </View>
+          <Txt size={10} color={t.muted}>
+            {backup.backgroundStatus === 'scheduled'
+              ? '已加入系统后台调度。'
+              : '后台备份尚未启用。'}
+            省电和网络状态可能延迟执行；系统“强行停止”后，需要重新打开应用。
+          </Txt>
+          <Txt size={10} color={t.muted}>
+            最近后台成功：
+            {p?.lastBackgroundSuccessAt
+              ? new Date(p.lastBackgroundSuccessAt).toLocaleString('zh-CN')
+              : '尚无成功记录'}
+          </Txt>
+          {!!backup.backgroundError && (
+            <>
+              <Txt size={11} color={t.danger}>
+                {backup.backgroundError}
+              </Txt>
+              <Button
+                variant="plain"
+                disabled={backup.busy}
+                onPress={() => perform(backup.retryBackground)}
+              >
+                重试后台调度
+              </Button>
+            </>
+          )}
+        </View>
+      )}
       <Txt size={11} color={t.muted} style={{ marginTop: 12 }}>
         目录：{p?.directoryName || '尚未选择'}
         {'\n'}最近成功：
