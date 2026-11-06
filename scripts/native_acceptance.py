@@ -56,7 +56,10 @@ class Device:
     def launch(self):
         self.shell('am','force-stop',PACKAGE)
         result = self.shell('am','start','-W','-n',PACKAGE+'/.MainActivity')
-        self.wait('记一笔',timeout=60)
+        try: self.wait('记一笔',timeout=60)
+        except AssertionError as error:
+            crashes=self.call('logcat','-d','-b','crash')
+            raise AssertionError('Application launch failed: '+result+'\n'+crashes[-18000:]) from error
         return result
     def data(self,folder):
         self.shell('am','force-stop',PACKAGE)
@@ -144,6 +147,7 @@ def main():
     if device.shell('getprop','ro.kernel.qemu').strip()!='1': raise SystemExit('Acceptance fixtures require a fresh emulator; no real-phone data is modified.')
     if PACKAGE in device.shell('pm','list','packages',PACKAGE): raise SystemExit('Use a fresh emulator: the acceptance test will not erase existing app data.')
     device.call('root'); device.call('wait-for-device')
+    device.call('logcat','-G','16M')
     device.shell('settings','put','secure','show_ime_with_hard_keyboard','1')
     results={'platform':'Android emulator; not a physical phone or 120 Hz FPS claim','baseline_version_code':old_version,'candidate_version_code':new_version,'same_test_signer':True,'checks':{}}
     try:
@@ -285,7 +289,8 @@ def main():
         results['checks']['completed']=True
     finally:
         (args.output/'native-report.json').write_text(json.dumps(results,ensure_ascii=False,indent=2)+'\n')
-        (args.output/'logcat.txt').write_text(device.call('logcat','-d','-t','1500'))
+        (args.output/'logcat.txt').write_text(device.call('logcat','-d'))
+        (args.output/'crashes.txt').write_text(device.call('logcat','-d','-b','crash'))
         try: (args.output/'last-ui.xml').write_text(ET.tostring(device.tree(),encoding='unicode'))
         except Exception: pass
     print(json.dumps(results['checks'],indent=2))
