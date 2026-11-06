@@ -230,10 +230,19 @@ def main():
         device.tap('选择自动备份目录'); device.tap_any(['QingzhangBackupTest'])
         device.tap_any(['USE THIS FOLDER','使用此文件夹']); device.tap_any(['ALLOW','允许'])
         device.tap('每天备份')
+        def verified_archives():
+            valid=[]
+            for name in device.shell('ls','/sdcard/Documents/QingzhangBackupTest').splitlines():
+                if not name.endswith('.json'): continue
+                try:
+                    value=json.loads(device.call('exec-out','cat','/sdcard/Documents/QingzhangBackupTest/'+name))
+                    if value==final: valid.append(name)
+                except (json.JSONDecodeError,subprocess.CalledProcessError): pass
+            return valid
         end=time.monotonic()+30
         archives=[]
         while time.monotonic()<end:
-            archives=[name for name in device.shell('ls','/sdcard/Documents/QingzhangBackupTest').splitlines() if name.endswith('.json')]
+            archives=verified_archives()
             if archives: break
             time.sleep(.3)
         assert archives,'Native automatic backup file was not created'
@@ -242,7 +251,7 @@ def main():
         device.launch(); device.tap('打开设置'); device.tap('隐私与备份提醒'); device.scroll_to('立即生成自动备份'); device.tap('立即生成自动备份')
         end=time.monotonic()+30
         while time.monotonic()<end:
-            archives=[name for name in device.shell('ls','/sdcard/Documents/QingzhangBackupTest').splitlines() if name.endswith('.json')]
+            archives=verified_archives()
             if len(archives)>=2: break
             time.sleep(.3)
         assert len(archives)>=2,'Directory grant did not survive a process restart'
