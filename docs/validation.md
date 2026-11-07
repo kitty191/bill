@@ -278,3 +278,5 @@ Android 原生 CI [#42011898365](https://github.com/kitty191/bill/actions/runs/4
 Android 版本 0.8.0 / code 21，32,845,395 字节，源码提交 `0cf4911b7df0be53abe2535c0eef913cf44ca539`，与 v0.7.0 原签名一致。APK v2、16 KB 对齐、CRC、ARM64、独立代码 / 原生模块、权限、图标和计数器缺席均通过；额外核对 R8 保留了 WorkManager 数据库构造函数和无界面加载的反射入口。详见 [校验记录](../downloads/qingzhang-v0.8.0-android-arm64-verification.json) 和 [审查](review-v0.8.0.md)。
 
 本地七步在额度中断前已完成。恢复时核对全部保留日志、APK 字节与 SHA-256 和源码差异；期间只有文档与验收基础设施提交，应用 / 构建输入没有改变。未连接真实手机，没有真机帧率或中文键盘结论，没有可安装 IPA。
+
+最终 [App checks #42372029372](https://github.com/kitty191/bill/actions/runs/42372029372) 与 [Android 原生验收 #42372029265](https://github.com/kitty191/bill/actions/runs/42372029265) 均成功，源提交 `3132db6`。原生报告 12 项检查全部为 true，包含旧进程实际结束后由系统任务启动新进程生成 JSON、回读与已提交账本一致、后台成功时间显示及关闭开关。见 [原生报告](native-report-v0.8.0.json) 和 [完整审查](review-v0.8.0.md)。这两份测试 APK 使用同一枚临时 CI 密钥，正式 ARM64 下载包保留原签名；未进行实际手机安装。

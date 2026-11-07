@@ -23,7 +23,11 @@
 - 11 月 7 日恢复后的 [App checks #42369300198](https://github.com/kitty191/bill/actions/runs/42369300198) 再次全部通过，使用修正验收定位后的提交 `123616c`；应用 / 构建输入与正式预览包保持一致。
 - 加入命名空间兼容和对应 Python 回归测试后，[App checks #42370102284](https://github.com/kitty191/bill/actions/runs/42370102284) 也全部通过，使用 `d104022`，应用 / 构建输入未改变。
 - 完整任务结束等待与进程确认加入后，[App checks #42371223742](https://github.com/kitty191/bill/actions/runs/42371223742) 再次全部通过，使用 `5f4662c`。
+- 确定性模拟进程回收后的最新 [App checks #42372029372](https://github.com/kitty191/bill/actions/runs/42372029372) 全部通过，使用 `3132db6`；正式包的应用 / 构建输入未改变。
 - 原签名 ARM64 Release 构建通过，版本 0.8.0 / code 21，32,845,395 字节，源码提交 `0cf4911b7df0be53abe2535c0eef913cf44ca539`。签名与 v0.7.0 一致；APK v2、16 KB 对齐、CRC、独立 Hermes / 原生模块、权限、图标、临时计数器缺席以及两项 R8 保留规则均验证通过。见 [APK 校验记录](../downloads/qingzhang-v0.8.0-android-arm64-verification.json)。
 - 七个本地检查步骤在 11 月 6 日已实际完成，等待原生 CI 时额度中断。恢复时核对保留的七份日志、APK 字节与 SHA-256、两次源提交之间全部应用 / 构建输入一致；仅验收脚本更新后重跑原生流程，没有把未执行步骤记作通过。
+- 最终 [Android 原生验收 #42372029265](https://github.com/kitty191/bill/actions/runs/42372029265) 全部通过，源提交 `3132db6`，与正式包的 Android 应用 / 构建输入一致。报告中 12 项检查均为 true，覆盖首次安装、code 19 → 21 覆盖升级、账本 / 草稿 / 隐私偏好保留、计算器 / 键盘、写入失败重试、事务中断回滚、备份目录授权、真实进程结束、无界面后台备份、关闭后台和切页。见 [原始报告](native-report-v0.8.0.json) 与已查看的 [后台成功界面](previews/background-backup-v0.8.0.png)。
+- 后台执行日志确认原进程为 `7505`，系统作业在新进程 `7952` 中执行；任务在 `12:29:47 UTC` 完成，界面显示相应后台成功时间，之后注销任务成功。测试包仍使用临时 CI 签名，正式 ARM64 包单独核对原证书；没有将私钥上传到 GitHub。
+- API 35 模拟器使用 SwiftShader 软件 GPU，图形诊断为 160 帧、152 帧超期（95%）。这是功能验收环境的原始诊断，不把帧率标为通过，不据此宣称真机提速；真机帧率、中文键盘、触感及 iOS 安装仍未验收。
 
 Git Author 为 kitty191，Committer 为 Codex，提交保留 Codex 联合作者尾注。真机调度、帧率、中文键盘和 iOS 安装仍需实际设备验收。
