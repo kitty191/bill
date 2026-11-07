@@ -270,3 +270,11 @@ Android 版本 0.7.0 / versionCode 20，32,660,207 字节，源码提交 `eb9544
 云端没有连接真实手机，真机帧率、中文键盘、触感及 iOS 目录授权仍待实机验收。三组网页性能数据没有显示稳定提速，不宣称百分比性能提升。iOS 可能需要重新选择目录，备份文件不加密、不自动上传。IPA 尚未生成。
 
 Android 原生 CI [#42011898365](https://github.com/kitty191/bill/actions/runs/42011898365) 全部通过，完整结果与模拟器图形性能限制见 [原生报告](native-report-v0.7.0.json) 和 [审查](review-v0.7.0.md)。两份 Release 测试包使用临时 CI 签名，原签名 ARM64 预览包独立核验；不等于已完成真实手机安装或帧率验收。
+
+## v0.8.0 本地检查与安装包（2026-11-06 至 2026-11-07）
+
+类型检查、24 个文件的 232 项单元 / 组件测试、79 项完整 Chromium 交互回归、网页 / iOS Hermes 资源导出和 Android Release 构建通过。发布保护的两项 Python 测试与原生验收的两项 Python 测试通过。11 月 7 日的云端 [App checks #42369300198](https://github.com/kitty191/bill/actions/runs/42369300198) 与命名空间兼容提交的 [#42370102284](https://github.com/kitty191/bill/actions/runs/42370102284) 均成功。
+
+Android 版本 0.8.0 / code 21，32,845,395 字节，源码提交 `0cf4911b7df0be53abe2535c0eef913cf44ca539`，与 v0.7.0 原签名一致。APK v2、16 KB 对齐、CRC、ARM64、独立代码 / 原生模块、权限、图标和计数器缺席均通过；额外核对 R8 保留了 WorkManager 数据库构造函数和无界面加载的反射入口。详见 [校验记录](../downloads/qingzhang-v0.8.0-android-arm64-verification.json) 和 [审查](review-v0.8.0.md)。
+
+本地七步在额度中断前已完成。恢复时核对全部保留日志、APK 字节与 SHA-256 和源码差异；期间只有文档与验收基础设施提交，应用 / 构建输入没有改变。未连接真实手机，没有真机帧率或中文键盘结论，没有可安装 IPA。

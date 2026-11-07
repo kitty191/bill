@@ -27,6 +27,13 @@ def backup_system_jobs(dump):
         jobs.append((namespace,job_id))
     return jobs
 
+def backup_ui_complete(tree, filename):
+    nodes = list(tree.iter('node'))
+    return (
+        any(node.get('text')==filename for node in nodes)
+        and any(node.get('content-desc')=='立即生成自动备份' and node.get('enabled')=='true' for node in nodes)
+    )
+
 class Device:
     def __init__(self, serial): self.command = ['adb'] + (['-s',serial] if serial else [])
     def call(self,*args, binary=False): return subprocess.check_output([*self.command,*args],text=not binary,stderr=subprocess.STDOUT)
@@ -82,12 +89,26 @@ class Device:
         raise AssertionError(f'Native input {label}: expected {value!r}, observed {observed!r}')
     def launch(self):
         self.shell('am','force-stop',PACKAGE)
+        return self.activate()
+    def activate(self):
         result = self.shell('am','start','-W','-n',PACKAGE+'/.MainActivity')
         try: self.wait('记一笔',timeout=60)
         except AssertionError as error:
             crashes=self.call('logcat','-d','-b','crash')
             raise AssertionError('Application launch failed: '+result+'\n'+crashes[-18000:]) from error
         return result
+    def wait_backup_complete(self,filename,timeout=40):
+        # A valid document can precede preference persistence and lease release.
+        # The UI accepts this exact filename only after executeBackup finishes.
+        self.scroll_to('立即生成自动备份')
+        end = time.monotonic()+timeout
+        while time.monotonic()<end:
+            if backup_ui_complete(self.tree(),filename): return
+            time.sleep(.25)
+        raise AssertionError('Backup did not finish recording success and releasing its lease: '+filename)
+    def process_id(self):
+        try: return self.shell('pidof',PACKAGE).strip()
+        except subprocess.CalledProcessError: return ''
     def data(self,folder):
         self.shell('am','force-stop',PACKAGE)
         path = self.shell('find','/data/user/0/'+PACKAGE,'-name','qingzhang.db').strip().splitlines()
@@ -275,6 +296,7 @@ def main():
         assert archives,'Native automatic backup file was not created'
         archived=json.loads(device.call('exec-out','cat','/sdcard/Documents/QingzhangBackupTest/'+archives[-1]))
         assert archived==final
+        device.wait_backup_complete(archives[-1])
         device.launch(); device.tap('打开设置'); device.tap('隐私与备份提醒'); device.scroll_to('立即生成自动备份'); device.tap('立即生成自动备份')
         end=time.monotonic()+30
         while time.monotonic()<end:
@@ -282,6 +304,7 @@ def main():
             if len(archives)>=2: break
             time.sleep(.3)
         assert len(archives)>=2,'Directory grant did not survive a process restart'
+        device.wait_backup_complete(archives[-1])
         results['checks']['native_automatic_backup_and_persisted_directory_grant']=True
         device.scroll_to('允许系统后台备份'); device.set_switch('允许系统后台备份',True)
         device.contains('已加入系统后台调度')
@@ -292,8 +315,14 @@ def main():
         assert backup_jobs,'System WorkManager job was not registered'
         # Background the app and kill its cached process without force-stopping
         # the package. Force-stop intentionally prevents Android background jobs.
+        original_process=device.process_id()
+        assert original_process,'Expected a foreground app process before the kill check'
         device.shell('input','keyevent','3'); time.sleep(1)
         device.shell('am','kill',PACKAGE)
+        end=time.monotonic()+15
+        while device.process_id() and time.monotonic()<end: time.sleep(.25)
+        assert not device.process_id(),'Cached app process was not killed'
+        results['checks']['cached_process_kill_confirmed']=True
         namespace,job_id=backup_jobs[-1]
         namespace_args=['-n',namespace] if namespace else []
         launch_job=device.shell('cmd','jobscheduler','run','-f','-u','0',*namespace_args,PACKAGE,job_id)
@@ -311,8 +340,11 @@ def main():
             if restored: break
             time.sleep(.5)
         assert restored,'Headless WorkManager did not produce a verified copy of the committed ledger'
-        time.sleep(1)
-        device.launch(); device.tap('打开设置'); device.tap('隐私与备份提醒'); device.scroll_to('允许系统后台备份')
+        assert device.process_id() and device.process_id()!=original_process,'Background job did not start a new process'
+        # Reopen without force-stop: the headless runtime must finish its success
+        # persistence and cleanup rather than being killed after file creation.
+        device.activate(); device.tap('打开设置'); device.tap('隐私与备份提醒')
+        device.wait_backup_complete(restored[-1]); device.scroll_to('允许系统后台备份')
         tree=device.tree()
         labels=' '.join(node.get('text','')+' '+node.get('content-desc','') for node in tree.iter('node'))
         assert '最近后台成功' in labels and '最近后台成功：尚无成功记录' not in labels,labels
