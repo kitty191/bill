@@ -1,0 +1,55 @@
+{
+  "version": "0.8.0",
+  "source_commit": "0cf4911b7df0be53abe2535c0eef913cf44ca539",
+  "checked_source_commit": "eb53cb9f34e3f3ebc3080332cfeca9f5c4fb2938",
+  "completed_checks": [
+    "typecheck",
+    "unit",
+    "web-export",
+    "browser",
+    "ios-export",
+    "apk-build",
+    "apk-verify"
+  ],
+  "native_acceptance": {
+    "run": 42372029265,
+    "app_source_commit": "3132db63a83481102f82879c85626a0cc47a8c04",
+    "url": "https://github.com/kitty191/bill/actions/runs/42372029265"
+  },
+  "apk_sha256": "5d4c0a0d56555e7dac6c2c7f2b459b89ed0313fe0c0a1dedb78e33cd0686e893",
+  "prepared_at": "2026-11-07T12:34:52.891625+00:00",
+  "interrupted_preparation_recovery": {
+    "reason": "Quota interruption after seven local stages completed, while waiting for native CI",
+    "local_checks_completed_at": "2026-11-06T05:38:37.643418+00:00",
+    "retained_logs": {
+      "typecheck": {
+        "sha256": "162dad499cc73d440bd2b31274ce630fff0aedaaac67a18f05d556cd69064995",
+        "completion_evidence": "tsc --noEmit"
+      },
+      "unit": {
+        "sha256": "f8402379d30c747e5b87f93ac9bd5ee3f1dbe6047928687aee01816e1d89a7fb",
+        "completion_evidence": "232 passed (232)"
+      },
+      "web-export": {
+        "sha256": "44a32f6228d694fc0a38540a17076811916d3516f38b24cdbb8567fa6be21eb4",
+        "completion_evidence": "Exported: dist"
+      },
+      "browser": {
+        "sha256": "139641420a19fa28805771a40c637576901ad0e2dd8d05c57731009988d1ddd0",
+        "completion_evidence": "79 passed (4.8m)"
+      },
+      "ios-export": {
+        "sha256": "8f95de2f9c05d21deefcc293f1dbe138eac8373e40823bce08d8430097f5b002",
+        "completion_evidence": "Exported: /tmp/qingzhang-release-_p5wq9rj/ios"
+      },
+      "apk-build": {
+        "sha256": "a2b3c5632e4677dee7d62d89c480bd24d179a65e0e2360e15aa77100abab8807",
+        "completion_evidence": "BUILD SUCCESSFUL"
+      },
+      "apk-verify": {
+        "sha256": "a2894ba6a27126f22f50007eb05a050420b0ee0f67d3982ba293420a60cd99eb",
+        "completion_evidence": "\"headless_package_list_mapping_verified\": true"
+      }
+    }
+  }
+}
