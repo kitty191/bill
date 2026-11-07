@@ -14,6 +14,19 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = 'com.kitty191.qingzhang'
 
+def backup_system_jobs(dump):
+    """Return (namespace, id) for this app's WorkManager jobs only."""
+    component = re.escape(PACKAGE+'/androidx.work.impl.background.systemjob.SystemJobService')
+    pattern = r'^\s*JOB ([^/\s]+)/(\d+):[^\n]*(?:\s|@)'+component+r'\s*$'
+    jobs = []
+    for identity, job_id in re.findall(pattern,dump,re.MULTILINE):
+        # API 34+ WorkManager uses a JobScheduler namespace; older dumps use #uid.
+        if identity.startswith('#'): namespace = None
+        elif ':' in identity: namespace = identity.rsplit(':',1)[0]
+        else: continue
+        jobs.append((namespace,job_id))
+    return jobs
+
 class Device:
     def __init__(self, serial): self.command = ['adb'] + (['-s',serial] if serial else [])
     def call(self,*args, binary=False): return subprocess.check_output([*self.command,*args],text=not binary,stderr=subprocess.STDOUT)
@@ -275,13 +288,15 @@ def main():
         before_background=set(archives)
         jobs=device.shell('dumpsys','jobscheduler')
         (args.output/'scheduled-jobs.txt').write_text(jobs)
-        job_ids=re.findall(r'JOB #[^/\s]+/(\d+):[^\n]*'+re.escape(PACKAGE)+r'/androidx\.work\.impl\.background\.systemjob\.SystemJobService',jobs)
-        assert job_ids,'System WorkManager job was not registered'
+        backup_jobs=backup_system_jobs(jobs)
+        assert backup_jobs,'System WorkManager job was not registered'
         # Background the app and kill its cached process without force-stopping
         # the package. Force-stop intentionally prevents Android background jobs.
         device.shell('input','keyevent','3'); time.sleep(1)
         device.shell('am','kill',PACKAGE)
-        launch_job=device.shell('cmd','jobscheduler','run','-f','-u','0',PACKAGE,job_ids[-1])
+        namespace,job_id=backup_jobs[-1]
+        namespace_args=['-n',namespace] if namespace else []
+        launch_job=device.shell('cmd','jobscheduler','run','-f','-u','0',*namespace_args,PACKAGE,job_id)
         results['background_job_trigger']=launch_job
         assert 'Running job' in launch_job,launch_job
         end=time.monotonic()+120
