@@ -313,12 +313,15 @@ def main():
         (args.output/'scheduled-jobs.txt').write_text(jobs)
         backup_jobs=backup_system_jobs(jobs)
         assert backup_jobs,'System WorkManager job was not registered'
-        # Background the app and kill its cached process without force-stopping
-        # the package. Force-stop intentionally prevents Android background jobs.
+        # Simulate process reclamation on this fresh rooted emulator. am kill
+        # may spare a recently foreground process; SIGKILL reliably removes it
+        # without putting the package into Android's force-stopped state.
         original_process=device.process_id()
         assert original_process,'Expected a foreground app process before the kill check'
         device.shell('input','keyevent','3'); time.sleep(1)
-        device.shell('am','kill',PACKAGE)
+        assert all(pid.isdecimal() for pid in original_process.split())
+        device.shell('kill','-9',*original_process.split())
+        results['background_process_termination']='SIGKILL on a fresh rooted emulator; no package force-stop'
         end=time.monotonic()+15
         while device.process_id() and time.monotonic()<end: time.sleep(.25)
         assert not device.process_id(),'Cached app process was not killed'
