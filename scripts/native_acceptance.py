@@ -22,11 +22,14 @@ class Device:
         self.shell('uiautomator','dump','/sdcard/qingzhang-acceptance-ui.xml')
         return ET.fromstring(self.call('exec-out','cat','/sdcard/qingzhang-acceptance-ui.xml'))
     def find(self,label):
+        matches = []
         for node in self.tree().iter('node'):
             if node.get('content-desc') == label or node.get('text') == label:
                 bounds = [int(value) for value in re.findall(r'\d+',node.get('bounds',''))]
-                if len(bounds)==4 and bounds[2]>bounds[0] and bounds[3]>bounds[1]: return node,bounds
-        return None
+                if len(bounds)==4 and bounds[2]>bounds[0] and bounds[3]>bounds[1]: matches.append((node,bounds))
+        # React Native can expose both a static caption and its named control.
+        # Taps must target the interactive node even when the caption comes first.
+        return next((match for match in matches if match[0].get('clickable')=='true' or match[0].get('checkable')=='true'), matches[0] if matches else None)
     def wait(self,label,timeout=40):
         end = time.monotonic()+timeout
         while time.monotonic()<end:
@@ -44,6 +47,17 @@ class Device:
             previous=b
             time.sleep(.2)
         raise AssertionError('Native control remained disabled: '+label)
+    def set_switch(self,label,checked):
+        node,_ = self.wait(label)
+        assert node.get('checkable')=='true', 'Expected a native switch: '+label
+        expected = 'true' if checked else 'false'
+        if node.get('checked') != expected: self.tap(label)
+        end = time.monotonic()+15
+        while time.monotonic()<end:
+            result = self.find(label)
+            if result and result[0].get('checked')==expected: return
+            time.sleep(.2)
+        raise AssertionError('Native switch did not change state: '+label)
     def input_value(self,label,value,timeout=15):
         end=time.monotonic()+timeout; observed=None
         while time.monotonic()<end:
@@ -256,7 +270,7 @@ def main():
             time.sleep(.3)
         assert len(archives)>=2,'Directory grant did not survive a process restart'
         results['checks']['native_automatic_backup_and_persisted_directory_grant']=True
-        device.scroll_to('允许系统后台备份'); device.tap('允许系统后台备份')
+        device.scroll_to('允许系统后台备份'); device.set_switch('允许系统后台备份',True)
         device.contains('已加入系统后台调度')
         before_background=set(archives)
         jobs=device.shell('dumpsys','jobscheduler')
@@ -288,7 +302,7 @@ def main():
         labels=' '.join(node.get('text','')+' '+node.get('content-desc','') for node in tree.iter('node'))
         assert '最近后台成功' in labels and '最近后台成功：尚无成功记录' not in labels,labels
         (args.output/'background-backup-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
-        device.tap('允许系统后台备份'); device.contains('后台备份尚未启用')
+        device.set_switch('允许系统后台备份',False); device.contains('后台备份尚未启用')
         results['checks']['headless_background_backup_after_cached_process_kill']=True
         results['checks']['background_opt_out']=True
         device.launch(); device.shell('dumpsys','gfxinfo',PACKAGE,'reset')
