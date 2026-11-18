@@ -199,6 +199,7 @@ export function Button({
   label,
   variant = 'primary',
   disabled,
+  selected,
   style,
   testID,
   hitSlop,
@@ -208,6 +209,7 @@ export function Button({
   label?: string;
   variant?: 'primary' | 'soft' | 'plain' | 'danger';
   disabled?: boolean;
+  selected?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   hitSlop?: number;
@@ -241,7 +243,7 @@ export function Button({
       accessibilityLabel={
         label ?? (typeof children === 'string' ? children : undefined)
       }
-      accessibilityState={{ disabled: !!disabled }}
+      accessibilityState={{ disabled: !!disabled, selected }}
       disabled={disabled}
       onPress={onPress}
       onPressIn={() => {

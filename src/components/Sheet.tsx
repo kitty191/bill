@@ -39,6 +39,8 @@ import { motion } from '../motion';
 import { SheetScrollContext } from './sheetScroll';
 
 const sheetEntering = FadeInDown.duration(motion.sheet);
+// On web, on-drag also blurs inputs during scrolls caused by focus or layout.
+const keyboardDismissMode = Platform.OS === 'web' ? 'none' : 'on-drag';
 export type SheetHandle = { close: () => void; reopen: () => void };
 
 export function Sheet({
@@ -311,7 +313,7 @@ export function Sheet({
                 focusedInput.current = null;
               }}
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+              keyboardDismissMode={keyboardDismissMode}
               contentContainerStyle={{
                 paddingHorizontal: 25,
                 paddingBottom: 14,

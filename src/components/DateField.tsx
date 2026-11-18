@@ -60,6 +60,9 @@ export function DateField({
           placeholder="YYYY-MM-DD"
           placeholderTextColor={t.subtle}
           autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect={false}
+          spellCheck={false}
           maxLength={10}
           style={{
             flex: 1,
