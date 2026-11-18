@@ -441,6 +441,7 @@ export function EntriesScreen({
           ledger={ledger}
           kind={filter}
           month={month}
+          today={today}
           value={advanced}
           onApply={setAdvanced}
           onClose={() => setFiltersOpen(false)}
