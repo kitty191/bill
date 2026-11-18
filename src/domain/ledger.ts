@@ -1,5 +1,10 @@
 export type EntryKind = 'expense' | 'income' | 'transfer' | 'refund';
-export type Account = { id: string; name: string; openingBalance: number };
+export type Account = {
+  id: string;
+  name: string;
+  openingBalance: number;
+  archived?: boolean;
+};
 export type Entry = {
   id: string;
   kind: EntryKind;
@@ -102,18 +107,28 @@ export function categoryFor(ledger: Ledger, categoryId: string): Category {
 export function visibleCategories(ledger: Ledger, kind: 'expense' | 'income') {
   return ledger.categories.filter((c) => c.kind === kind && !c.hidden);
 }
+export function activeAccounts(ledger: Ledger): Account[] {
+  return ledger.accounts.filter((account) => !account.archived);
+}
+
+export function isAccountArchived(ledger: Ledger, accountId?: string): boolean {
+  return ledger.accounts.some(
+    (account) => account.id === accountId && account.archived,
+  );
+}
+
 export function entryDefault(
   ledger: Ledger,
   kind: 'expense' | 'income',
 ): EntryDefault {
   const saved = ledger.defaults[kind];
+  const accounts = activeAccounts(ledger);
   return {
     categoryId:
       visibleCategories(ledger, kind).find((c) => c.id === saved?.categoryId)
         ?.id ?? visibleCategories(ledger, kind)[0]!.id,
     accountId:
-      ledger.accounts.find((a) => a.id === saved?.accountId)?.id ??
-      ledger.accounts[0]!.id,
+      accounts.find((a) => a.id === saved?.accountId)?.id ?? accounts[0]!.id,
   };
 }
 
@@ -294,9 +309,19 @@ export function validateLedger(input: unknown): Ledger {
       isText(x.name, 20, true) && isAmount(x.openingBalance, true),
       '账户名称或初始余额无效',
     );
+    invariant(
+      x.archived === undefined || typeof x.archived === 'boolean',
+      '账户归档状态无效',
+    );
     ids.add(x.id);
-    return { id: x.id, name: x.name.trim(), openingBalance: x.openingBalance };
+    return {
+      id: x.id,
+      name: x.name.trim(),
+      openingBalance: x.openingBalance,
+      ...(x.archived ? { archived: true } : {}),
+    };
   });
+  invariant(accounts.some((a) => !a.archived), '请至少保留一个可用账户');
   const categoryIds = new Set<string>();
   const categoryNames = new Set<string>();
   const rawCategories =
@@ -605,6 +630,16 @@ export function upsertEntry(
   entry: Entry,
   remember = false,
 ): Ledger {
+  const previous = ledger.entries.find((item) => item.id === entry.id);
+  const original = previous?.kind === entry.kind ? previous : undefined;
+  const allowed = (accountId?: string, originalId?: string) =>
+    accountId === originalId || !isAccountArchived(ledger, accountId);
+  invariant(
+    allowed(entry.accountId, original?.accountId) &&
+      (entry.kind !== 'transfer' ||
+        allowed(entry.toAccountId, original?.toAccountId)),
+    '所选账户已归档，请选择可用账户',
+  );
   const entries = [
     ...ledger.entries.filter((e) => e.id !== entry.id),
     entry,
@@ -645,7 +680,7 @@ export function restoreEntry(ledger: Ledger, entry: Entry): Ledger {
     !ledger.entries.some((item) => item.id === entry.id),
     '同一账单已存在，不能重复恢复',
   );
-  return upsertEntry(ledger, entry);
+  return validateLedger({ ...ledger, entries: [...ledger.entries, entry] });
 }
 export function refundAmounts(entries: Entry[]): Map<string, number> {
   const values = new Map<string, number>();

@@ -4,8 +4,10 @@ import { feedback } from '../motion';
 import {
   type Entry,
   type EntryKind,
+  activeAccounts,
   amountInput,
   id,
+  isAccountArchived,
   localDate,
   upsertEntry,
   validDate,
@@ -87,6 +89,7 @@ export function EntryEditor({
     else onClose();
   };
   const data = ledger!;
+  const active = activeAccounts(data);
   const [identity, setIdentity] = useState(
     () =>
       restoredDraft ??
@@ -137,7 +140,7 @@ export function EntryEditor({
   const [toAccountId, setToAccountId] = useState(
     restored?.toAccountId ??
       seed?.toAccountId ??
-      data.accounts.find((account) => account.id !== initialAccountId)?.id ??
+      active.find((account) => account.id !== initialAccountId)?.id ??
       '',
   );
   const [date, setDate] = useState(
@@ -162,6 +165,21 @@ export function EntryEditor({
   const [templateName, setTemplateName] = useState(
     restored?.templateName ?? '',
   );
+  const historical = entry?.kind === kind ? entry : undefined;
+  const sourceAccounts = data.accounts.filter(
+    (account) => !account.archived || account.id === historical?.accountId,
+  );
+  const destinationAccounts = data.accounts.filter(
+    (account) =>
+      account.id !== accountId &&
+      (!account.archived || account.id === historical?.toAccountId),
+  );
+  const selectedAccount = sourceAccounts.find((a) => a.id === accountId);
+  const archivedSelection =
+    (!selectedAccount && isAccountArchived(data, accountId)) ||
+    (kind === 'transfer' &&
+      toAccountId !== historical?.toAccountId &&
+      isAccountArchived(data, toAccountId));
   const autosave = useEntryDraft(
     {
       ...identity,
@@ -213,7 +231,7 @@ export function EntryEditor({
       setCategoryId(defaults.categoryId);
       setAccountId(defaults.accountId);
       setToAccountId(
-        data.accounts.find((account) => account.id !== defaults.accountId)
+        active.find((account) => account.id !== defaults.accountId)
           ?.id ?? '',
       );
       setDate(localDate());
@@ -438,6 +456,7 @@ export function EntryEditor({
               disabled={saving}
               variant="plain"
               onPress={() => {
+                if (value === kind) return;
                 setKind(value);
                 const defaults = entryDefault(
                   data,
@@ -451,12 +470,11 @@ export function EntryEditor({
                 if (
                   value === 'transfer' &&
                   (toAccountId === sourceAccount ||
-                    !data.accounts.some(
-                      (account) => account.id === toAccountId,
-                    ))
+                    (!active.some((account) => account.id === toAccountId) &&
+                      toAccountId !== entry?.toAccountId))
                 ) {
                   setToAccountId(
-                    data.accounts.find(
+                    active.find(
                       (account) => account.id !== sourceAccount,
                     )?.id ?? '',
                   );
@@ -559,7 +577,7 @@ export function EntryEditor({
                 ? '退回多少'
                 : '转账金额'
         }
-        summary={`${kind === 'refund' ? '退款' : kind === 'transfer' ? '转账' : categoryFor(data, categoryId).label} · ${data.accounts.find((account) => account.id === accountId)?.name} · ${date}`}
+        summary={`${kind === 'refund' ? '退款' : kind === 'transfer' ? '转账' : categoryFor(data, categoryId).label} · ${selectedAccount?.name ?? '请选择账户'} · ${date}`}
       />
       <View ref={details} collapsable={false}>
         {kind !== 'transfer' && kind !== 'refund' && (
@@ -619,10 +637,15 @@ export function EntryEditor({
                 ? '退款到账账户'
                 : '付款账户'}
         </Txt>
+        {archivedSelection && (
+          <Txt size={11} color={t.muted} style={{ marginBottom: 10 }}>
+            原账户已归档，请选择可用账户。
+          </Txt>
+        )}
         <View
           style={[styles.row, { flexWrap: 'wrap', gap: 7, marginBottom: 21 }]}
         >
-          {ledger!.accounts.map((a) => (
+          {sourceAccounts.map((a) => (
             <Button
               key={a.id}
               label={`账户${a.name}`}
@@ -632,7 +655,7 @@ export function EntryEditor({
                 setAccountId(a.id);
                 if (toAccountId === a.id)
                   setToAccountId(
-                    data.accounts.find((account) => account.id !== a.id)?.id ??
+                    active.find((account) => account.id !== a.id)?.id ??
                       '',
                   );
               }}
@@ -646,6 +669,7 @@ export function EntryEditor({
             >
               <Txt size={12} color={accountId === a.id ? t.accent : t.muted}>
                 {a.name}
+                {a.archived ? ' · 已归档' : ''}
               </Txt>
             </Button>
           ))}
@@ -661,34 +685,35 @@ export function EntryEditor({
                 { flexWrap: 'wrap', gap: 7, marginBottom: 21 },
               ]}
             >
-              {ledger!.accounts
-                .filter((a) => a.id !== accountId)
-                .map((a) => (
-                  <Button
-                    key={a.id}
-                    label={`转入${a.name}`}
-                    variant={toAccountId === a.id ? 'soft' : 'plain'}
-                    disabled={saving}
-                    onPress={() => setToAccountId(a.id)}
-                    style={{
-                      minHeight: 37,
-                      paddingHorizontal: 13,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: toAccountId === a.id ? t.accent : t.border,
-                    }}
+              {destinationAccounts.map((a) => (
+                <Button
+                  key={a.id}
+                  label={`转入${a.name}`}
+                  variant={toAccountId === a.id ? 'soft' : 'plain'}
+                  disabled={saving}
+                  onPress={() => setToAccountId(a.id)}
+                  style={{
+                    minHeight: 37,
+                    paddingHorizontal: 13,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: toAccountId === a.id ? t.accent : t.border,
+                  }}
+                >
+                  <Txt
+                    size={12}
+                    color={toAccountId === a.id ? t.accent : t.muted}
                   >
-                    <Txt
-                      size={12}
-                      color={toAccountId === a.id ? t.accent : t.muted}
-                    >
-                      {a.name}
-                    </Txt>
-                  </Button>
-                ))}
+                    {a.name}
+                    {a.archived ? ' · 已归档' : ''}
+                  </Txt>
+                </Button>
+              ))}
             </View>
             <Txt size={11} color={t.muted} style={{ marginBottom: 17 }}>
-              转账仅改变账户余额，不计入收入与支出。
+              {destinationAccounts.length
+                ? '转账仅改变账户余额，不计入收入与支出。'
+                : '没有可用的转入账户，请在设置中添加或恢复账户。'}
             </Txt>
           </>
         )}

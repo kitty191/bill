@@ -136,6 +136,7 @@ export function resumeEntryDraft(
   if (
     !ledger.accounts.some((a) => a.id === f.accountId) ||
     (f.kind === 'transfer' &&
+      f.toAccountId !== '' &&
       !ledger.accounts.some((a) => a.id === f.toAccountId)) ||
     (f.kind !== 'transfer' &&
       !ledger.categories.some(
