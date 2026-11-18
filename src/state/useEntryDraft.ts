@@ -8,18 +8,24 @@ export function useEntryDraft(draft: EntryDraft, restored: boolean) {
   const latest = useRef(draft);
   latest.current = draft;
   const stopped = useRef(false);
+  const hasQueuedSave = useRef(false);
   const identity = useRef(draft.id);
   if (identity.current !== draft.id) {
     identity.current = draft.id;
     initial.current = JSON.stringify(draft);
     stopped.current = false;
+    hasQueuedSave.current = false;
   }
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState('');
   const flush = async () => {
     if (timer.current) clearTimeout(timer.current);
     const value = latest.current;
-    if (!restored && JSON.stringify(value) === initial.current) return;
+    if (!restored && JSON.stringify(value) === initial.current) {
+      if (hasQueuedSave.current) await clearEntryDraft(value.id);
+      return;
+    }
+    hasQueuedSave.current = true;
     await saveEntryDraft(value);
   };
   const flushRef = useRef(flush);

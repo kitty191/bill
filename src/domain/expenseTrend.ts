@@ -1,15 +1,11 @@
-import { type Entry, localDate, refundAmounts } from './ledger';
+import { type Entry, daysInMonth, localDate, refundAmounts } from './ledger';
 
 export function dailyExpenseValues(
   entries: Entry[],
   month: string,
   today = localDate(),
 ): number[] {
-  const days = new Date(
-    Number(month.slice(0, 4)),
-    Number(month.slice(5)),
-    0,
-  ).getDate();
+  const days = daysInMonth(Number(month.slice(0, 4)), Number(month.slice(5)));
   const values = Array<number>(days).fill(0);
   let lastRecorded = 1;
   const refunds = refundAmounts(entries);

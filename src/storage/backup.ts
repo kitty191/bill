@@ -48,7 +48,7 @@ async function exportContent(content: string, name: string, mimeType: string) {
     if (!(await Sharing.isAvailableAsync()))
       throw new Error('此设备暂不支持分享文件');
     const file = new File(Paths.cache, name);
-    file.write(content);
+    await file.write(content);
     await Sharing.shareAsync(file.uri, {
       mimeType,
       dialogTitle: '导出清账数据',

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   type Entry,
@@ -149,6 +150,40 @@ describe('ledger integrity and balance', () => {
 });
 
 describe('calendar and export', () => {
+  it('validates the same historical ledger dates in different device time zones', () => {
+    const source = new URL('../src/domain/ledger.ts', import.meta.url).href;
+    const ledger = {
+      ...emptyLedger(),
+      entries: [
+        { ...expense, date: '2011-12-30' },
+        { ...expense, id: 'two', date: '1994-12-31' },
+      ],
+    };
+    const script = `
+      import { daysInMonth, validateLedger } from ${JSON.stringify(source)};
+      console.log(JSON.stringify({
+        dates: validateLedger(JSON.parse(process.argv[1])).entries.map((entry) => entry.date),
+        december1994: daysInMonth(1994, 12),
+      }));
+    `;
+    for (const timezone of [
+      'Asia/Shanghai', 'Pacific/Apia', 'Pacific/Kiritimati',
+    ]) {
+      const result = execFileSync(
+        process.execPath,
+        [
+          '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
+          '--input-type=module',
+          '-e', script, JSON.stringify(ledger),
+        ],
+        { env: { ...process.env, TZ: timezone }, encoding: 'utf8' },
+      );
+      expect(JSON.parse(result)).toEqual({
+        dates: ['2011-12-30', '1994-12-31'],
+        december1994: 31,
+      });
+    }
+  });
   it('handles leap years and month/year boundaries using local dates', () => {
     expect(validDate('2024-02-29')).toBe(true);
     expect(validDate('2026-02-29')).toBe(false);

@@ -36,6 +36,32 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+it('waits for the native export write before opening the share sheet', async () => {
+  let finishWrite!: () => void;
+  const writing = new Promise<void>((resolve) => {
+    finishWrite = resolve;
+  });
+  mocks.write.mockReturnValueOnce(writing);
+  const exporting = exportLedger(emptyLedger(), 'json');
+  try {
+    await Promise.resolve();
+    expect(mocks.write).toHaveBeenCalledOnce();
+    expect(mocks.share).not.toHaveBeenCalled();
+  } finally {
+    finishWrite();
+    await exporting;
+  }
+  expect(mocks.share).toHaveBeenCalledOnce();
+});
+
+it('reports a native export write failure without attempting to share the file', async () => {
+  const failure = Promise.reject(new Error('磁盘已满'));
+  void failure.catch(() => {});
+  mocks.write.mockReturnValueOnce(failure);
+  await expect(exportLedger(emptyLedger(), 'csv')).rejects.toThrow('磁盘已满');
+  expect(mocks.share).not.toHaveBeenCalled();
+});
+
 it('can restore its own 50000-record JSON export with long Chinese notes', async () => {
   const ledger: Ledger = {
     ...emptyLedger(),

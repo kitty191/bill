@@ -182,7 +182,11 @@ export function SettingsSheet({
         {page === 'snapshots' ? (
           <SnapshotManager
             onBack={() => setPage('main')}
-            onRestored={() => onSaved('账本已从本机快照恢复')}
+            onRestored={(restored) => {
+              const amount = budgetForMonth(restored, budgetMonth);
+              setBudget(amount ? amountInput(amount) : '');
+              onSaved('账本已从本机快照恢复');
+            }}
           />
         ) : page === 'recurring' ? (
           <RecurringManager

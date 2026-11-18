@@ -14,7 +14,7 @@ export function SnapshotManager({
   onRestored,
 }: {
   onBack?: () => void;
-  onRestored?: () => void;
+  onRestored?: (ledger: Ledger) => void;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -256,6 +256,7 @@ export function SnapshotManager({
                       selected.snapshot.payload,
                     );
                     setNotice('账本已恢复，恢复前的版本也已保留');
+                    onRestored?.(selected.ledger);
                   } else {
                     await clearSnapshotHistory();
                     setNotice('快照已清理，当前账本未改变');
@@ -263,7 +264,6 @@ export function SnapshotManager({
                   setSelected(null);
                   setConfirm(null);
                   setSnapshots(await loadSnapshots());
-                  if (confirm === 'restore') onRestored?.();
                 })
               }
             >

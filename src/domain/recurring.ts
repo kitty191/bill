@@ -2,6 +2,7 @@ import {
   type Entry,
   type Ledger,
   type RecurringBill,
+  daysInMonth,
   localDate,
   upsertEntry,
   validDate,
@@ -28,8 +29,10 @@ export function nextOccurrence(bill: RecurringBill): string | null {
       bill.cadence === 'yearly' ? year + 1 : year + (month === 12 ? 1 : 0);
     const m =
       bill.cadence === 'yearly' ? anchorMonth : month === 12 ? 1 : month + 1;
-    const last = new Date(y, m, 0).getDate();
-    result = localDate(new Date(y, m - 1, Math.min(anchorDay, last)));
+    const last = daysInMonth(y, m);
+    result = new Date(Date.UTC(y, m - 1, Math.min(anchorDay, last)))
+      .toISOString()
+      .slice(0, 10);
   }
   return validDate(result) ? result : null;
 }

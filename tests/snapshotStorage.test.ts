@@ -67,13 +67,16 @@ import * as native from '../src/storage/ledgerStore';
 import * as web from '../src/storage/ledgerStore.web';
 const data = new Map<string, string>();
 const key = 'qingzhang.ledger.v1',
-  historyKey = 'qingzhang.ledger.snapshots.v1';
+  historyKey = 'qingzhang.ledger.snapshots.v1',
+  draftKey = 'qingzhang.entry-draft.v1';
 let failWebKey = '';
+let failWebDraftCleanup = false;
 beforeEach(async () => {
   faults.failLedger = false;
   faults.failDraft = false;
   faults.failSnapshot = false;
   failWebKey = '';
+  failWebDraftCleanup = false;
   data.clear();
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => data.get(key) ?? null,
@@ -81,7 +84,11 @@ beforeEach(async () => {
       if (key === failWebKey) throw new Error('存储空间不足');
       data.set(key, value);
     },
-    removeItem: (key: string) => data.delete(key),
+    removeItem: (key: string) => {
+      if (key === draftKey && failWebDraftCleanup)
+        throw new Error('草稿清理失败');
+      data.delete(key);
+    },
   });
   await native.loadLedger();
   database.exec(
@@ -347,6 +354,31 @@ it('conditionally clears web drafts without discarding newer work and clears dra
   await web.saveEntryDraftRaw('{"id":"draft-a"}');
   await web.saveLedger(changed(2), { clearDraft: true });
   expect(await web.loadEntryDraftRaw()).toBeNull();
+});
+
+it('keeps the original web ledger and draft when replacement cannot commit', async () => {
+  await web.saveLedger(changed(100));
+  const draft = '{"id":"pending-draft"}';
+  await web.saveEntryDraftRaw(draft);
+  failWebKey = key;
+  await expect(
+    web.saveLedger(changed(200), { clearDraft: true }),
+  ).rejects.toThrow('存储空间不足');
+  expect(await web.loadLedger()).toEqual(changed(100));
+  expect(await web.loadEntryDraftRaw()).toBe(draft);
+});
+
+it('keeps an obsolete web draft unavailable after a committed replacement even if deletion fails', async () => {
+  await web.saveEntryDraftRaw('{"id":"pending-draft"}');
+  failWebDraftCleanup = true;
+  await web.saveLedger(changed(200), { clearDraft: true });
+  expect(data.has(draftKey)).toBe(true);
+  expect(await web.loadLedger()).toEqual(changed(200));
+  expect(await web.loadEntryDraftRaw()).toBeNull();
+  await web.saveLedger(changed(300));
+  expect(await web.loadEntryDraftRaw()).toBeNull();
+  await web.saveEntryDraftRaw('{"id":"fresh-draft"}');
+  expect(await web.loadEntryDraftRaw()).toBe('{"id":"fresh-draft"}');
 });
 
 it('failure consuming a draft after the ledger write rolls back the complete native transaction', async () => {

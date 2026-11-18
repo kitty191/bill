@@ -64,6 +64,23 @@ test('unfinished calculation survives abrupt reload, resumes directly, saves onc
     ),
   ).toBe(1);
 });
+test('clearing the only change to a fresh entry removes the previously autosaved amount', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await add(page);
+  await amount(page).fill('123.45');
+  await waitDraft(page, '123.45');
+  await page.getByRole('button', { name: '清空金额', exact: true }).click();
+  await expect(amount(page)).toHaveValue('');
+  await expect
+    .poll(() => page.evaluate((key) => localStorage.getItem(key), key))
+    .toBeNull();
+  await page.reload();
+  await add(page);
+  await expect(amount(page)).toHaveValue('');
+});
+
 test('failed save retains a recoverable draft and editing drafts resume against their source', async ({
   page,
 }) => {

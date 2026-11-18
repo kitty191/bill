@@ -12,21 +12,35 @@ export type SaveLedgerOptions = {
   consumeDraftId?: string;
   clearDraft?: boolean;
 };
+
+function readDraftId(raw: string | null): string | undefined {
+  try {
+    const id: unknown = JSON.parse(raw ?? 'null')?.id;
+    return typeof id === 'string' && id ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function loadEntryDraftRaw() {
-  return localStorage.getItem(draftKey);
+  const raw = localStorage.getItem(draftKey);
+  const draftId = readDraftId(raw);
+  if (draftId) {
+    const stored = localStorage.getItem(key);
+    try {
+      if (JSON.parse(stored ?? 'null')?.discardedDraftId === draftId) return null;
+    } catch {
+      // An unreadable ledger has no usable draft marker.
+    }
+  }
+  return raw;
 }
 export async function saveEntryDraftRaw(payload: string) {
   localStorage.setItem(draftKey, payload);
 }
 export async function clearEntryDraftRaw(id?: string) {
   const raw = localStorage.getItem(draftKey);
-  if (id && raw) {
-    try {
-      if (JSON.parse(raw)?.id !== id) return;
-    } catch {
-      return;
-    }
-  }
+  if (id && raw && readDraftId(raw) !== id) return;
   localStorage.removeItem(draftKey);
 }
 export async function loadSnapshots() {
@@ -46,16 +60,19 @@ export async function saveLedger(
   options?: SaveLedgerOptions,
 ): Promise<Ledger> {
   const valid = validateLedger(ledger);
-  const payload = JSON.stringify(valid);
   const current = localStorage.getItem(key);
+  let discardedDraftId: string | undefined;
   let legacy = false;
   let older = false;
   let before4 = false;
   try {
-    const version = current ? JSON.parse(current).version : undefined;
+    const stored = current ? JSON.parse(current) : null;
+    const version = stored?.version;
     legacy = version === 1;
     older = [1, 2].includes(version);
     before4 = [1, 2, 3].includes(version);
+    if (typeof stored?.discardedDraftId === 'string')
+      discardedDraftId = stored.discardedDraftId;
   } catch {
     /* Recovery is explicitly confirmed. */
   }
@@ -78,15 +95,27 @@ export async function saveLedger(
       );
     }
   }
-  if (options?.clearDraft) await clearEntryDraftRaw();
+  if (options?.clearDraft)
+    discardedDraftId = readDraftId(localStorage.getItem(draftKey));
+  else if (
+    discardedDraftId &&
+    readDraftId(localStorage.getItem(draftKey)) !== discardedDraftId
+  )
+    discardedDraftId = undefined;
+  // Commit the marker with the replacement so a failed cleanup cannot make
+  // the discarded draft available again. The marker stays out of backups.
+  const payload = JSON.stringify(
+    discardedDraftId ? { ...valid, discardedDraftId } : valid,
+  );
   localStorage.setItem(key, payload);
-  // localStorage has no multi-key transactions. The stable record ID and edit
-  // fingerprint reject already-saved drafts if cleanup fails after this write.
-  if (options?.consumeDraftId) {
+  if (options?.clearDraft || options?.consumeDraftId) {
     try {
-      await clearEntryDraftRaw(options.consumeDraftId);
+      await clearEntryDraftRaw(
+        options.clearDraft ? undefined : options.consumeDraftId,
+      );
     } catch {
-      /* Entry is already committed. */
+      // A replacement marker or the saved entry's identity prevents reopening
+      // an obsolete draft if physical removal fails after the commit.
     }
   }
   return valid;

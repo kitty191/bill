@@ -181,11 +181,22 @@ export function monthLabel(month: string): string {
   return `${year} 年 ${Number(m)} 月`;
 }
 
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
 export function validDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  if (y < 1900 || y > 2200) return false;
-  return localDate(new Date(y, m - 1, d)) === date;
+  // Ledger dates are calendar values and must survive a change of time zone.
+  return (
+    y >= 1900 &&
+    y <= 2200 &&
+    m >= 1 &&
+    m <= 12 &&
+    d >= 1 &&
+    d <= daysInMonth(y, m)
+  );
 }
 
 export function parseAmount(raw: string, allowZero = false): number {
@@ -548,7 +559,7 @@ export function validateLedger(input: unknown): Ledger {
     const next = x.nextDate.split('-').map(Number) as [number, number, number];
     const clampedDay = Math.min(
       anchor[2],
-      new Date(next[0], next[1], 0).getDate(),
+      daysInMonth(next[0], next[1]),
     );
     const aligned =
       x.cadence === 'weekly'

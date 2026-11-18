@@ -60,6 +60,30 @@ async function failWrites(page: Page, target: string) {
   }, target);
 }
 
+test('restoring a snapshot refreshes the budget field before it can be saved again', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2026-11-18T00:00:00Z'));
+  await seed(page, { ...emptyLedger(), monthBudgets: { '2026-11': 50000 } });
+  await page.getByRole('button', { name: '打开设置', exact: true }).click();
+  const budget = page.getByRole('textbox', { name: '月度预算金额', exact: true });
+  const saveBudget = page.getByRole('button', { name: '保存预算', exact: true });
+  await budget.fill('800');
+  await saveBudget.click();
+  await expect
+    .poll(async () => (await stored(page)).monthBudgets['2026-11'])
+    .toBe(80000);
+  await page.getByRole('button', { name: '本机自动快照', exact: true }).click();
+  await page.getByRole('button', { name: '查看本机快照1', exact: true }).click();
+  await page.getByRole('button', { name: '恢复此快照', exact: true }).click();
+  await page.getByRole('button', { name: '确认恢复快照', exact: true }).click();
+  await page.getByRole('button', { name: '返回设置', exact: true }).click();
+  await expect(budget).toHaveValue('500.00');
+  await saveBudget.click();
+  await expect(page.getByText('预算已更新', { exact: true }).first()).toBeVisible();
+  expect((await stored(page)).monthBudgets['2026-11']).toBe(50000);
+});
+
 test('automatic snapshots can be previewed, exported, restored and reversed, with explicit history cleanup', async ({
   page,
 }) => {
