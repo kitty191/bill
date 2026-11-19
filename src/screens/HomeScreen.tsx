@@ -11,6 +11,7 @@ import {
   type Entry,
   type Ledger,
   accountBalance,
+  activeAccounts,
   budgetForMonth,
   localDate,
   monthEntries,
@@ -410,7 +411,7 @@ export function HomeScreen({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 10, paddingBottom: 3 }}
           >
-            {ledger.accounts.map((account, i) => (
+            {activeAccounts(ledger).map((account, i) => (
               <Button
                 key={account.id}
                 label={`管理${account.name}账户`}

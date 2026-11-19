@@ -6,10 +6,13 @@ import {
   categoryTotals,
   csv,
   demoLedger,
+  deleteEntry,
   emptyLedger,
+  entryDefault,
   localDate,
   monthEntries,
   parseAmount,
+  restoreEntry,
   shiftMonth,
   totals,
   upsertEntry,
@@ -42,6 +45,63 @@ describe('integer money', () => {
 });
 
 describe('ledger integrity and balance', () => {
+  it('preserves archived accounts in backups and validates their status', () => {
+    const ledger = upsertEntry(emptyLedger(), expense, true);
+    ledger.accounts[0]!.archived = true;
+    const restored = validateLedger(JSON.parse(JSON.stringify(ledger)));
+    expect(restored.accounts[0]?.archived).toBe(true);
+    expect(restored.entries).toEqual([expense]);
+    expect(accountBalance(restored, 'wechat')).toBe(-1234);
+    expect(entryDefault(restored, 'expense').accountId).toBe('alipay');
+    expect(() =>
+      validateLedger({
+        ...restored,
+        accounts: restored.accounts.map((account) => ({
+          ...account,
+          archived: true,
+        })),
+      }),
+    ).toThrow('请至少保留一个可用账户');
+    expect(() =>
+      validateLedger({
+        ...restored,
+        accounts: [
+          { ...restored.accounts[0], archived: 'true' },
+          ...restored.accounts.slice(1),
+        ],
+      }),
+    ).toThrow('账户归档状态无效');
+  });
+  it('allows historical edits and undo but rejects new postings to archived accounts', () => {
+    const transfer: Entry = {
+      ...expense,
+      id: 'transfer-existing',
+      kind: 'transfer',
+      accountId: 'alipay',
+      toAccountId: 'wechat',
+      categoryId: 'transfer',
+    };
+    const ledger = upsertEntry(upsertEntry(emptyLedger(), expense), transfer);
+    ledger.accounts[0]!.archived = true;
+    expect(() => upsertEntry(ledger, { ...expense, id: 'repeat' })).toThrow(
+      '已归档',
+    );
+    expect(() =>
+      upsertEntry(ledger, { ...transfer, id: 'another-transfer' }),
+    ).toThrow('已归档');
+    expect(() =>
+      upsertEntry(ledger, { ...expense, kind: 'income', categoryId: 'salary' }),
+    ).toThrow('已归档');
+    expect(
+      upsertEntry(ledger, { ...expense, note: '补充备注' }).entries,
+    ).toContainEqual({ ...expense, note: '补充备注' });
+    expect(
+      upsertEntry(ledger, { ...transfer, note: '历史转账' }).entries,
+    ).toContainEqual({ ...transfer, note: '历史转账' });
+    expect(
+      restoreEntry(deleteEntry(ledger, transfer.id), transfer).entries,
+    ).toContainEqual(transfer);
+  });
   it('starts with no sample entries', () =>
     expect(emptyLedger().entries).toEqual([]));
   it('opens older ledgers with account cards hidden and preserves financial data', () => {

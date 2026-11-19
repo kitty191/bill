@@ -372,7 +372,10 @@ export function SettingsSheet({
             ]}
           >
             <View style={{ gap: 2 }}>
-              <Txt size={13}>{a.name}</Txt>
+              <Txt size={13}>
+                {a.name}
+                {a.archived ? ' · 已归档' : ''}
+              </Txt>
               <Txt size={10} color={t.muted}>
                 余额 ¥{money(accountBalance(ledger, a.id))}
               </Txt>
@@ -417,6 +420,26 @@ export function SettingsSheet({
           <Txt size={10} color={t.muted}>
             当前余额 = 初始余额 + 所有账单变动。修改初始余额不计入收支。
           </Txt>
+          {ledger.accounts.some((a) => a.id === account.id) && (
+            <View
+              style={[styles.row, { justifyContent: 'space-between', gap: 14 }]}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Txt size={13}>归档此账户</Txt>
+                <Txt size={10} color={t.muted}>
+                  归档后从记账选项和首页账户卡片隐藏，历史账单、余额和总资产保留。关闭此开关并保存即可恢复使用。
+                </Txt>
+              </View>
+              <Switch
+                accessibilityLabel="归档此账户"
+                disabled={disabled}
+                value={!!account.archived}
+                onValueChange={(archived) => setAccount({ ...account, archived })}
+                trackColor={{ false: t.border, true: t.accent }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          )}
           <View style={styles.row}>
             <Button
               variant="soft"

@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Switch, TextInput, View } from 'react-native';
 import {
   type RecurringBill,
+  activeAccounts,
   amountInput,
   categoryFor,
   entryDefault,
   id,
+  isAccountArchived,
   localDate,
   parseAmount,
 } from '../domain/ledger';
@@ -173,6 +175,7 @@ export function RecurringManager({
               <Txt size={11} color={t.muted}>
                 {cadenceLabel[bill.cadence]} · 下次 {bill.nextDate} ·{' '}
                 {categoryFor(ledger, bill.categoryId).label}
+                {isAccountArchived(ledger, bill.accountId) ? ' · 账户已归档' : ''}
               </Txt>
               <Txt size={10} color={t.muted}>
                 {!ledger.recurringEnabled
@@ -314,7 +317,7 @@ export function RecurringManager({
             账户
           </Txt>
           <View style={[styles.row, { flexWrap: 'wrap' }]}>
-            {ledger.accounts.map((item) => (
+            {activeAccounts(ledger).map((item) => (
               <Button
                 key={item.id}
                 label={`周期账户${item.name}`}
@@ -326,6 +329,11 @@ export function RecurringManager({
               </Button>
             ))}
           </View>
+          {isAccountArchived(ledger, form.accountId) && (
+            <Txt size={11} color={t.muted}>
+              当前账户已归档，可改用上方账户。
+            </Txt>
+          )}
           <TextInput
             accessibilityLabel="周期账单备注"
             placeholder="备注（选填）"
