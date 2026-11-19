@@ -222,7 +222,10 @@ test('corrupt automation settings can be reset without overwriting a valid ledge
   await page
     .getByRole('button', { name: '重置自动备份设置', exact: true })
     .click();
-  await expect.poll(async () => (await pref(page))?.days).toBe(0);
+  await expect
+    .poll(() => page.evaluate((key) => localStorage.getItem(key), preferencesKey))
+    .not.toBe('{broken');
+  expect(await pref(page)).toMatchObject({ days: 0 });
   expect(
     await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)!),
