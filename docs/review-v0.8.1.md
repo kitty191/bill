@@ -2,6 +2,8 @@
 
 候选版本为 `0.8.1`，Android `versionCode` 为 `22`。发布应使用与 v0.8.0 相同的签名和包名 `com.kitty191.qingzhang`。并装预览与正式包使用不同的签名和包名，适合独立体验。候选版包含 [账户归档](https://github.com/kitty191/bill/pull/2)、[日期筛选](https://github.com/kitty191/bill/pull/3) 和已提交的备份、草稿及日期修复。
 
+本地类型检查、239 项单元与组件测试、4 项 Python 测试、网页生产构建和 Android JavaScript 资源导出通过。完整 Chromium 回归首轮通过 83/84 项。损坏的备份设置用例在重置写入完成前解析了旧值，调整等待条件后，5 项自动备份用例均通过。
+
 原签名构建和 Android 真机验收待完成。在有现有私有签名配置的构建机上，按[原签名发布流程](android-release-automation.md)为审查通过的 `main` 执行 `--prepare-only`，取得 APK 和校验记录。发布前，GitHub Actions 的 Android 验收结果须对应同一组应用和构建输入。
 
 在 Android 真机上，用测试账本记录验收结果：
