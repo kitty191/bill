@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type Entry,
   accountBalance,
+  budgetPace,
   categoryTotals,
   csv,
   demoLedger,
@@ -30,6 +31,24 @@ const expense: Entry = {
   note: '午饭',
   createdAt: '2026-11-02T04:00:00.000Z',
 };
+
+describe('monthly budget pace', () => {
+  it('includes today and rounds the daily allowance down to whole cents', () => {
+    expect(budgetPace(30_001, 24_000, '2028-02-20')).toEqual({
+      daysLeft: 10,
+      dailyAllowance: 600,
+      overPace: true,
+    });
+  });
+  it('keeps the last day available and clamps an overspent budget to zero', () => {
+    expect(budgetPace(1000, 1001, '2027-02-28')).toEqual({
+      daysLeft: 1,
+      dailyAllowance: 0,
+      overPace: true,
+    });
+    expect(budgetPace(3000, 1000, '2026-11-10').overPace).toBe(false);
+  });
+});
 
 describe('integer money', () => {
   it('parses decimal money exactly, without floating point rounding', () => {

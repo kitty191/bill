@@ -803,7 +803,10 @@ export function demoLedger(now = new Date()): Ledger {
   return validateLedger(ledger);
 }
 
-export function csv(ledger: Ledger): string {
+export function csv(
+  ledger: Ledger,
+  entries: readonly Entry[] = ledger.entries,
+): string {
   const cell = (value: string) =>
     `"${(/^[=+\-@\t\r]/.test(value) ? "'" : '') + value.replace(/"/g, '""')}"`;
   return (
@@ -819,7 +822,7 @@ export function csv(ledger: Ledger): string {
         '备注',
         '关联原账单',
       ],
-      ...[...ledger.entries]
+      ...[...entries]
         .sort((a, b) => b.date.localeCompare(a.date))
         .map((e) => [
           e.date,
@@ -841,4 +844,17 @@ export function csv(ledger: Ledger): string {
 
 export function budgetForMonth(ledger: Ledger, month: string): number {
   return ledger.monthBudgets[month] ?? ledger.monthlyBudget;
+}
+
+export function budgetPace(budget: number, expense: number, today: string) {
+  const year = Number(today.slice(0, 4));
+  const month = Number(today.slice(5, 7));
+  const day = Number(today.slice(8, 10));
+  const totalDays = daysInMonth(year, month);
+  const daysLeft = totalDays - day + 1;
+  return {
+    daysLeft,
+    dailyAllowance: Math.floor(Math.max(0, budget - expense) / daysLeft),
+    overPace: expense * totalDays > budget * day,
+  };
 }
