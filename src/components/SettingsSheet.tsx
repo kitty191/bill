@@ -69,6 +69,10 @@ export function SettingsSheet({
       ? amountInput(budgetForMonth(ledger, month))
       : '',
   );
+  const previousBudget =
+    budgetMonth === '1900-01'
+      ? 0
+      : budgetForMonth(ledger, shiftMonth(budgetMonth, -1));
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -365,6 +369,16 @@ export function SettingsSheet({
         只修改所选月份，留空或设为 0 关闭该月预算。
         {ledger.monthlyBudget > 0 ? '未单独设置的月份沿用升级前预算。' : ''}
       </Txt>
+      {previousBudget > 0 && (
+        <Button
+          variant="plain"
+          disabled={disabled}
+          onPress={() => setBudget(amountInput(previousBudget))}
+          style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
+        >
+          带入上月预算
+        </Button>
+      )}
       <SectionTitle
         title="账户管理"
         action="添加账户"

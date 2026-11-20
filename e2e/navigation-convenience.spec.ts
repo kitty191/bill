@@ -144,6 +144,37 @@ test('budget month jumping stays separate from the browsing month and saves only
       .getByRole('button', { name: '选择月份', exact: true }),
   ).toHaveText('2026 年 11 月');
 });
+
+test('bringing in the prior budget crosses the year and waits for an explicit save', async ({
+  page,
+}) => {
+  const monthBudgets = { '2026-12': 12345, '2027-02': 0 };
+  await seed(page, { ...emptyLedger(), monthlyBudget: 90000, monthBudgets });
+  const button = (name: string) => page.getByRole('button', { name, exact: true });
+  await button('打开设置').click();
+  const input = page.getByRole('textbox', { name: '月度预算金额', exact: true });
+  const carry = button('带入上月预算');
+  await button('预算选择月份').click();
+  await choose(page, '2027', 1);
+  await expect(input).toHaveValue('900.00');
+  await carry.click();
+  await expect(input).toHaveValue('123.45');
+  expect((await book(page)).monthBudgets).toEqual(monthBudgets);
+  await input.fill('136.20');
+  await button('保存预算').click();
+  await expect.poll(async () => (await book(page)).monthBudgets).toEqual({
+    ...monthBudgets,
+    '2027-01': 13620,
+  });
+
+  await button('预算下个月').click();
+  await button('预算下个月').click();
+  await expect(input).toHaveValue('900.00');
+  await expect(carry).toHaveCount(0);
+  await button('预算选择月份').click();
+  await choose(page, '1900', 1);
+  await expect(carry).toHaveCount(0);
+});
 test('restart clears a restored draft inside the same calculator and starts a fresh, recoverable record', async ({
   page,
 }) => {
