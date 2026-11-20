@@ -88,7 +88,7 @@ export function backupDue(p: BackupPreferences, now = Date.now()) {
     return false;
   return last === null || now < last || now - last >= p.days * 86400000;
 }
-export type BackupFile = { name: string; uri: string };
+export type BackupFile = { name: string; uri: string; legacyName?: string };
 export type BackupFiles = {
   write: (
     directory: string,
@@ -113,9 +113,11 @@ export async function checkLatestBackup(
   preferences: BackupPreferences,
 ): Promise<number> {
   const { directory, lastFileName, installationId } = preferences;
-  if (!directory || !lastFileName || !ownedBackup(lastFileName, installationId))
+  if (!directory || !lastFileName)
     throw new Error('没有可校验的自动备份');
-  const file = (await files.list(directory)).find((item) => item.name === lastFileName);
+  const owned = (await files.list(directory)).filter((item) => ownedBackup(item.name, installationId));
+  const matches = owned.filter((item) => item.name === lastFileName || item.legacyName === lastFileName);
+  const file = matches.length === 1 ? matches[0] : undefined;
   if (!file) throw new Error('找不到上次备份文件，请检查所选目录');
   const text = await files.read(file);
   try {

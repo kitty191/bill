@@ -209,17 +209,19 @@ test('corrupt local data is preserved and can be recovered from a valid backup',
   expect(
     await page.evaluate(() => localStorage.getItem('qingzhang.ledger.v1')),
   ).toBe('damaged-json');
-  const pick = page.waitForEvent('filechooser');
-  await page
-    .getByRole('button', { name: '从备份恢复账本', exact: true })
-    .click();
-  await (
-    await pick
-  ).setFiles({
-    name: 'backup.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(backup!),
-  });
+  const chooseBackup = async (content: string) => {
+    const picker = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: '从备份恢复账本', exact: true }).click();
+    await (await picker).setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(content) });
+  };
+  await chooseBackup(backup!);
+  const confirm = page.getByRole('button', { name: '确认恢复账本', exact: true });
+  await expect(confirm).toBeVisible();
+  await chooseBackup('invalid-json');
+  await expect(page.getByText(/无法导入/)).toBeVisible();
+  await expect(confirm).toHaveCount(0);
+  await chooseBackup(backup!);
+  await expect(page.getByText(/无法导入/)).toHaveCount(0);
   await page.getByRole('button', { name: '确认恢复账本', exact: true }).click();
   await expect(page.getByTestId('month-expense')).toHaveText('22.20');
 });

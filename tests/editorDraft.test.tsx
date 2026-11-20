@@ -278,3 +278,24 @@ it('waits for draft cleanup before closing even if dismissal fires twice', async
   await act(async () => finish());
   expect(props.onClose).toHaveBeenCalledOnce();
 });
+
+it('uses the income shortcut when restarting from a restored expense draft', async () => {
+  const { draftIdentity } = await import('../src/domain/entryDraft');
+  const ledger = emptyLedger();
+  mocks.ledger = ledger;
+  mocks.visible = true;
+  mocks.update.mockImplementation(async change => { mocks.ledger = change(mocks.ledger); });
+  const draft = {
+    ...draftIdentity({}, ledger),
+    fields: { kind: 'expense' as const, calculator: { expression: '8', fresh: false, error: '' }, categoryId: 'food',
+      accountId: 'cash', toAccountId: '', date: '2026-11-20', note: '', saveTemplate: false, templateName: '' },
+  };
+  await act(async () => {
+    renderer = create(<EntryEditor initialKind="income" restoredDraft={draft} onClose={vi.fn()} onSaved={vi.fn()} onRefund={vi.fn()} />);
+  });
+  const field = (accessibilityLabel: string) => renderer.root.findByProps({ accessibilityLabel }).props;
+  await act(async () => { await field('放弃草稿，重新记一笔').onPress(); });
+  await act(async () => { field('金额').onChangeText('50'); });
+  await act(async () => { await field('记好了').onPress(); });
+  expect((mocks.ledger as typeof ledger).entries[0]).toMatchObject({ kind: 'income', amount: 5000 });
+});

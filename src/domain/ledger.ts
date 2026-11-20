@@ -851,7 +851,7 @@ export function csv(
   entries: readonly Entry[] = ledger.entries,
 ): string {
   const cell = (value: string) =>
-    `"${(/^[=+\-@\t\r]/.test(value) ? "'" : '') + value.replace(/"/g, '""')}"`;
+    `"${(/^'*(?:[=+\-@\t\r])/.test(value) ? "'" : '') + value.replace(/"/g, '""')}"`;
   return (
     '\uFEFF' +
     [

@@ -122,6 +122,8 @@ function Main() {
     restoreDeleted,
   } = useLedger();
   const [recovery, setRecovery] = useState<Ledger | null>(null);
+  const pickingRecovery = useRef(false);
+  const [pickingBackup, setPickingBackup] = useState(false);
   const [encryptedRecovery, setEncryptedRecovery] = useState<EncryptedBackup | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
@@ -257,6 +259,7 @@ function Main() {
           try {
             setEditor({
               ...resumeEntryDraft(draft, current),
+              initialKind,
               restoredDraft: draft,
               draftWarning: initialKind && initialKind !== draft.fields.kind
                 ? '已继续未完成的草稿，可点「重新记」开始新账单'
@@ -519,10 +522,10 @@ function Main() {
             <Txt color={t.muted} style={{ textAlign: 'center' }}>
               {error}
             </Txt>
-            <Button disabled={saving} onPress={reload}>
+            <Button disabled={saving || pickingBackup} onPress={reload}>
               重新读取
             </Button>
-            <Button variant="soft" onPress={() => setSnapshotRecovery(true)}>
+            <Button variant="soft" disabled={saving || pickingBackup} onPress={() => setSnapshotRecovery(true)}>
               从本机快照恢复
             </Button>
             {snapshotRecovery && (
@@ -539,15 +542,25 @@ function Main() {
             )}
             <Button
               variant="soft"
-              disabled={saving}
+              disabled={saving || pickingBackup}
               onPress={() => {
+                if (pickingRecovery.current) return;
+                pickingRecovery.current = true;
+                setPickingBackup(true);
+                setRecovery(null);
+                setRecoveryError('');
+                setEncryptedRecovery(null);
                 void importLedger(setEncryptedRecovery)
                   .then(setRecovery)
                   .catch((e) =>
                     setRecoveryError(
                       e instanceof Error ? e.message : '备份读取失败',
                     ),
-                  );
+                  )
+                  .finally(() => {
+                    pickingRecovery.current = false;
+                    setPickingBackup(false);
+                  });
               }}
             >
               从备份恢复账本

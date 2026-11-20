@@ -17,12 +17,15 @@ def main():
     if not 5<=args.seconds<=60: parser.error('Use a 5–60 second measurement window')
     command=['adb','-s',args.serial,'shell']
     def shell(*parts): return subprocess.check_output([*command,*parts],text=True)
-    package='com.kitty191.qingzhang'
-    if package not in shell('pm','list','packages',package): raise SystemExit('Install and open the app on this device first')
+    package = json.loads((Path(__file__).resolve().parents[1] / 'app.json').read_text())['expo']['android']['package']
+    if f'package:{package}' not in shell('pm','list','packages',package).splitlines(): raise SystemExit('Install and open the app on this device first')
     shell('dumpsys','gfxinfo',package,'reset')
     print('Use the open app normally: swipe pages, open the calculator, scroll and type. No data is exported.')
     time.sleep(args.seconds)
     raw=shell('dumpsys','gfxinfo',package,'framestats')
+    total = re.search(r'Total frames rendered:\s*(\d+)', raw)
+    if not total or int(total[1]) == 0:
+        raise SystemExit(f'No frame samples for {package}. Open the app and repeat the measurement.')
     emulator=shell('getprop','ro.kernel.qemu').strip()=='1'
     report={
       'recorded_at':datetime.now(timezone.utc).isoformat(),
@@ -30,7 +33,8 @@ def main():
       'model':shell('getprop','ro.product.model').strip(),
       'android_api':shell('getprop','ro.build.version.sdk').strip(),
       'duration_seconds':args.seconds,
-      'total_frames':int(re.search(r'Total frames rendered:\s*(\d+)',raw).group(1)) if re.search(r'Total frames rendered:\s*(\d+)',raw) else None,
+      'package':package,
+      'total_frames':int(total[1]),
       'janky_frames':int(re.search(r'Janky frames:\s*(\d+)',raw).group(1)) if re.search(r'Janky frames:\s*(\d+)',raw) else None,
       'raw_gfxinfo':raw,
       'notes':'Android renderer diagnostics, not a guaranteed FPS measurement. No ledger, draft, screenshot or UI hierarchy is collected.',

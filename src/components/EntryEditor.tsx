@@ -224,11 +224,12 @@ export function EntryEditor({
     setError('');
     try {
       await autosave.cancel();
-      const defaults = entryDefault(data, 'expense');
+      const freshKind = shortcutKind ?? 'expense';
+      const defaults = entryDefault(data, freshKind);
       Keyboard.dismiss();
       setRestarted(true);
       setIdentity(draftIdentity({}, data));
-      setKind('expense');
+      setKind(freshKind);
       dispatchAmount({ type: 'seed', value: '' });
       setCategoryId(defaults.categoryId);
       setAccountId(defaults.accountId);
