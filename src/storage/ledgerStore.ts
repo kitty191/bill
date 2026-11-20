@@ -15,7 +15,7 @@ async function db() {
         'PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS upgrade_backup (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS legacy_backup (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS upgrade_backup_v4 (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS local_snapshots (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS snapshot_versions (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, createdAt TEXT NOT NULL, payload TEXT NOT NULL);',
       );
       await connection.execAsync(
-        'CREATE TABLE IF NOT EXISTS entry_draft (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL)',
+        'CREATE TABLE IF NOT EXISTS entry_draft (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS saved_entry_filters (id INTEGER PRIMARY KEY CHECK (id = 1), payload TEXT NOT NULL);',
       );
       return connection;
     })().catch((error) => {
@@ -154,6 +154,20 @@ export async function saveEntryDraftRaw(payload: string): Promise<void> {
     await db()
   ).runAsync(
     'INSERT INTO entry_draft (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
+    payload,
+  );
+}
+export async function loadSavedEntryFiltersRaw(): Promise<string | null> {
+  const connection = await db();
+  const row = await connection.getFirstAsync<{ payload: string }>(
+    'SELECT payload FROM saved_entry_filters WHERE id = 1',
+  );
+  return row?.payload ?? null;
+}
+export async function saveSavedEntryFiltersRaw(payload: string): Promise<void> {
+  const connection = await db();
+  await connection.runAsync(
+    'INSERT INTO saved_entry_filters (id, payload) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
     payload,
   );
 }

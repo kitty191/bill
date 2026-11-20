@@ -43,20 +43,16 @@ export function EntryFilterSheet({
   onClose: () => void;
 }) {
   const t = useTheme();
+  const presets = dateFilterPresets(today);
   const [draft, setDraft] = useState({
     ...value,
-    ...(value.range ? {} : monthRange(month)),
+    ...(!value.range
+      ? monthRange(month)
+      : value.datePreset && presets[value.datePreset]),
   });
-  const presets = dateFilterPresets(today);
-  const [dateOption, setDateOption] = useState<DateOption>(() => {
-    if (!value.range) return 'month';
-    for (const key of ['recent', 'previous'] as const) {
-      const dates = presets[key];
-      if (dates?.startDate === value.startDate && dates.endDate === value.endDate)
-        return key;
-    }
-    return 'custom';
-  });
+  const [dateOption, setDateOption] = useState<DateOption>(
+    value.range ? value.datePreset ?? 'custom' : 'month',
+  );
   const [error, setError] = useState('');
   const [calendarField, setCalendarField] = useState<'start' | 'end' | null>(
     null,
@@ -221,7 +217,11 @@ export function EntryFilterSheet({
           style={{ flex: 1 }}
           onPress={() => {
             try {
-              onApply(validateFilters(draft));
+              const datePreset =
+                dateOption === 'recent' || dateOption === 'previous'
+                  ? dateOption
+                  : undefined;
+              onApply(validateFilters({ ...draft, datePreset }));
               onClose();
             } catch (error) {
               setError(error instanceof Error ? error.message : '筛选条件无效');

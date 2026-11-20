@@ -15,6 +15,7 @@ export type EntryFilters = {
   range: boolean;
   startDate: string;
   endDate: string;
+  datePreset?: 'recent' | 'previous';
   categoryId: string;
   accountId: string;
   minAmount?: string;

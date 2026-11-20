@@ -21,6 +21,7 @@ import {
   type Entry,
   type EntryKind,
   type Ledger,
+  localDate,
   totals,
 } from '../domain/ledger';
 import { useTheme } from '../theme';
@@ -33,6 +34,8 @@ import {
   amountFilterLabel,
 } from '../domain/entryFilters';
 import { EntryFilterSheet } from '../components/EntryFilterSheet';
+import { SavedEntryFiltersSheet } from '../components/SavedEntryFiltersSheet';
+import { resolveSavedEntryFilter } from '../domain/savedEntryFilters';
 import { useAmountsHidden, useMoney } from '../state/PrivacyContext';
 import { exportFilteredEntries } from '../storage/backup';
 import {
@@ -120,11 +123,12 @@ export function EntriesScreen({
   const filtering = query !== deferredQuery;
   const [advanced, setAdvanced] = useState(emptyFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [savedFiltersOpen, setSavedFiltersOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const amountLabel = amountFilterLabel(advanced, amountsHidden);
   const active =
-    !!deferredQuery ||
+    !!deferredQuery.trim() ||
     filter !== 'all' ||
     advanced.range ||
     advanced.accountId !== 'all' ||
@@ -164,6 +168,7 @@ export function EntriesScreen({
     setQuery('');
     setAdvanced(target.filters);
     setFiltersOpen(false);
+    setSavedFiltersOpen(false);
     scrollToTop();
   }, [target, scrollToTop]);
   const index = useMemo(
@@ -259,7 +264,11 @@ export function EntriesScreen({
         <MonthPicker
           month={month}
           onChange={(offset) => {
-            setAdvanced((value) => ({ ...value, range: false }));
+            setAdvanced((value) => ({
+              ...value,
+              range: false,
+              datePreset: undefined,
+            }));
             onMonth(offset);
           }}
         />
@@ -436,16 +445,31 @@ export function EntriesScreen({
           </Button>
         </View>
       )}
-      {(active || filtering) && (
+      <View
+        style={[
+          styles.row,
+          { flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 6 },
+        ]}
+      >
         <Button
-          variant="soft"
-          disabled={filtering || exporting || !entries.length}
-          onPress={() => void exportResults()}
-          style={{ alignSelf: 'flex-end', marginTop: 6 }}
+          variant="plain"
+          onPress={() => {
+            Keyboard.dismiss();
+            setSavedFiltersOpen(true);
+          }}
         >
-          {exporting ? '正在导出…' : '导出筛选结果 CSV'}
+          常用筛选
         </Button>
-      )}
+        {(active || filtering) && (
+          <Button
+            variant="soft"
+            disabled={filtering || exporting || !entries.length}
+            onPress={() => void exportResults()}
+          >
+            {exporting ? '正在导出…' : '导出筛选结果 CSV'}
+          </Button>
+        )}
+      </View>
       {exportError !== '' && (
         <View accessibilityLiveRegion="polite" style={{ marginTop: 6 }}>
           <Txt color={t.danger} size={11} testID="filtered-export-error">
@@ -472,6 +496,20 @@ export function EntriesScreen({
           value={advanced}
           onApply={setAdvanced}
           onClose={() => setFiltersOpen(false)}
+        />
+      )}
+      {savedFiltersOpen && (
+        <SavedEntryFiltersSheet
+          current={{ kind: filter, query: query.trim(), filters: advanced }}
+          canSave={!!active && !filtering}
+          onClose={() => setSavedFiltersOpen(false)}
+          onUse={(saved) => {
+            const resolved = resolveSavedEntryFilter(saved, localDate(), ledger);
+            setAdvanced(resolved);
+            setFilter(saved.kind);
+            setQuery(saved.query);
+            scrollToTop();
+          }}
         />
       )}
       {!entries.length && (
