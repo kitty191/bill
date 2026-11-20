@@ -41,6 +41,7 @@ export function HomeScreen({
   onAll,
   onToday,
   onSettings,
+  onAccountDetails,
   onTemplate,
   onBackup,
   onRecurring,
@@ -56,6 +57,7 @@ export function HomeScreen({
   onAll: () => void;
   onToday: () => void;
   onSettings: () => void;
+  onAccountDetails: (accountId: string) => void;
   onTemplate: (id: string) => void;
   onBackup: () => void;
   onRecurring: (id: string, date: string) => void;
@@ -432,9 +434,9 @@ export function HomeScreen({
             {activeAccounts(ledger).map((account, i) => (
               <Button
                 key={account.id}
-                label={`管理${account.name}账户`}
+                label={`查看${account.name}账户明细`}
                 variant="plain"
-                onPress={onSettings}
+                onPress={() => onAccountDetails(account.id)}
                 style={{
                   backgroundColor: t.surface,
                   borderRadius: 19,

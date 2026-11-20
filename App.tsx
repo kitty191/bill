@@ -56,6 +56,7 @@ import { BottomNavigation, type Tab } from './src/components/BottomNavigation';
 import { EntryEditor } from './src/components/EntryEditor';
 import { EntryActions } from './src/components/EntryActions';
 import { SettingsSheet } from './src/components/SettingsSheet';
+import { AccountDetailsSheet } from './src/components/AccountDetailsSheet';
 import { HomeScreen } from './src/screens/HomeScreen';
 import {
   EntriesScreen,
@@ -155,6 +156,14 @@ function Main() {
   const [settings, setSettings] = useState<
     false | 'main' | 'privacy' | 'recurring'
   >(false);
+  const [accountDetailsId, setAccountDetailsId] = useState<string | null>(null);
+  const [accountEntries, setAccountEntries] = useState<{
+    month: string;
+    target: EntriesTarget;
+  } | null>(null);
+  const accountDetails = ledger?.accounts.find(
+    (account) => account.id === accountDetailsId,
+  );
   const [snapshotRecovery, setSnapshotRecovery] = useState(false);
   const privacy = usePrivacy();
   const automaticBackup = useAutomaticBackup();
@@ -264,6 +273,11 @@ function Main() {
   }, [setToast]);
   const openSettings = useCallback(() => setSettings('main'), []);
   const closeSettings = useCallback(() => setSettings(false), []);
+  const openAccountDetails = useCallback(
+    (id: string) => setAccountDetailsId(id),
+    [],
+  );
+  const closeAccountDetails = useCallback(() => setAccountDetailsId(null), []);
   const openBackup = useCallback(() => setSettings('privacy'), []);
   const openTemplate = useCallback(
     (templateId: string) => setEditor({ templateId }),
@@ -289,6 +303,13 @@ function Main() {
     },
     [navigate],
   );
+  useEffect(() => {
+    if (!accountEntries) return;
+    // Navigate after the sheet unmounts and returns focus to its opener.
+    setAccountEntries(null);
+    setMonth(accountEntries.month);
+    showEntries(accountEntries.target);
+  }, [accountEntries, showEntries]);
   const showAll = useCallback(
     () => showEntries({ kind: 'all', filters: emptyFilters() }),
     [showEntries],
@@ -375,6 +396,7 @@ function Main() {
                       onAll={showAll}
                       onToday={showToday}
                       onSettings={openSettings}
+                      onAccountDetails={openAccountDetails}
                       onTemplate={openTemplate}
                       onBackup={openBackup}
                       onRecurring={openRecurring}
@@ -412,6 +434,7 @@ function Main() {
       onEntryActions,
       openEditor,
       openSettings,
+      openAccountDetails,
       openTemplate,
       openBackup,
       openRecurring,
@@ -753,11 +776,40 @@ function Main() {
           )}
           {settings && (
             <SettingsSheet
+              visible={!accountDetails}
               month={month}
               initialPage={settings || 'main'}
               onClose={closeSettings}
               onSaved={setToast}
               onRecurring={openRecurring}
+              onAccountDetails={openAccountDetails}
+            />
+          )}
+          {accountDetails && (
+            <AccountDetailsSheet
+              key={accountDetails.id}
+              account={accountDetails}
+              entries={ledger.entries}
+              initialMonth={month}
+              today={today}
+              onClose={closeAccountDetails}
+              onEntries={(startDate, endDate) => {
+                closeAccountDetails();
+                closeSettings();
+                setAccountEntries({
+                  month: startDate.slice(0, 7),
+                  target: {
+                    kind: 'all',
+                    filters: {
+                      ...emptyFilters(),
+                      accountId: accountDetails.id,
+                      range: true,
+                      startDate,
+                      endDate,
+                    },
+                  },
+                });
+              }}
             />
           )}
         </View>

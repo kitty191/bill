@@ -698,24 +698,49 @@ export function remainingRefund(ledger: Ledger, expense: Entry): number {
     : 0;
 }
 
+function accountMovement(entry: Entry, accountId: string): number {
+  if (entry.kind === 'transfer') {
+    return (
+      (entry.toAccountId === accountId ? entry.amount : 0) -
+      (entry.accountId === accountId ? entry.amount : 0)
+    );
+  }
+  if (entry.accountId !== accountId) return 0;
+  return entry.kind === 'expense' ? -entry.amount : entry.amount;
+}
+
 export function accountBalance(ledger: Ledger, accountId: string): number {
   return ledger.entries.reduce(
-    (sum, e) => {
-      if (e.kind === 'transfer')
-        return (
-          sum -
-          (e.accountId === accountId ? e.amount : 0) +
-          (e.toAccountId === accountId ? e.amount : 0)
-        );
-      return (
-        sum +
-        (e.accountId === accountId
-          ? e.amount * (e.kind === 'income' || e.kind === 'refund' ? 1 : -1)
-          : 0)
-      );
-    },
+    (sum, entry) => sum + accountMovement(entry, accountId),
     ledger.accounts.find((a) => a.id === accountId)?.openingBalance ?? 0,
   );
+}
+
+export function accountPeriodBalance(
+  entries: readonly Entry[],
+  account: Account,
+  startDate: string,
+  endDate: string,
+) {
+  let opening = account.openingBalance;
+  let inflow = 0;
+  let outflow = 0;
+  for (const entry of entries) {
+    if (entry.date > endDate) continue;
+    const movement = accountMovement(entry, account.id);
+    if (entry.date < startDate) opening += movement;
+    else if (movement > 0) inflow += movement;
+    else outflow -= movement;
+  }
+  return { opening, inflow, outflow, closing: opening + inflow - outflow };
+}
+
+export function parseReconciliationBalance(raw: string): number {
+  const parts = /^(-?)(\d{1,12})(?:\.(\d{1,2}))?$/.exec(raw.trim());
+  if (!parts) throw new Error('请输入有效的实际余额，最多保留两位小数');
+  const [, sign, whole, fraction = ''] = parts;
+  const amount = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  return sign === '-' && amount !== 0 ? -amount : amount;
 }
 
 export function monthEntries(ledger: Ledger, month: string): Entry[] {
