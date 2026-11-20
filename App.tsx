@@ -41,6 +41,7 @@ import {
   shiftMonth,
 } from './src/domain/ledger';
 import { importLedger } from './src/storage/backup';
+import { emptyFilters } from './src/domain/entryFilters';
 import { LedgerProvider, useLedger } from './src/state/LedgerProvider';
 import { ThemeProvider, useTheme } from './src/theme';
 import {
@@ -59,6 +60,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import {
   EntriesScreen,
   type EntriesListHandle,
+  type EntriesTarget,
 } from './src/screens/EntriesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { SwipePager } from './src/components/SwipePager';
@@ -135,10 +137,10 @@ function Main() {
   const tabRef = useRef<Tab>('home');
   const pageProgress = useSharedValue(0);
   const [month, setMonth] = useState(localDate().slice(0, 7));
-  const [entriesTarget, setEntriesTarget] = useState<{
-    key: number;
-    date?: string;
-  }>({ key: 0 });
+  const [entriesTarget, setEntriesTarget] = useState<EntriesTarget>(() => ({
+    kind: 'all',
+    filters: emptyFilters(),
+  }));
   const entriesScroll = useRef<EntriesListHandle>(null);
   const homeScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const statsScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -279,18 +281,37 @@ function Main() {
     [],
   );
   const openRecurringSettings = useCallback(() => setSettings('recurring'), []);
-  const showAll = useCallback(() => {
-    setEntriesTarget((value) => ({ key: value.key + 1 }));
-    entriesScroll.current?.scrollToTop();
-    navigate('entries');
-  }, [navigate]);
+  const showEntries = useCallback(
+    (target: EntriesTarget) => {
+      setEntriesTarget(target);
+      entriesScroll.current?.scrollToTop();
+      navigate('entries');
+    },
+    [navigate],
+  );
+  const showAll = useCallback(
+    () => showEntries({ kind: 'all', filters: emptyFilters() }),
+    [showEntries],
+  );
+  const showExpenseDay = useCallback(
+    (date: string) => {
+      setMonth(date.slice(0, 7));
+      showEntries({
+        kind: 'expense',
+        filters: { ...emptyFilters(), range: true, startDate: date, endDate: date },
+      });
+    },
+    [showEntries],
+  );
   const showToday = useCallback(() => {
-    const date = localDate();
-    setMonth(date.slice(0, 7));
-    setEntriesTarget((value) => ({ key: value.key + 1, date }));
-    entriesScroll.current?.scrollToTop();
-    navigate('entries');
-  }, [navigate]);
+    showExpenseDay(localDate());
+  }, [showExpenseDay]);
+  const showCategoryExpenses = useCallback(
+    (categoryId: string) => {
+      showEntries({ kind: 'expense', filters: { ...emptyFilters(), categoryId } });
+    },
+    [showEntries],
+  );
   const quickEntry =
     notice?.entryId && Date.now() < notice.expiresAt
       ? ledger?.entries.find((entry) => entry.id === notice.entryId)
@@ -320,8 +341,7 @@ function Main() {
               key === 'entries' ? (
                 <MemoEntriesScreen
                   today={today}
-                  resetKey={entriesTarget.key}
-                  focusDate={entriesTarget.date}
+                  target={entriesTarget}
                   listRef={entriesScroll}
                   ledger={ledger}
                   month={month}
@@ -366,6 +386,8 @@ function Main() {
                       ledger={ledger}
                       month={month}
                       onMonth={onMonth}
+                      onCategoryExpenses={showCategoryExpenses}
+                      onDayExpenses={showExpenseDay}
                     />
                   ) : (
                     <View
@@ -396,6 +418,8 @@ function Main() {
       openRecurringSettings,
       showAll,
       showToday,
+      showCategoryExpenses,
+      showExpenseDay,
       entriesTarget,
       insets.bottom,
       today,

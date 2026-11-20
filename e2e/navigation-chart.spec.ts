@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { emptyLedger, type Entry } from '../src/domain/ledger';
 
 test.use({ hasTouch: true });
 
@@ -273,6 +274,102 @@ test('the daily line chart sums the same day, shows zero days and exposes tap de
   await expect(page.getByTestId('daily-expense-selection')).toHaveText(
     '本月暂无支出记录',
   );
+});
+
+test('monthly category and leap-day charts open the exact net spending behind them', async ({
+  page,
+}) => {
+  const food: Entry = {
+    id: 'leap-dinner',
+    kind: 'expense',
+    categoryId: 'food',
+    accountId: 'wechat',
+    amount: 2500,
+    date: '2028-02-29',
+    createdAt: '2028-02-29T04:00:00Z',
+    note: '月底晚饭',
+  };
+  const ledger = {
+    ...emptyLedger(),
+    entries: [
+      food,
+      {
+        ...food,
+        id: 'leap-coffee',
+        categoryId: 'coffee',
+        amount: 700,
+        note: '月底咖啡',
+      },
+      {
+        ...food,
+        id: 'early-dinner',
+        date: '2028-02-28',
+        amount: 300,
+        note: '前一天餐饮',
+      },
+      { ...food, id: 'new-month', date: '2028-03-01', note: '三月晚饭' },
+      {
+        ...food,
+        id: 'refund',
+        kind: 'refund',
+        originalEntryId: food.id,
+        date: '2028-03-01',
+        amount: 500,
+        note: '部分退款',
+      },
+      {
+        ...food,
+        id: 'salary',
+        kind: 'income',
+        categoryId: 'salary',
+        note: '当日收入',
+      },
+    ],
+  };
+  await page.clock.setFixedTime(new Date('2028-03-02T03:00:00Z'));
+  await page.addInitScript((data) => {
+    localStorage.setItem('qingzhang.ledger.v1', JSON.stringify(data));
+  }, ledger);
+  await page.goto('/');
+  await page.getByRole('tab', { name: '账单', exact: true }).click();
+  const query = page.getByRole('textbox', { name: '搜索账单' });
+  await query.fill('之前的搜索条件');
+  await page.getByRole('tab', { name: '统计', exact: true }).click();
+  await expectPage(page, 'stats', '统计');
+  await page.getByRole('button', { name: '上个月', exact: true }).click();
+  const category = page.getByRole('button', {
+    name: '查看餐饮支出账单，23.00 元',
+    exact: true,
+  });
+  await category.click();
+  await expectPage(page, 'entries', '账单');
+  const filters = page.getByTestId('active-entry-filters');
+  await expect(query).toHaveValue('');
+  await expect(filters).toContainText('餐饮 · 2 笔');
+  const row = (note: string) =>
+    page.getByRole('button', { name: new RegExp(`${note}.*查看详情`) });
+  await expect(row('月底晚饭')).toBeVisible();
+  await expect(row('前一天餐饮')).toBeVisible();
+  await expect(row('月底咖啡')).toHaveCount(0);
+  await expect(row('三月晚饭')).toHaveCount(0);
+
+  await page.getByRole('tab', { name: '统计', exact: true }).click();
+  await expectPage(page, 'stats', '统计');
+  const chart = page.getByTestId('daily-expense-chart');
+  await chart.focus();
+  await page.keyboard.press('End');
+  await expect(page.getByTestId('daily-expense-selection')).toHaveText(
+    '2月29日 · 支出 ¥27.00',
+  );
+  await page
+    .getByRole('button', { name: '查看2月29日支出账单', exact: true })
+    .click();
+  await expectPage(page, 'entries', '账单');
+  await expect(filters).toHaveText('2028-02-29 至 2028-02-29 · 2 笔');
+  await expect(row('月底晚饭')).toBeVisible();
+  await expect(row('月底咖啡')).toBeVisible();
+  await expect(row('前一天餐饮')).toHaveCount(0);
+  await expect(row('当日收入')).toHaveCount(0);
 });
 
 test('swiping retains bill filters while View all opens the unfiltered ledger', async ({

@@ -30,11 +30,15 @@ function MonthlyStats({
   ledger,
   month,
   onMonth,
+  onCategoryExpenses,
+  onDayExpenses,
 }: {
   today: string;
   ledger: Ledger;
   month: string;
   onMonth: (offset: number) => void;
+  onCategoryExpenses: (categoryId: string) => void;
+  onDayExpenses: (date: string) => void;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -213,7 +217,20 @@ function MonthlyStats({
               </View>
             </View>
             {categories.map((c) => (
-              <View key={c.id} style={[styles.row, { marginTop: 16, gap: 12 }]}>
+              <Button
+                key={c.id}
+                variant="plain"
+                label={`查看${c.label}支出账单，${money(c.total)} 元`}
+                onPress={() => onCategoryExpenses(c.id)}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'flex-start',
+                  marginTop: 8,
+                  minHeight: 44,
+                  paddingHorizontal: 0,
+                  gap: 10,
+                }}
+              >
                 <View
                   style={{
                     width: 32,
@@ -228,7 +245,14 @@ function MonthlyStats({
                 </View>
                 <View style={{ flex: 1, gap: 6 }}>
                   <View
-                    style={[styles.row, { justifyContent: 'space-between' }]}
+                    style={[
+                      styles.row,
+                      {
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 4,
+                      },
+                    ]}
                   >
                     <Txt size={12}>
                       {c.label}{' '}
@@ -257,14 +281,19 @@ function MonthlyStats({
                     />
                   </View>
                 </View>
-              </View>
+                <Icon name="right" color={t.muted} size={13} />
+              </Button>
             ))}
           </>
         )}
       </Card>
       <SectionTitle title="每日支出" />
       <Card>
-        <ExpenseLineChart values={daily} month={month} />
+        <ExpenseLineChart
+          values={daily}
+          month={month}
+          onDayExpenses={onDayExpenses}
+        />
       </Card>
       <Txt
         size={10}

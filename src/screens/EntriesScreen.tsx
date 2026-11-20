@@ -25,6 +25,7 @@ import {
 } from '../domain/ledger';
 import { useTheme } from '../theme';
 import {
+  type EntryFilters,
   buildEntryIndex,
   filterEntryIndex,
   emptyFilters,
@@ -47,6 +48,10 @@ import {
 } from '../components/ui';
 
 export type EntriesListHandle = { scrollToTop: () => void };
+export type EntriesTarget = {
+  kind: EntryKind | 'all';
+  filters: EntryFilters;
+};
 type EntrySection = ReturnType<typeof entryGroups>[number] & {
   key: string;
   data: Entry[];
@@ -60,8 +65,7 @@ export function EntriesScreen({
   onEntry,
   onEntryActions,
   onAdd,
-  resetKey,
-  focusDate,
+  target,
   listRef,
 }: {
   today: string;
@@ -71,8 +75,7 @@ export function EntriesScreen({
   onEntry: (entry: Entry) => void;
   onEntryActions: (entry: Entry) => void;
   onAdd: () => void;
-  resetKey: number;
-  focusDate?: string;
+  target: EntriesTarget;
   listRef: React.Ref<EntriesListHandle>;
 }) {
   const t = useTheme();
@@ -157,21 +160,12 @@ export function EntriesScreen({
     });
   }, [ledger.categories, ledger.accounts]);
   useEffect(() => {
-    setFilter(focusDate ? 'expense' : 'all');
+    setFilter(target.kind);
     setQuery('');
-    setAdvanced(
-      focusDate
-        ? {
-            ...emptyFilters(),
-            range: true,
-            startDate: focusDate,
-            endDate: focusDate,
-          }
-        : emptyFilters(),
-    );
+    setAdvanced(target.filters);
     setFiltersOpen(false);
     scrollToTop();
-  }, [resetKey, focusDate, scrollToTop]);
+  }, [target, scrollToTop]);
   const index = useMemo(
     () => buildEntryIndex(ledger),
     [ledger.entries, ledger.accounts, ledger.categories],
