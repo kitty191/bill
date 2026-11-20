@@ -1,13 +1,30 @@
 import React, { useState } from 'react';
 import { Platform, Switch, View } from 'react-native';
 import { useAutomaticBackup } from '../state/AutomaticBackupProvider';
+import { checkLatestBackup } from '../domain/automaticBackup';
+import { backupFiles } from '../storage/automaticBackup';
 import { useTheme } from '../theme';
 import { Button, SectionTitle, Txt, styles } from './ui';
 export function AutomaticBackupSettings() {
   const t = useTheme();
   const backup = useAutomaticBackup();
   const [operationError, setOperationError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState<{ file: string; message: string; error: boolean } | null>(null);
   const p = backup.preferences;
+  const check = async () => {
+    if (!p?.lastFileName || checking) return;
+    setChecking(true);
+    setChecked(null);
+    try {
+      const count = await checkLatestBackup(backupFiles, p);
+      setChecked({ file: p.lastFileName, message: `文件可恢复，共 ${count} 笔账单`, error: false });
+    } catch (failure) {
+      setChecked({ file: p.lastFileName, message: failure instanceof Error ? failure.message : '无法校验备份，请检查目录权限', error: true });
+    } finally {
+      setChecking(false);
+    }
+  };
   const perform = (task: () => Promise<void>) => {
     setOperationError('');
     void task().catch((error) =>
@@ -134,7 +151,15 @@ export function AutomaticBackupSettings() {
         >
           {backup.busy ? '正在处理…' : '立即备份'}
         </Button>
+        {p?.lastFileName && (
+          <Button variant="plain" disabled={checking || backup.busy} onPress={() => void check()}>
+            {checking ? '正在校验…' : '核验最近备份'}
+          </Button>
+        )}
       </View>
+      {checked && checked.file === p?.lastFileName && (
+        <Txt size={12} color={checked.error ? t.danger : t.accent}>{checked.message}</Txt>
+      )}
       {!!(operationError || backup.error) && (
         <Txt
           testID="automatic-backup-error"

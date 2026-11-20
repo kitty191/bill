@@ -5,14 +5,36 @@ from pathlib import Path
 import tempfile
 import unittest
 import sys
+from unittest.mock import patch
+import zipfile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from android_inputs import filter_android_changes, PAGER, NATIVE_PAGER
+import prepare_android_update as update
 
 spec = importlib.util.spec_from_file_location('release_android', Path(__file__).resolve().parents[1]/'scripts/release_android.py')
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
 class ReleaseGuards(unittest.TestCase):
+    def test_update_locks_signer_on_old_and_new_android_and_checks_source_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk = Path(directory) / 'example.apk'
+            with zipfile.ZipFile(apk, 'w') as archive:
+                archive.writestr('lib/arm64-v8a/example.so', b'emulator fixture')
+            badging = (f"package: name='{update.PACKAGE}' versionCode='24' versionName='0.8.3'\n"
+                       "minSdkVersion:'24'\n")
+            signature = f'V2 Signer: certificate SHA-256 digest: {update.CERTIFICATE}\n'
+            with patch.object(update, 'run', side_effect=[badging, signature, signature, '']):
+                candidate = update.inspect_apk(Path(directory), apk)
+            previous = {**candidate, 'version_code': 23, 'version': '0.8.2'}
+            app = {'version': '0.8.3', 'android': {'versionCode': 24}}
+            update.verify_update(previous, candidate, app)
+            with self.assertRaisesRegex(ValueError, 'increase'):
+                update.verify_update(candidate, candidate, app)
+            with patch.object(update, 'run', side_effect=[badging, signature, signature.replace(update.CERTIFICATE, '0' * 64)]):
+                with self.assertRaisesRegex(ValueError, 'certificate'):
+                    update.inspect_apk(Path(directory), apk)
+
     def test_only_the_known_web_pager_is_shadowed_by_a_preserved_native_variant(self):
         self.assertEqual(filter_android_changes([PAGER],True,True),[])
         self.assertEqual(filter_android_changes([PAGER,NATIVE_PAGER],True,True),[NATIVE_PAGER])

@@ -107,6 +107,24 @@ export function ownedBackup(name: string, installationId: string) {
     ).test(name)
   );
 }
+
+export async function checkLatestBackup(
+  files: BackupFiles,
+  preferences: BackupPreferences,
+): Promise<number> {
+  const { directory, lastFileName, installationId } = preferences;
+  if (!directory || !lastFileName || !ownedBackup(lastFileName, installationId))
+    throw new Error('没有可校验的自动备份');
+  const file = (await files.list(directory)).find((item) => item.name === lastFileName);
+  if (!file) throw new Error('找不到上次备份文件，请检查所选目录');
+  const text = await files.read(file);
+  try {
+    assertBackupTextSize(text);
+    return validateLedger(JSON.parse(text)).entries.length;
+  } catch {
+    throw new Error('上次备份文件无法恢复，请重新生成一份');
+  }
+}
 export async function writeVerifiedBackup(
   files: BackupFiles,
   p: BackupPreferences,

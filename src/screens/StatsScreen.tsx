@@ -37,7 +37,7 @@ function MonthlyStats({
   ledger: Ledger;
   month: string;
   onMonth: (offset: number) => void;
-  onCategoryExpenses: (categoryId: string) => void;
+  onCategoryExpenses: (categoryId: string, month?: string) => void;
   onDayExpenses: (date: string) => void;
 }) {
   const t = useTheme();
@@ -50,16 +50,29 @@ function MonthlyStats({
     () => totals(entries, ledger.entries),
     [entries, ledger.entries],
   );
+  const priorMonth = shiftMonth(month, -1);
+  const priorEntries = useMemo(
+    () => monthEntries(ledger, priorMonth),
+    [ledger.entries, priorMonth],
+  );
   const previous = useMemo(
-    () =>
-      totals(monthEntries(ledger, shiftMonth(month, -1)), ledger.entries)
-        .expense,
-    [ledger.entries, month],
+    () => totals(priorEntries, ledger.entries).expense,
+    [ledger.entries, priorEntries],
   );
   const categories = useMemo(
     () => categoryTotals(entries, ledger.categories, ledger.entries),
     [entries, ledger.categories, ledger.entries],
   );
+  const changes = useMemo(() => {
+    const before = new Map(categoryTotals(priorEntries, ledger.categories, ledger.entries).map((c) => [c.id, c.total]));
+    const after = new Map(categories.map((c) => [c.id, c.total]));
+    return ledger.categories.map((category) => {
+      const current = after.get(category.id) ?? 0;
+      const prior = before.get(category.id) ?? 0;
+      return { ...category, current, prior, change: current - prior };
+    }).filter((category) => category.change !== 0)
+      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 3);
+  }, [priorEntries, ledger.categories, ledger.entries, categories]);
   const daily = useMemo(
     () => dailyExpenseValues(ledger.entries, month, today),
     [ledger.entries, month, today],
@@ -295,6 +308,25 @@ function MonthlyStats({
           onDayExpenses={onDayExpenses}
         />
       </Card>
+      {(expense > 0 || previous > 0) && (
+        <>
+          <SectionTitle title="月度回顾" />
+          <Card style={{ gap: 10 }}>
+            <Txt size={13} weight="600">
+              {expense === previous ? '净支出与上月持平' : `净支出较上月${expense > previous ? '增加' : '减少'} ¥${money(Math.abs(expense - previous))}`}
+            </Txt>
+            {changes.map((category) => (
+              <View key={category.id} style={[styles.row, { flexWrap: 'wrap' }]}>
+                <Txt size={12} style={{ flexGrow: 1 }}>
+                  {category.label} {category.change > 0 ? '多' : '少'} ¥{money(Math.abs(category.change))}
+                </Txt>
+                {category.current > 0 && <Button variant="plain" label={`查看回顾中的本月${category.label}`} onPress={() => onCategoryExpenses(category.id)}>本月</Button>}
+                {category.prior > 0 && <Button variant="plain" label={`查看回顾中的上月${category.label}`} onPress={() => onCategoryExpenses(category.id, priorMonth)}>上月</Button>}
+              </View>
+            ))}
+          </Card>
+        </>
+      )}
       <Txt
         size={10}
         color={t.subtle}

@@ -445,12 +445,16 @@ export function EntryRow({
   onPress,
   last = false,
   onLongPress,
+  selected,
+  disabled = false,
 }: {
   entry: Entry;
   ledger: Ledger;
   onPress: () => void;
   last?: boolean;
   onLongPress?: () => void;
+  selected?: boolean;
+  disabled?: boolean;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -462,7 +466,9 @@ export function EntryRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${entry.date} ${entry.note || category.label} ${entry.kind === 'income' ? '收入' : entry.kind === 'expense' ? '支出' : entry.kind === 'refund' ? '退款' : '转账'} ${money(entry.amount)} 元，查看详情`}
+      accessibilityLabel={`${entry.date} ${entry.note || category.label} ${entry.kind === 'income' ? '收入' : entry.kind === 'expense' ? '支出' : entry.kind === 'refund' ? '退款' : '转账'} ${money(entry.amount)} 元，${selected === undefined ? '查看详情' : selected ? '已选中' : '选择账单'}`}
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
       onLongPress={
         onLongPress
@@ -486,7 +492,8 @@ export function EntryRow({
         {
           paddingVertical: 16,
           gap: 13,
-          opacity: pressed ? 0.6 : 1,
+          opacity: disabled || pressed ? 0.6 : 1,
+          backgroundColor: selected ? t.accentSoft : undefined,
           borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
           borderColor: t.border,
         },

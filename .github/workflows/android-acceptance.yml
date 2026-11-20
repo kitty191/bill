@@ -2,7 +2,7 @@ name: Android build and upgrade
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'App.tsx', 'app.json', 'package*.json', 'scripts/**', 'native-deps/**', '.github/workflows/android-acceptance.yml']
+    paths: ['src/**', 'App.tsx', 'app.json', 'package*.json', 'scripts/**', 'native-deps/**', 'plugins/**', '.github/workflows/android-acceptance.yml']
   workflow_dispatch:
     inputs:
       baseline_ref:

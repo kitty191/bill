@@ -26,6 +26,10 @@ import { useMoney, usePrivacy } from '../state/PrivacyContext';
 import { CategoryManager, TemplateManager } from './LedgerTools';
 import { PrivacySettings } from './PrivacySettings';
 import { SnapshotManager } from './SnapshotManager';
+import { CsvImport } from './CsvImportSheet';
+import { CategoryBudgetEditor } from './CategoryBudgets';
+import { BackupPasswordSheet } from './BackupPasswordSheet';
+import { type EncryptedBackup } from '../domain/encryptedBackup';
 import { RecurringManager } from './RecurringManager';
 import { useTheme } from '../theme';
 import { Sheet } from './Sheet';
@@ -53,7 +57,7 @@ export function SettingsSheet({
   const money = useMoney();
   const privacy = usePrivacy();
   const [page, setPage] = useState<
-    'main' | 'privacy' | 'categories' | 'templates' | 'snapshots' | 'recurring'
+    'main' | 'privacy' | 'categories' | 'templates' | 'snapshots' | 'recurring' | 'csv' | 'category-budgets'
   >(initialPage);
   const [legacy, setLegacy] = useState<string | null>(null);
   useEffect(() => {
@@ -83,6 +87,8 @@ export function SettingsSheet({
     'clear' | 'demo' | 'import' | null
   >(null);
   const [imported, setImported] = useState<Ledger | null>(null);
+  const [encryptedSource, setEncryptedSource] = useState<EncryptedBackup | null>(null);
+  const [exportingEncrypted, setExportingEncrypted] = useState(false);
   const importedDateRange = useMemo(() => {
     if (!imported?.entries.length) return null;
     let first = imported.entries[0]!.date;
@@ -178,6 +184,22 @@ export function SettingsSheet({
     await privacy.markExported();
     onSaved('备份文件已生成，请确认已保存');
   };
+  if (encryptedSource || exportingEncrypted)
+    return (
+      <BackupPasswordSheet
+        action={encryptedSource ? { encrypted: encryptedSource, onDecode: (restored) => {
+          setImported(restored);
+          setConfirmation('import');
+        } } : { ledger, onExport: async () => {
+          await privacy.markExported();
+          onSaved('加密备份已生成，请确认已保存');
+        } }}
+        onClose={() => {
+          setEncryptedSource(null);
+          setExportingEncrypted(false);
+        }}
+      />
+    );
   if (page !== 'main')
     return (
       <Sheet
@@ -193,7 +215,7 @@ export function SettingsSheet({
                 ? '分类管理'
                 : page === 'templates'
                   ? '常用记账'
-                  : '隐私与备份'
+                  : page === 'csv' ? '导入 CSV' : page === 'category-budgets' ? '分类预算' : '隐私与备份'
         }
         dismissible={!disabled}
       >
@@ -215,6 +237,13 @@ export function SettingsSheet({
           <CategoryManager onBack={() => setPage('main')} />
         ) : page === 'templates' ? (
           <TemplateManager onBack={() => setPage('main')} />
+        ) : page === 'csv' ? (
+          <>
+            <Button variant="plain" onPress={() => setPage('main')}>返回设置</Button>
+            <CsvImport ledger={ledger} disabled={disabled} onImport={update} />
+          </>
+        ) : page === 'category-budgets' ? (
+          <CategoryBudgetEditor onBack={() => setPage('main')} />
         ) : (
           <PrivacySettings onBack={() => setPage('main')} onBackup={backup} />
         )}
@@ -379,6 +408,9 @@ export function SettingsSheet({
           带入上月预算
         </Button>
       )}
+      <Button variant="plain" disabled={disabled} onPress={() => setPage('category-budgets')} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>
+        设置分类预算
+      </Button>
       <SectionTitle
         title="账户管理"
         action="添加账户"
@@ -523,17 +555,26 @@ export function SettingsSheet({
         <SettingAction
           icon="upload"
           title="恢复备份"
-          description="选择 JSON 备份，确认后替换当前账本"
+          description="选择普通或加密 JSON 备份，确认后替换当前账本"
           disabled={disabled}
           onPress={() =>
             void perform(async () => {
-              const result = await importLedger();
+              setImported(null);
+              setConfirmation(null);
+              const result = await importLedger(setEncryptedSource);
               if (result) {
                 setImported(result);
                 setConfirmation('import');
               }
             })
           }
+        />
+        <SettingAction
+          icon="lock"
+          title="导出加密备份"
+          description="为导出的 JSON 备份设置密码"
+          disabled={disabled}
+          onPress={() => setExportingEncrypted(true)}
         />
         <SettingAction
           icon="list"
@@ -543,6 +584,13 @@ export function SettingsSheet({
           onPress={() =>
             void perform(() => exportLedger(ledger, 'csv'), '账单表格已导出')
           }
+        />
+        <SettingAction
+          icon="upload"
+          title="导入 CSV"
+          description="预览模板账单，确认后追加到当前账本"
+          disabled={disabled}
+          onPress={() => setPage('csv')}
         />
       </View>
       {legacy && (

@@ -22,6 +22,7 @@ import {
   type EntryKind,
   type Ledger,
   localDate,
+  visibleCategories,
   totals,
 } from '../domain/ledger';
 import { useTheme } from '../theme';
@@ -36,6 +37,9 @@ import {
 import { EntryFilterSheet } from '../components/EntryFilterSheet';
 import { SavedEntryFiltersSheet } from '../components/SavedEntryFiltersSheet';
 import { resolveSavedEntryFilter } from '../domain/savedEntryFilters';
+import { changeEntryCategories } from '../domain/batchCategories';
+import { useLedger } from '../state/LedgerProvider';
+import { Sheet } from '../components/Sheet';
 import { useAmountsHidden, useMoney } from '../state/PrivacyContext';
 import { exportFilteredEntries } from '../storage/backup';
 import {
@@ -126,6 +130,10 @@ export function EntriesScreen({
   const [savedFiltersOpen, setSavedFiltersOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const { update, saving } = useLedger();
+  const [selection, setSelection] = useState<string[] | null>(null);
+  const [batchCategory, setBatchCategory] = useState<string | null>(null);
+  const [batchError, setBatchError] = useState('');
   const amountLabel = amountFilterLabel(advanced, amountsHidden);
   const active =
     !!deferredQuery.trim() ||
@@ -179,6 +187,29 @@ export function EntriesScreen({
     () => filterEntryIndex(index, month, filter, deferredQuery, advanced),
     [index, month, deferredQuery, filter, advanced],
   );
+  useEffect(() => {
+    setSelection(null);
+    setBatchCategory(null);
+    setBatchError('');
+  }, [entries]);
+  const selectedIds = useMemo(() => new Set(selection ?? []), [selection]);
+  const firstSelected = selection?.length
+    ? entries.find((entry) => entry.id === selection[0])
+    : undefined;
+  const batchKind = firstSelected?.kind;
+  const applyBatch = async (kind: 'expense' | 'income', category: string) => {
+    if (!selection?.length || saving) return;
+    setBatchError('');
+    try {
+      await update((current) =>
+        changeEntryCategories(current, selection, kind, category),
+      );
+      setSelection(null);
+      setBatchCategory(null);
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : '保存失败，请重试');
+    }
+  };
   const exportResults = async () => {
     if (filtering || exporting || !entries.length) return;
     setExporting(true);
@@ -451,6 +482,22 @@ export function EntriesScreen({
           { flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 6 },
         ]}
       >
+        {selection === null ? (
+          <Button
+            variant="plain"
+            disabled={filtering || !entries.some((item) => item.kind === 'expense' || item.kind === 'income')}
+            onPress={() => setSelection([])}
+          >
+            批量分类
+          </Button>
+        ) : (
+          <>
+            <Button variant="plain" onPress={() => setSelection(null)}>取消多选</Button>
+            <Button disabled={!selection.length} onPress={() => setBatchCategory('')}>
+              {`调整分类 · ${selection.length} 笔`}
+            </Button>
+          </>
+        )}
         <Button
           variant="plain"
           onPress={() => {
@@ -470,6 +517,23 @@ export function EntriesScreen({
           </Button>
         )}
       </View>
+      {selection !== null && (
+        <Txt size={11} color={t.muted}>点选同一类型的收入或支出，关联退款会同步调整。</Txt>
+      )}
+      {batchCategory !== null && (batchKind === 'expense' || batchKind === 'income') && (
+        <Sheet visible title={`调整 ${selection?.length} 笔账单的分类`} onClose={() => setBatchCategory(null)} dismissible={!saving}>
+          <View style={[styles.row, { flexWrap: 'wrap', marginBottom: 12 }]}>
+            {visibleCategories(ledger, batchKind).map((category) => (
+              <Button key={category.id} variant={batchCategory === category.id ? 'soft' : 'plain'}
+                disabled={saving} selected={batchCategory === category.id} onPress={() => setBatchCategory(category.id)}>
+                {category.label}
+              </Button>
+            ))}
+          </View>
+          {!!batchError && <Txt size={12} color={t.danger}>{batchError}</Txt>}
+          <Button disabled={saving || !batchCategory} onPress={() => void applyBatch(batchKind, batchCategory)}>确认修改分类</Button>
+        </Sheet>
+      )}
       {exportError !== '' && (
         <View accessibilityLiveRegion="polite" style={{ marginTop: 6 }}>
           <Txt color={t.danger} size={11} testID="filtered-export-error">
@@ -634,8 +698,18 @@ export function EntriesScreen({
             <EntryRow
               entry={item}
               ledger={ledger}
-              onPress={() => onEntry(item)}
-              onLongPress={() => onEntryActions(item)}
+              onPress={() => {
+                if (selection === null) onEntry(item);
+                else setSelection((current) => current?.includes(item.id)
+                  ? current.filter((id) => id !== item.id)
+                  : [...(current ?? []), item.id]);
+              }}
+              onLongPress={selection === null ? () => onEntryActions(item) : undefined}
+              selected={selection === null ? undefined : selectedIds.has(item.id)}
+              disabled={selection !== null && (
+                item.kind === 'transfer' || item.kind === 'refund' ||
+                (!!batchKind && item.kind !== batchKind)
+              )}
               last={last}
             />
           </View>

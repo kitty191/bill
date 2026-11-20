@@ -33,6 +33,7 @@ import {
 } from '../domain/calculator';
 
 export function EntryEditor({
+  initialKind: shortcutKind,
   entry: sourceEntry,
   repeatSource: sourceRepeat,
   refundOf: sourceRefund,
@@ -46,6 +47,7 @@ export function EntryEditor({
   onClose,
   onSaved,
 }: {
+  initialKind?: 'expense' | 'income';
   entry?: Entry;
   repeatSource?: Entry;
   refundOf?: Entry;
@@ -110,7 +112,7 @@ export function EntryEditor({
       : undefined);
   const initialKind = original
     ? 'refund'
-    : (seed?.kind ?? preset?.kind ?? 'expense');
+    : (seed?.kind ?? preset?.kind ?? shortcutKind ?? 'expense');
   const initialDefault = entryDefault(
     data,
     initialKind === 'income' ? 'income' : 'expense',

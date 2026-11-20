@@ -25,6 +25,7 @@ export type Ledger = {
   entries: Entry[];
   monthlyBudget: number;
   monthBudgets: Record<string, number>;
+  categoryBudgets?: { categoryId: string; amount: number }[];
   showAccountCards: boolean;
   categories: ManagedCategory[];
   templates: QuickTemplate[];
@@ -361,6 +362,18 @@ export function validateLedger(input: unknown): Ledger {
       hidden: c.hidden,
     };
   });
+  const categoryBudgets: NonNullable<Ledger['categoryBudgets']> = [];
+  if (data.categoryBudgets !== undefined) {
+    invariant(Array.isArray(data.categoryBudgets) && data.categoryBudgets.length <= categories.length, '分类预算格式无效');
+    const eligible = new Set(categories.filter((category) => category.kind === 'expense').map((category) => category.id));
+    for (const raw of data.categoryBudgets) {
+      invariant(raw && typeof raw === 'object', '分类预算格式无效');
+      const { categoryId, amount } = raw;
+      invariant(typeof categoryId === 'string' && eligible.delete(categoryId), '分类预算引用的分类无效或重复');
+      invariant(isAmount(amount) && amount > 0, '分类预算须为正金额');
+      categoryBudgets.push({ categoryId, amount });
+    }
+  }
   for (const kind of ['expense', 'income'])
     invariant(
       categories.some((c) => c.kind === kind && !c.hidden),
@@ -615,6 +628,7 @@ export function validateLedger(input: unknown): Ledger {
     entries,
     monthlyBudget: data.monthlyBudget,
     monthBudgets,
+    ...(categoryBudgets.length ? { categoryBudgets } : {}),
     showAccountCards: data.showAccountCards ?? false,
     categories,
     templates,
@@ -828,6 +842,10 @@ export function demoLedger(now = new Date()): Ledger {
   return validateLedger(ledger);
 }
 
+export const csvColumns = [
+  '日期', '类型', '分类', '金额（元）', '账户', '转入账户', '备注', '关联原账单',
+] as const;
+
 export function csv(
   ledger: Ledger,
   entries: readonly Entry[] = ledger.entries,
@@ -837,16 +855,7 @@ export function csv(
   return (
     '\uFEFF' +
     [
-      [
-        '日期',
-        '类型',
-        '分类',
-        '金额（元）',
-        '账户',
-        '转入账户',
-        '备注',
-        '关联原账单',
-      ],
+      csvColumns,
       ...[...entries]
         .sort((a, b) => b.date.localeCompare(a.date))
         .map((e) => [
