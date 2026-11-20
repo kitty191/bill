@@ -12,15 +12,17 @@ import Svg, {
 import { useMoney, useAmountsHidden } from '../state/PrivacyContext';
 import { trendAxisLabel, trendGeometry } from '../domain/expenseTrend';
 import { useTheme } from '../theme';
-import { MoneyText, Txt, styles } from './ui';
+import { Button, MoneyText, Txt, styles } from './ui';
 import { ChartScrubber } from './ChartScrubber';
 
 export function ExpenseLineChart({
   values,
   month,
+  onDayExpenses,
 }: {
   values: number[];
   month: string;
+  onDayExpenses: (date: string) => void;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -233,6 +235,18 @@ export function ExpenseLineChart({
               : '本月暂无支出记录'}
         </Txt>
       </View>
+      {selected && (
+        <Button
+          variant="plain"
+          label={`查看${Number(month.slice(5))}月${selected.day}日支出账单`}
+          style={{ alignSelf: 'center' }}
+          onPress={() =>
+            onDayExpenses(`${month}-${String(selected.day).padStart(2, '0')}`)
+          }
+        >
+          查看当日账单
+        </Button>
+      )}
     </>
   );
 }
