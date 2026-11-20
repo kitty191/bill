@@ -146,6 +146,15 @@ test('backup validation and explicit confirmation protect existing data', async 
   );
   const data = JSON.parse(existing!);
   data.entries[0].amount = 777;
+  const existingDate = data.entries[0].date;
+  data.accounts[0].name = '备用钱包';
+  data.entries.push({
+    ...data.entries[0],
+    id: 'older-backup-entry',
+    date: '2020-01-05',
+    createdAt: '2020-01-05T04:00:00.000Z',
+    amount: 345,
+  });
   const nextPick = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: '恢复备份', exact: true }).click();
   await (
@@ -158,6 +167,8 @@ test('backup validation and explicit confirmation protect existing data', async 
   await expect(
     page.getByRole('button', { name: '确认恢复备份' }),
   ).toBeVisible();
+  await expect(page.getByText(`账单日期 2020-01-05 至 ${existingDate}`)).toBeVisible();
+  await expect(page.getByText(/账户 备用钱包/)).toBeVisible();
   expect(
     await page.evaluate(() => localStorage.getItem('qingzhang.ledger.v1')),
   ).toBe(existing);

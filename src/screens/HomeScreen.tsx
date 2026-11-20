@@ -13,6 +13,7 @@ import {
   accountBalance,
   activeAccounts,
   budgetForMonth,
+  budgetPace,
   localDate,
   monthEntries,
   totals,
@@ -92,6 +93,10 @@ export function HomeScreen({
   );
   const budget = budgetForMonth(ledger, month);
   const remaining = budget - expense;
+  const pace =
+    budget > 0 && month === today.slice(0, 7)
+      ? budgetPace(budget, expense, today)
+      : null;
   const totalAssets = useMemo(
     () =>
       ledger.showAccountCards
@@ -350,6 +355,19 @@ export function HomeScreen({
             <Txt size={10} color={t.muted}>
               预算 ¥{money(budget, false)}
             </Txt>
+          </View>
+        )}
+        {pace && (
+          <View style={{ marginTop: 9, gap: 3 }}>
+            <Txt size={11} color={t.muted} testID="budget-daily-allowance">
+              本月还剩 {pace.daysLeft} 天（含今天） · 日均可用 ¥
+              {money(pace.dailyAllowance)}
+            </Txt>
+            {pace.overPace && remaining >= 0 && (
+              <Txt size={11} color={t.expense}>
+                预算用量已超过本月进度
+              </Txt>
+            )}
           </View>
         )}
       </Card>

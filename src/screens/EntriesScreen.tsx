@@ -33,6 +33,7 @@ import {
 } from '../domain/entryFilters';
 import { EntryFilterSheet } from '../components/EntryFilterSheet';
 import { useAmountsHidden, useMoney } from '../state/PrivacyContext';
+import { exportFilteredEntries } from '../storage/backup';
 import {
   Button,
   Card,
@@ -116,6 +117,8 @@ export function EntriesScreen({
   const filtering = query !== deferredQuery;
   const [advanced, setAdvanced] = useState(emptyFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
   const amountLabel = amountFilterLabel(advanced, amountsHidden);
   const active =
     !!deferredQuery ||
@@ -177,6 +180,19 @@ export function EntriesScreen({
     () => filterEntryIndex(index, month, filter, deferredQuery, advanced),
     [index, month, deferredQuery, filter, advanced],
   );
+  const exportResults = async () => {
+    if (filtering || exporting || !entries.length) return;
+    setExporting(true);
+    setExportError('');
+    try {
+      await exportFilteredEntries(ledger, entries);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '请重试';
+      setExportError(`导出失败：${message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
   const { income, expense, grossExpense, refunded } = useMemo(
     () => ({
       ...totals(entries, ledger.entries),
@@ -424,6 +440,23 @@ export function EntriesScreen({
           >
             清除筛选
           </Button>
+        </View>
+      )}
+      {(active || filtering) && (
+        <Button
+          variant="soft"
+          disabled={filtering || exporting || !entries.length}
+          onPress={() => void exportResults()}
+          style={{ alignSelf: 'flex-end', marginTop: 6 }}
+        >
+          {exporting ? '正在导出…' : '导出筛选结果 CSV'}
+        </Button>
+      )}
+      {exportError !== '' && (
+        <View accessibilityLiveRegion="polite" style={{ marginTop: 6 }}>
+          <Txt color={t.danger} size={11} testID="filtered-export-error">
+            {exportError}
+          </Txt>
         </View>
       )}
       {filtering && (

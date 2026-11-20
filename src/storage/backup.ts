@@ -2,7 +2,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
-import { type Ledger, csv, localDate, validateLedger } from '../domain/ledger';
+import {
+  type Entry,
+  type Ledger,
+  csv,
+  localDate,
+  validateLedger,
+} from '../domain/ledger';
 import { assertBackupSize, assertBackupTextSize } from '../domain/backup';
 
 export async function exportLedger(ledger: Ledger, format: 'json' | 'csv') {
@@ -13,6 +19,17 @@ export async function exportLedger(ledger: Ledger, format: 'json' | 'csv') {
     content,
     name,
     format === 'json' ? 'application/json' : 'text/csv',
+  );
+}
+
+export async function exportFilteredEntries(
+  ledger: Ledger,
+  entries: readonly Entry[],
+) {
+  await exportContent(
+    csv(ledger, entries),
+    `qingzhang-filtered-${localDate()}.csv`,
+    'text/csv',
   );
 }
 

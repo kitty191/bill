@@ -1,5 +1,5 @@
 import { MonthPicker } from './MonthPicker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Switch, TextInput, View } from 'react-native';
 import { useLedger } from '../state/LedgerProvider';
 import {
@@ -75,6 +75,16 @@ export function SettingsSheet({
     'clear' | 'demo' | 'import' | null
   >(null);
   const [imported, setImported] = useState<Ledger | null>(null);
+  const importedDateRange = useMemo(() => {
+    if (!imported?.entries.length) return null;
+    let first = imported.entries[0]!.date;
+    let last = first;
+    for (const { date } of imported.entries) {
+      if (date < first) first = date;
+      if (date > last) last = date;
+    }
+    return first === last ? first : `${first} 至 ${last}`;
+  }, [imported]);
   const disabled = saving || busy;
   const inputStyle = {
     fontSize: 14,
@@ -557,8 +567,27 @@ export function SettingsSheet({
               ? `全部账单、账户、预算、分类、常用项与周期账单将重置。当前有效账本会先保留为本机快照，本机隐私设置${legacy ? '和升级前备份' : ''}保留。换机前仍请导出备份。`
               : confirmation === 'demo'
                 ? '示例将替换当前账户和预算，添加 9 条演示记录。你可以随时清空后开始自己的记录。'
-                : `备份包含 ${imported?.entries.length} 笔账单、${imported?.accounts.length} 个账户、${imported?.recurringBills.length} 个周期账单。当前数据将被替换，恢复前会保留当前有效账本的快照。`}
+                : '当前数据将被替换，恢复前会保留当前有效账本的快照。'}
           </Txt>
+          {confirmation === 'import' && imported && (
+            <View style={{ gap: 4 }}>
+              <Txt size={12}>
+                {imported.entries.length} 笔账单 · {imported.accounts.length}{' '}
+                个账户 · {imported.recurringBills.length} 个周期账单
+              </Txt>
+              <Txt size={12} color={t.muted}>
+                {importedDateRange
+                  ? `账单日期 ${importedDateRange}`
+                  : '备份中没有账单'}
+              </Txt>
+              <Txt size={12} color={t.muted}>
+                账户{' '}
+                {imported.accounts.slice(0, 4).map((item) => item.name).join('、')}
+                {imported.accounts.length > 4 &&
+                  `，另有 ${imported.accounts.length - 4} 个`}
+              </Txt>
+            </View>
+          )}
           <View style={styles.row}>
             <Button
               disabled={disabled}

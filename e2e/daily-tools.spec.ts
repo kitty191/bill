@@ -216,12 +216,24 @@ test('combined filters search across month boundaries and validate date order', 
     page.getByRole('button', { name: /十一月.*查看详情/ }),
   ).toHaveCount(0);
   await expect(page.getByTestId('active-entry-filters')).toContainText('1 笔');
+  const exportButton = page.getByRole('button', {
+    name: '导出筛选结果 CSV',
+    exact: true,
+  });
+  const downloading = page.waitForEvent('download');
+  await exportButton.click();
+  const file = await downloading;
+  expect(file.suggestedFilename()).toMatch(/^qingzhang-filtered-.*\.csv$/);
+  const table = await readFile((await file.path())!, 'utf8');
+  expect(table.split('\r\n')).toHaveLength(2);
+  expect(table).toContain('"2026-10-31","支出","餐饮","10.00","微信","","十月晚饭"');
   await page
     .getByRole('textbox', { name: '搜索账单', exact: true })
     .fill('不存在');
   await expect(
     page.getByText('没有找到这些账单', { exact: true }),
   ).toBeVisible();
+  await expect(exportButton).toBeDisabled();
   await page.getByRole('button', { name: '清除筛选', exact: true }).click();
   await expect(
     page.getByRole('button', { name: /十一月.*查看详情/ }),
@@ -229,6 +241,22 @@ test('combined filters search across month boundaries and validate date order', 
   await expect(
     page.getByRole('button', { name: /十月晚饭.*查看详情/ }),
   ).toHaveCount(0);
+});
+
+test('the current month shows budget pace and hides the daily amount in private mode', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2028-02-19T16:30:00Z'));
+  await seed(page, {
+    ...emptyLedger(),
+    monthBudgets: { '2028-01': 30_000, '2028-02': 30_000 },
+    entries: [{ ...expense, date: '2028-02-20', amount: 24_000 }],
+  });
+  const allowance = page.getByTestId('budget-daily-allowance');
+  await expect(allowance).toHaveText('本月还剩 10 天（含今天） · 日均可用 ¥6.00');
+  await expect(page.getByText('预算用量已超过本月进度')).toBeVisible();
+  await page.getByRole('button', { name: '隐藏金额', exact: true }).click();
+  await expect(allowance).toContainText('日均可用 ¥••••');
+  await page.getByRole('button', { name: '上个月', exact: true }).click();
+  await expect(allowance).toHaveCount(0);
 });
 
 test('relative date shortcuts use local dates across a year boundary and preserve other filters', async ({
