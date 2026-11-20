@@ -1,7 +1,7 @@
 """Conservative APK input comparison; the web pager has a native counterpart."""
 import subprocess
 
-APP_INPUTS = ['App.tsx', 'src', 'assets', 'native-deps', 'index.ts', 'app.json', 'package.json', 'package-lock.json', 'babel.config.js', 'metro.config.js', 'scripts/build_android.py', 'scripts/android-release.init.gradle']
+APP_INPUTS = ['App.tsx', 'src', 'assets', 'native-deps', 'plugins', 'index.ts', 'app.json', 'package.json', 'package-lock.json', 'babel.config.js', 'metro.config.js', 'scripts/build_android.py', 'scripts/android-release.init.gradle']
 PAGER = 'src/components/SwipePager.tsx'
 NATIVE_PAGER = 'src/components/SwipePager.native.tsx'
 

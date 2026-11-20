@@ -170,6 +170,7 @@ class Device:
             self.shell('chown',owner,remote); self.shell('chmod','600',remote)
 
 def main():
+    global PACKAGE
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline',type=Path,required=True)
     parser.add_argument('--candidate',type=Path,required=True)
@@ -181,13 +182,14 @@ def main():
     def apk_info(file):
         info=subprocess.check_output([str(binaries/'aapt'),'dump','badging',str(file.resolve())],text=True)
         package=re.search(r"package: name='([^']+)' versionCode='(\d+)'",info)
-        assert package and package.group(1)==PACKAGE,'Acceptance APK package differs'
+        assert package and package.group(1) in ('com.kitty191.qingzhang', 'com.kitty191.qingzhang.app'),'Acceptance APK package differs'
         signature=subprocess.check_output([str(binaries/'apksigner'),'verify','--print-certs',str(file.resolve())],text=True)
         certificate=re.search(r'certificate SHA-256 digest: (\S+)',signature).group(1)
         assert 'application-debuggable' not in info,'Acceptance requires a standalone release build'
-        return int(package.group(2)),certificate
-    old_version,old_certificate=apk_info(args.baseline)
-    new_version,new_certificate=apk_info(args.candidate)
+        return package.group(1),int(package.group(2)),certificate
+    old_package,old_version,old_certificate=apk_info(args.baseline)
+    PACKAGE,new_version,new_certificate=apk_info(args.candidate)
+    assert PACKAGE==old_package,'Use a historical APK built for the candidate application ID'
     assert new_version>old_version,'Candidate must be a newer installed version'
     assert old_certificate==new_certificate,'Baseline and candidate upgrade signatures must match'
     device=Device(args.serial)

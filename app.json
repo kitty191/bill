@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "清账",
+    "name": "清账新版",
     "slug": "qingzhang",
-    "version": "0.8.1",
+    "version": "0.8.3",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "scheme": "qingzhang",
+    "scheme": "qingzhang-app",
     "ios": {
       "bundleIdentifier": "com.kitty191.qingzhang",
       "supportsTablet": true
     },
     "android": {
-      "package": "com.kitty191.qingzhang",
-      "versionCode": 22,
+      "package": "com.kitty191.qingzhang.app",
+      "versionCode": 24,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#244F3F"
@@ -41,7 +41,8 @@
           "faceIDPermission": "允许清账使用 Face ID 验证身份，保护本机账本。"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "./plugins/withEntryShortcuts.cjs"
     ]
   }
 }

@@ -1,4 +1,5 @@
 import { MonthPicker } from '../components/MonthPicker';
+import { CategoryBudgets } from '../components/CategoryBudgets';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -374,6 +375,7 @@ export function HomeScreen({
         )}
       </Card>
 
+      <CategoryBudgets ledger={ledger} entries={entries} />
       {due.length > 0 && (
         <Card style={{ marginTop: 16, padding: 17, gap: 10 }}>
           <View style={[styles.row, { justifyContent: 'space-between' }]}>

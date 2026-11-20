@@ -16,6 +16,7 @@ import { clearEntryDraft, loadEntryDraft } from './src/storage/entryDraftStore';
 import {
   ActivityIndicator,
   Keyboard,
+  Linking,
   Platform,
   ScrollView,
   View,
@@ -57,6 +58,9 @@ import { EntryEditor } from './src/components/EntryEditor';
 import { EntryActions } from './src/components/EntryActions';
 import { SettingsSheet } from './src/components/SettingsSheet';
 import { AccountDetailsSheet } from './src/components/AccountDetailsSheet';
+import { BackupPasswordSheet } from './src/components/BackupPasswordSheet';
+import { type EncryptedBackup } from './src/domain/encryptedBackup';
+import { shortcutKind } from './src/domain/entryShortcut';
 import { HomeScreen } from './src/screens/HomeScreen';
 import {
   EntriesScreen,
@@ -118,6 +122,7 @@ function Main() {
     restoreDeleted,
   } = useLedger();
   const [recovery, setRecovery] = useState<Ledger | null>(null);
+  const [encryptedRecovery, setEncryptedRecovery] = useState<EncryptedBackup | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
   const [statsReady, setStatsReady] = useState(false);
@@ -241,7 +246,7 @@ function Main() {
     setActionEntryId(null);
     setEditor({ repeatSource });
   }, []);
-  const openEditor = useCallback(() => {
+  const openEditorWithKind = useCallback((initialKind?: 'expense' | 'income') => {
     if (openingEditor.current) return;
     openingEditor.current = true;
     void (async () => {
@@ -253,24 +258,64 @@ function Main() {
             setEditor({
               ...resumeEntryDraft(draft, current),
               restoredDraft: draft,
+              draftWarning: initialKind && initialKind !== draft.fields.kind
+                ? '已继续未完成的草稿，可点「重新记」开始新账单'
+                : undefined,
             });
           } catch (error) {
             await clearEntryDraft(draft.id);
             setEditor({
+              initialKind,
               draftWarning:
                 error instanceof Error ? error.message : '旧草稿已失效',
             });
           }
-        } else setEditor({});
+        } else setEditor({ initialKind });
       } catch (error) {
         setEditor({
+          initialKind,
           draftWarning: error instanceof Error ? error.message : '草稿读取失败',
         });
       } finally {
         openingEditor.current = false;
       }
     })();
-  }, [setToast]);
+  }, []);
+  const openEditor = useCallback(() => openEditorWithKind(), [openEditorWithKind]);
+  const [shortcut, setShortcut] = useState<'expense' | 'income' | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    let active = true;
+    let receivedShortcutEvent = false;
+    const receive = (url: string | null | undefined) => {
+      const kind = shortcutKind(url ?? null);
+      if (active && kind) setShortcut(kind);
+    };
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (!receivedShortcutEvent) receive(url);
+      })
+      .catch(() => {});
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (shortcutKind(url)) receivedShortcutEvent = true;
+      receive(url);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      !shortcut || !ledger || loading || !privacy.active ||
+      privacy.phase !== 'unlocked' || editor || settings || accountDetails
+    ) return;
+    setShortcut(null);
+    openEditorWithKind(shortcut);
+  }, [
+    shortcut, ledger, loading, privacy.active, privacy.phase, editor,
+    settings, accountDetails, openEditorWithKind,
+  ]);
   const openSettings = useCallback(() => setSettings('main'), []);
   const closeSettings = useCallback(() => setSettings(false), []);
   const openAccountDetails = useCallback(
@@ -328,7 +373,8 @@ function Main() {
     showExpenseDay(localDate());
   }, [showExpenseDay]);
   const showCategoryExpenses = useCallback(
-    (categoryId: string) => {
+    (categoryId: string, selectedMonth?: string) => {
+      if (selectedMonth) setMonth(selectedMonth);
       showEntries({ kind: 'expense', filters: { ...emptyFilters(), categoryId } });
     },
     [showEntries],
@@ -495,7 +541,7 @@ function Main() {
               variant="soft"
               disabled={saving}
               onPress={() => {
-                void importLedger()
+                void importLedger(setEncryptedRecovery)
                   .then(setRecovery)
                   .catch((e) =>
                     setRecoveryError(
@@ -530,6 +576,12 @@ function Main() {
                   取消恢复
                 </Button>
               </View>
+            )}
+            {encryptedRecovery && (
+              <BackupPasswordSheet
+                action={{ encrypted: encryptedRecovery, onDecode: setRecovery }}
+                onClose={() => setEncryptedRecovery(null)}
+              />
             )}
             {!!recoveryError && (
               <Txt size={12} color={t.danger}>
@@ -758,6 +810,7 @@ function Main() {
                       : (editor.templateId ?? 'new'))
               }
               entry={editor.entry}
+              initialKind={editor.initialKind}
               repeatSource={editor.repeatSource}
               refundOf={editor.refundOf}
               templateId={editor.templateId}

@@ -8,6 +8,7 @@ import {
 import type { CalculatorDraft } from './calculator';
 
 export type EditorIntent = {
+  initialKind?: 'expense' | 'income';
   entry?: Entry;
   repeatSource?: Entry;
   refundOf?: Entry;
