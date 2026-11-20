@@ -33,16 +33,20 @@ import { Button, Icon, SectionTitle, Txt, styles } from './ui';
 import appConfig from '../../app.json';
 
 export function SettingsSheet({
+  visible,
   onClose,
   onSaved,
   initialPage = 'main',
   month = localDate().slice(0, 7),
   onRecurring,
+  onAccountDetails,
 }: {
+  visible: boolean;
   onClose: () => void;
   onSaved: (message: string) => void;
   initialPage?: 'main' | 'privacy' | 'recurring';
   onRecurring: (id: string, date: string) => void;
+  onAccountDetails: (accountId: string) => void;
   month?: string;
 }) {
   const t = useTheme();
@@ -174,7 +178,7 @@ export function SettingsSheet({
     return (
       <Sheet
         key={page === 'recurring' || page === 'snapshots' ? page : undefined}
-        visible
+        visible={visible}
         onClose={onClose}
         title={
           page === 'snapshots'
@@ -213,7 +217,12 @@ export function SettingsSheet({
       </Sheet>
     );
   return (
-    <Sheet visible onClose={onClose} title="我的清账" dismissible={!disabled}>
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title="我的清账"
+      dismissible={!disabled}
+    >
       <View
         style={[
           styles.row,
@@ -381,7 +390,19 @@ export function SettingsSheet({
               },
             ]}
           >
-            <View style={{ gap: 2 }}>
+            <Button
+              variant="plain"
+              disabled={disabled}
+              label={`核对${a.name}余额`}
+              onPress={() => onAccountDetails(a.id)}
+              style={{
+                flex: 1,
+                alignItems: 'flex-start',
+                gap: 2,
+                paddingHorizontal: 0,
+                paddingVertical: 0,
+              }}
+            >
               <Txt size={13}>
                 {a.name}
                 {a.archived ? ' · 已归档' : ''}
@@ -389,7 +410,7 @@ export function SettingsSheet({
               <Txt size={10} color={t.muted}>
                 余额 ¥{money(accountBalance(ledger, a.id))}
               </Txt>
-            </View>
+            </Button>
             <Button
               disabled={disabled}
               variant="plain"

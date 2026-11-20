@@ -28,7 +28,7 @@ test('archives and restores a card while retaining its balance and historical ed
   };
   ledger.accounts.find((account) => account.id === 'bank')!.openingBalance = 30000;
   await seed(page, ledger);
-  await expect(button(page, '管理银行卡账户')).toBeVisible();
+  await expect(button(page, '查看银行卡账户明细')).toBeVisible();
   await button(page, '打开设置').click();
   await button(page, '编辑账户银行卡').click();
   const archive = page.getByRole('switch', { name: '归档此账户', exact: true });
@@ -39,7 +39,7 @@ test('archives and restores a card while retaining its balance and historical ed
   await button(page, '关闭').click();
   await page.reload();
 
-  await expect(button(page, '管理银行卡账户')).toHaveCount(0);
+  await expect(button(page, '查看银行卡账户明细')).toHaveCount(0);
   await expect(button(page, '总资产 ¥275.00')).toBeVisible();
   await button(page, '记一笔').click();
   await expect(button(page, '账户银行卡')).toHaveCount(0);
@@ -65,7 +65,7 @@ test('archives and restores a card while retaining its balance and historical ed
   await button(page, '保存账户').click();
   await expect(archive).toHaveCount(0);
   await button(page, '关闭').click();
-  await expect(button(page, '管理银行卡账户')).toBeVisible();
+  await expect(button(page, '查看银行卡账户明细')).toBeVisible();
   await button(page, '记一笔').click();
   await expect(button(page, '账户银行卡')).toBeVisible();
 });

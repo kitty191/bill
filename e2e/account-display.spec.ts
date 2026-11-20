@@ -28,7 +28,7 @@ test('account cards are optional, survive reload, and keep the ledger intact', a
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.getByTestId('account-carousel').scrollIntoViewIfNeeded();
   await expect(
-    page.getByRole('button', { name: '管理微信账户', exact: true }),
+    page.getByRole('button', { name: '查看微信账户明细', exact: true }),
   ).toBeVisible();
   const ledger = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('qingzhang.ledger.v1')!),

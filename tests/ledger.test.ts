@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type Entry,
   accountBalance,
+  accountPeriodBalance,
   budgetPace,
   categoryTotals,
   csv,
@@ -13,6 +14,7 @@ import {
   localDate,
   monthEntries,
   parseAmount,
+  parseReconciliationBalance,
   restoreEntry,
   shiftMonth,
   totals,
@@ -31,6 +33,37 @@ const expense: Entry = {
   note: '午饭',
   createdAt: '2026-11-02T04:00:00.000Z',
 };
+
+describe('account reconciliation', () => {
+  it('uses cash movement dates for refunds, both transfer directions, and period cutoffs', () => {
+    const openingExpense = { ...expense, amount: 14000, date: '2026-10-26' };
+    const incoming: Entry = {
+      ...expense, id: 'in', kind: 'transfer', categoryId: 'transfer',
+      accountId: 'bank', toAccountId: 'wechat', amount: 1000, date: '2026-11-06',
+    };
+    const entries: Entry[] = [
+      openingExpense,
+      { ...expense, id: 'refund', kind: 'refund', originalEntryId: expense.id, amount: 2500, date: '2026-11-05' },
+      incoming,
+      { ...incoming, id: 'out', accountId: 'wechat', toAccountId: 'bank', amount: 900, date: '2026-11-07' },
+      { ...expense, id: 'future', amount: 500, date: '2026-11-30' },
+    ];
+    const account = { id: 'wechat', name: '微信', openingBalance: 10000 };
+    expect(accountPeriodBalance(entries, account, '2026-11-01', '2026-11-20')).toEqual({
+      opening: -4000, inflow: 3500, outflow: 900, closing: -1400,
+    });
+    expect(accountPeriodBalance(entries, account, '2026-11-01', '2026-11-30').closing)
+      .toBe(accountBalance({ ...emptyLedger(), accounts: [account], entries }, account.id));
+  });
+
+  it('parses an actual balance exactly, including zero and negative aggregates', () => {
+    expect(parseReconciliationBalance('  -14.01 ')).toBe(-1401);
+    expect(parseReconciliationBalance('-0')).toBe(0);
+    expect(parseReconciliationBalance('999999999999.99')).toBe(99_999_999_999_999);
+    expect(() => parseReconciliationBalance('1.005')).toThrow('两位小数');
+    expect(() => parseReconciliationBalance('1e5')).toThrow();
+  });
+});
 
 describe('monthly budget pace', () => {
   it('includes today and rounds the daily allowance down to whole cents', () => {
