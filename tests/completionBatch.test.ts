@@ -124,3 +124,34 @@ test('launcher URLs allow only the two supported intents', () => {
     shortcutKind('https://qingzhang-app.example/record/income'),
   ).toBeNull();
 });
+
+test('spreadsheet-safe CSV text preserves notes, account and category names', () => {
+  const ledger = emptyLedger();
+  ledger.accounts[0]!.name = '+账户';
+  ledger.categories.find((item) => item.id === entry.categoryId)!.label = '=餐饮';
+  for (const note of ['@午餐', "'@午餐", "''@午餐", '-' + '零'.repeat(119)]) {
+    const record = { ...entry, note };
+    const text = csv(ledger, [record]);
+    expect(previewCsv(text, ledger).candidates[0]?.note).toBe(note);
+    expect(previewCsv(text, { ...ledger, entries: [record] }).issues[0]?.duplicate).toBe(true);
+  }
+});
+
+test('CSV rejects new movements involving archived accounts in either direction', () => {
+  const ledger = emptyLedger();
+  ledger.accounts.find((account) => account.id === entry.accountId)!.archived = true;
+  const transfer = { ...entry, kind: 'transfer' as const, categoryId: 'transfer', accountId: 'cash', toAccountId: entry.accountId };
+  const result = previewCsv(csv(ledger, [entry, transfer]), ledger);
+  expect(result.candidates).toHaveLength(0);
+  expect(result.issues.map((issue) => issue.message)).toEqual([expect.stringContaining('归档'), expect.stringContaining('归档')]);
+});
+
+test('old Android document identifiers resolve only to files owned by this installation', async () => {
+  const p = { ...defaultBackupPreferences(), installationId: 'install-123', directory: 'dir', lastFileName: '42' };
+  const file = { name: 'qingzhang-auto-install-123-20261120T040000123Z-copy.json', legacyName: '42', uri: 'content://provider/document/42' };
+  const files = { list: vi.fn().mockResolvedValue([file]), read: vi.fn().mockResolvedValue(JSON.stringify(emptyLedger())), remove: vi.fn(), write: vi.fn() };
+  await expect(checkLatestBackup(files, p)).resolves.toBe(0);
+  files.list.mockResolvedValue([{ ...file, name: 'other.json' }]);
+  await expect(checkLatestBackup(files, p)).rejects.toThrow();
+  expect(files.read).toHaveBeenCalledTimes(1);
+});

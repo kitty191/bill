@@ -10,7 +10,9 @@ test-results/
 .env.*
 !.env.example
 .DS_Store
-android/
+/android/
+modules/*/android/build/
+modules/*/android/.gradle/
 ios/
 *.log
 *.keystore

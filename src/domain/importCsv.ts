@@ -46,13 +46,17 @@ export function previewCsv(text: string, ledger: Ledger) {
   };
   const account = (name: string) =>
     findUnique(ledger.accounts, (item) => item.name, name);
-  const seen = new Set(ledger.entries.map(entryKey));
+  const archived = new Set(ledger.accounts.filter((item) => item.archived).map((item) => item.id));
+  const existing = new Set(ledger.entries.map(entryKey));
+  const seen = new Set(existing);
   const candidates: Candidate[] = [];
   const issues: { record: number; message: string; duplicate?: boolean }[] = [];
   for (const [index, row] of rows.entries()) {
     try {
       if (row.length !== csvColumns.length) throw new Error('列数不正确');
-      const [date, type, label, amount, from, target, note, original] = row as [
+      const [date, type, label, amount, from, target, note, original] = row.map(
+        (value) => value.replace(/^'(?='*[=+\-@\t\r])/, ''),
+      ) as [
         string,
         string,
         string,
@@ -102,13 +106,17 @@ export function previewCsv(text: string, ledger: Ledger) {
         ...(toAccountId ? { toAccountId } : {}),
       };
       const key = entryKey(candidate);
-      if (seen.has(key))
+      // Earlier exports left literal apostrophes before formula characters ambiguous.
+      const legacyNoteKey = row[6] !== note ? entryKey({ ...candidate, note: row[6]!.trim() }) : key;
+      if (seen.has(key) || (legacyNoteKey !== key && existing.has(legacyNoteKey)))
         issues.push({
           record: index + 1,
           message: '疑似重复',
           duplicate: true,
         });
       else {
+        if (archived.has(accountId) || (toAccountId && archived.has(toAccountId)))
+          throw new Error('账户已归档，请先恢复账户或选择可用账户');
         seen.add(key);
         candidates.push(candidate);
       }

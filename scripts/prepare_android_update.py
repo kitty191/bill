@@ -84,9 +84,12 @@ def main():
         raise ValueError('Use a fresh output directory')
     with tempfile.TemporaryDirectory(dir=directory) as work:
         apk = Path(work) / filename
+        source_commit = None
         if args.verify_only:
             shutil.copyfile(args.verify_only.resolve(), apk)
         else:
+            if not run('git', '-C', ROOT, 'status', '--porcelain').strip():
+                source_commit = run('git', '-C', ROOT, 'rev-parse', 'HEAD').strip()
             subprocess.run([sys.executable, str(ROOT / 'scripts/build_android.py'),
                             '--arch', 'arm64-v8a', '--output', str(apk)], cwd=ROOT, check=True)
         candidate = inspect_apk(build_tools, apk)
@@ -98,7 +101,7 @@ def main():
         checksum.write_text(f"{candidate['sha256']}  {filename}\n")
         receipt.write_text(json.dumps({
             'baseline': previous, 'candidate': candidate, 'certificate_sha256': CERTIFICATE,
-            'source_commit': run('git', '-C', ROOT, 'rev-parse', 'HEAD').strip(),
+            'source_commit': source_commit,
             'physical_device_acceptance': 'pending',
         }, indent=2) + '\n')
     print(output)
