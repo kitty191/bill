@@ -15,15 +15,13 @@ export function AmountCalculator({
   onChange,
   disabled,
   label,
-  summary,
-  details,
+  fields,
 }: {
   draft: CalculatorDraft;
   onChange: (action: CalculatorAction) => void;
   disabled: boolean;
   label: string;
-  summary: string;
-  details: React.RefObject<SheetView | null>;
+  fields: { label: string; value: string; target: React.RefObject<SheetView | null> }[];
 }) {
   const t = useTheme();
   const reveal = useSheetScroll();
@@ -69,7 +67,7 @@ export function AmountCalculator({
             minWidth: 0,
             minHeight: 58,
             color: t.text,
-            fontSize: draft.expression.length > 12 ? 26 : 38,
+            fontSize: draft.expression.length > 12 ? 26 : 42,
             fontWeight: '500',
             textAlign: 'right',
             fontVariant: ['tabular-nums'],
@@ -88,6 +86,17 @@ export function AmountCalculator({
         >
           {draft.error || preview || ' '}
         </Txt>
+      </View>
+      <View style={[styles.row, { flexWrap: 'wrap', gap: 6, marginBottom: 4 }]}>
+        {fields.map(({ label, value, target }) => (
+          <Button key={label} variant="plain" label={label} disabled={disabled}
+            onPress={() => reveal(target)}
+            style={{ flexDirection: 'row', maxWidth: '100%', minHeight: 44,
+              paddingHorizontal: 10, backgroundColor: t.surface, borderRadius: 12 }}>
+            <Txt size={12} color={t.text} numberOfLines={1} style={{ flexShrink: 1 }}>{value}</Txt>
+            <Icon name="down" size={12} color={t.muted} />
+          </Button>
+        ))}
       </View>
       <View
         style={{
@@ -147,25 +156,7 @@ export function AmountCalculator({
           </Button>
         ))}
       </View>
-      <Button
-        variant="plain"
-        label="选择分类、账户和日期"
-        disabled={disabled}
-        onPress={() => reveal(details)}
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          gap: 7,
-          paddingHorizontal: 3,
-          minHeight: 33,
-          marginTop: 4,
-        }}
-      >
-        <Txt size={10} color={t.muted} numberOfLines={1} style={{ flex: 1 }}>
-          {summary}
-        </Txt>
-        <Icon name="down" size={15} color={t.muted} />
-      </Button>
+
     </View>
   );
 }

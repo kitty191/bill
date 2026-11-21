@@ -71,6 +71,8 @@ export function EntryEditor({
   const restoredDraft = restarted ? undefined : sourceDraft;
   const t = useTheme();
   const details = useRef<React.ComponentRef<typeof View>>(null);
+  const accountDetails = useRef<React.ComponentRef<typeof View>>(null);
+  const dateDetails = useRef<React.ComponentRef<typeof View>>(null);
   const sheet = useRef<SheetHandle>(null);
   const operation = useRef(false);
   const committed = useRef(false);
@@ -570,7 +572,6 @@ export function EntryEditor({
         draft={draft}
         onChange={changeAmount}
         disabled={saving}
-        details={details}
         label={
           kind === 'expense'
             ? '花了多少'
@@ -580,7 +581,13 @@ export function EntryEditor({
                 ? '退回多少'
                 : '转账金额'
         }
-        summary={`${kind === 'refund' ? '退款' : kind === 'transfer' ? '转账' : categoryFor(data, categoryId).label} · ${selectedAccount?.name ?? '请选择账户'} · ${date}`}
+        fields={[
+          ...(kind === 'expense' || kind === 'income' ? [{
+            label: '修改记账分类', value: categoryFor(data, categoryId).label, target: details,
+          }] : []),
+          { label: '修改记账账户', value: selectedAccount?.name ?? '选择账户', target: accountDetails },
+          { label: '修改记账日期', value: date === localDate() ? '今天' : date, target: dateDetails },
+        ]}
       />
       <View ref={details} collapsable={false}>
         {kind !== 'transfer' && kind !== 'refund' && (
@@ -631,6 +638,7 @@ export function EntryEditor({
             </View>
           </>
         )}
+        <View ref={accountDetails} collapsable={false}>
         <Txt size={12} color={t.muted} style={{ marginBottom: 10 }}>
           {kind === 'transfer'
             ? '转出账户'
@@ -640,6 +648,7 @@ export function EntryEditor({
                 ? '退款到账账户'
                 : '付款账户'}
         </Txt>
+        </View>
         {archivedSelection && (
           <Txt size={11} color={t.muted} style={{ marginBottom: 10 }}>
             原账户已归档，请选择可用账户。
@@ -720,7 +729,7 @@ export function EntryEditor({
             </Txt>
           </>
         )}
-        <View
+        <View ref={dateDetails} collapsable={false}
           style={{
             backgroundColor: t.surfaceAlt,
             borderRadius: 17,

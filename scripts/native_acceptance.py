@@ -243,7 +243,7 @@ def main():
         device.tap('放弃草稿，重新记一笔')
         for key in '5': device.tap('计算键'+key)
         device.input_value('金额','5')
-        device.tap('选择分类、账户和日期')
+        device.tap('修改记账日期')
         for _ in range(5):
             if device.find('备注'): break
             device.shell('input','swipe','500','1400','500','700','250')

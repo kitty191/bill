@@ -11,7 +11,6 @@ import Animated, {
 import { useTheme } from '../theme';
 import { Glass, Icon, Txt } from './ui';
 import { scheduleOnRN } from 'react-native-worklets';
-import { LinearGradient } from 'expo-linear-gradient';
 import { motion } from '../motion';
 
 export type Tab = 'home' | 'entries' | 'stats';
@@ -27,12 +26,14 @@ export function BottomNavigation({
   onTab,
   onAdd,
   bottom,
+  onHeight,
   progress,
 }: {
   tab: Tab;
   onTab: (tab: Tab) => void;
   onAdd: () => void;
   bottom: number;
+  onHeight: (height: number) => void;
   progress: SharedValue<number>;
 }) {
   const t = useTheme();
@@ -59,17 +60,17 @@ export function BottomNavigation({
   return (
     <View
       pointerEvents="box-none"
+      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
       style={{
         position: 'absolute',
         bottom,
         left: 21,
         right: 21,
-        flexDirection: 'row',
-        gap: 12,
-        alignItems: 'center',
+        flexDirection: 'column-reverse',
+        gap: 8,
       }}
     >
-      <Glass style={{ flex: 1, borderRadius: 29 }}>
+      <Glass style={{ borderRadius: 24 }}>
         <View
           onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
           style={{ flexDirection: 'row', padding: 6 }}
@@ -123,7 +124,7 @@ export function BottomNavigation({
                 strokeWidth={visibleIndex === index ? 2 : 1.6}
               />
               <Txt
-                size={9}
+                size={11}
                 color={visibleIndex === index ? t.accent : t.muted}
                 weight={visibleIndex === index ? '600' : '400'}
               >
@@ -145,9 +146,12 @@ export function BottomNavigation({
         }}
         style={[
           {
-            width: 62,
-            height: 62,
-            borderRadius: 31,
+            alignSelf: 'flex-end',
+            flexDirection: 'row',
+            gap: 5,
+            paddingHorizontal: 17,
+            minHeight: 48,
+            borderRadius: 19,
             backgroundColor: t.dark ? '#A0CCAD' : '#345B48',
             alignItems: 'center',
             justifyContent: 'center',
@@ -159,21 +163,13 @@ export function BottomNavigation({
           addStyle,
         ]}
       >
-        <LinearGradient
-          pointerEvents="none"
-          colors={[
-            'rgba(255,255,255,0.18)',
-            'rgba(255,255,255,0)',
-            'rgba(0,25,7,0.06)',
-          ]}
-          style={{ position: 'absolute', inset: 0 }}
-        />
         <Icon
           name="plus"
-          size={27}
+          size={20}
           color={t.dark ? '#193423' : '#FFFFFF'}
           strokeWidth={1.6}
         />
+        <Txt size={15} weight="600" color={t.dark ? '#193423' : '#FFFFFF'}>记一笔</Txt>
       </AnimatedPressable>
     </View>
   );

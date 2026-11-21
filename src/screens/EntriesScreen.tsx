@@ -1,4 +1,4 @@
-import { MonthPicker } from '../components/MonthPicker';
+import { MonthPageHeader } from '../components/MonthPicker';
 import React, {
   useCallback,
   useDeferredValue,
@@ -16,7 +16,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type Entry,
   type EntryKind,
@@ -74,6 +73,7 @@ export function EntriesScreen({
   onAdd,
   target,
   listRef,
+  contentBottom,
 }: {
   today: string;
   ledger: Ledger;
@@ -83,10 +83,10 @@ export function EntriesScreen({
   onEntryActions: (entry: Entry) => void;
   onAdd: () => void;
   target: EntriesTarget;
+  contentBottom: number;
   listRef: React.Ref<EntriesListHandle>;
 }) {
   const t = useTheme();
-  const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   const profile = `${width}:${fontScale}`;
   const [geometry, setGeometry] = useState({
@@ -278,21 +278,7 @@ export function EntriesScreen({
     <View
       onLayout={(event) => measure('header', event.nativeEvent.layout.height)}
     >
-      <View
-        style={[
-          styles.row,
-          {
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-            marginBottom: 7,
-          },
-        ]}
-      >
-        <Txt size={29} weight="600">
-          账单
-        </Txt>
-        <MonthPicker
+      <MonthPageHeader title="账单"
           month={month}
           onChange={(offset) => {
             setAdvanced((value) => ({
@@ -303,11 +289,7 @@ export function EntriesScreen({
             onMonth(offset);
           }}
         />
-      </View>
-      <Txt color={t.muted} size={12}>
-        每一笔小事，都值得被记住。
-      </Txt>
-      <Card style={{ marginTop: 24, flexDirection: 'row', gap: 20 }}>
+      <Card style={{ marginTop: 0, flexDirection: 'row', gap: 20 }}>
         <View style={{ flex: 1, gap: 4 }}>
           <Txt size={11} color={t.muted}>
             {active ? '筛选支出' : '本月支出'}
@@ -607,7 +589,7 @@ export function EntriesScreen({
       style={{ flex: 1 }}
       contentContainerStyle={{
         paddingHorizontal: 24,
-        paddingBottom: Math.max(insets.bottom, 20) + 110,
+        paddingBottom: contentBottom,
       }}
       nestedScrollEnabled
       directionalLockEnabled

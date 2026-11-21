@@ -401,6 +401,8 @@ function Main() {
     setNotice(null);
     setEditor({ entry: current });
   };
+  const [dockHeight, setDockHeight] = useState(120);
+  const contentBottom = Math.max(insets.bottom, 18) + dockHeight + 16;
   // Keep the screen elements and callbacks stable while native paging animates.
   const pages = useMemo(
     () =>
@@ -413,6 +415,7 @@ function Main() {
                   today={today}
                   target={entriesTarget}
                   listRef={entriesScroll}
+                  contentBottom={contentBottom}
                   ledger={ledger}
                   month={month}
                   onMonth={onMonth}
@@ -430,7 +433,7 @@ function Main() {
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={{
                     paddingHorizontal: 24,
-                    paddingBottom: Math.max(insets.bottom, 20) + 110,
+                    paddingBottom: contentBottom,
                   }}
                 >
                   {key === 'home' ? (
@@ -493,7 +496,7 @@ function Main() {
       showCategoryExpenses,
       showExpenseDay,
       entriesTarget,
-      insets.bottom,
+      contentBottom,
       today,
       statsReady,
     ],
@@ -641,7 +644,7 @@ function Main() {
                   Platform.OS === 'web' ? 26 : 12,
                 ),
                 paddingHorizontal: 24,
-                paddingBottom: 27,
+                paddingBottom: 12,
               }}
             >
               <View style={[styles.row, { justifyContent: 'space-between' }]}>
@@ -710,6 +713,7 @@ function Main() {
             progress={pageProgress}
             onTab={navigate}
             bottom={Math.max(insets.bottom, 18)}
+            onHeight={setDockHeight}
             onAdd={() => {
               openEditor();
               feedback('light');

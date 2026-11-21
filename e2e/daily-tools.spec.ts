@@ -81,7 +81,7 @@ test('calendar details are accessible while the primary action stays visible', a
   await page.getByRole('button', { name: '记一笔', exact: true }).click();
   await page.getByRole('textbox', { name: '金额', exact: true }).fill('12');
   await page
-    .getByRole('button', { name: '选择分类、账户和日期', exact: true })
+    .getByRole('button', { name: '修改记账日期', exact: true })
     .click();
   await page.getByRole('button', { name: '记账日期昨天', exact: true }).click();
   await expect(
