@@ -26,14 +26,12 @@ export function BottomNavigation({
   onTab,
   onAdd,
   bottom,
-  onHeight,
   progress,
 }: {
   tab: Tab;
   onTab: (tab: Tab) => void;
   onAdd: () => void;
   bottom: number;
-  onHeight: (height: number) => void;
   progress: SharedValue<number>;
 }) {
   const t = useTheme();
@@ -60,17 +58,16 @@ export function BottomNavigation({
   return (
     <View
       pointerEvents="box-none"
-      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
       style={{
-        position: 'absolute',
-        bottom,
-        left: 21,
-        right: 21,
-        flexDirection: 'column-reverse',
+        paddingTop: 6,
+        paddingBottom: bottom,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 8,
       }}
     >
-      <Glass style={{ borderRadius: 24 }}>
+      <Glass style={{ flex: 1, borderRadius: 24 }}>
         <View
           onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
           style={{ flexDirection: 'row', padding: 6 }}
@@ -146,10 +143,9 @@ export function BottomNavigation({
         }}
         style={[
           {
-            alignSelf: 'flex-end',
             flexDirection: 'row',
             gap: 5,
-            paddingHorizontal: 17,
+            paddingHorizontal: 13,
             minHeight: 48,
             borderRadius: 19,
             backgroundColor: t.dark ? '#A0CCAD' : '#345B48',
