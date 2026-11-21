@@ -1,8 +1,7 @@
-import { MonthPicker } from '../components/MonthPicker';
+import { MonthPageHeader } from '../components/MonthPicker';
 import { CategoryBudgets } from '../components/CategoryBudgets';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { usePagerScrollLock } from '../components/SwipePager';
 import { useTheme } from '../theme';
 import { useMoney, usePrivacy } from '../state/PrivacyContext';
@@ -112,101 +111,11 @@ export function HomeScreen({
   );
   return (
     <>
-      <View
-        style={[
-          styles.row,
-          { justifyContent: 'space-between', marginBottom: 20 },
-        ]}
-      >
-        <View style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
-          <Txt
-            color={t.muted}
-            size={11}
-            style={{ letterSpacing: 1.5, marginBottom: 6 }}
-          >
-            A LITTLE LESS, A LITTLE BETTER
-          </Txt>
-          <Txt size={26} weight="600" style={{ letterSpacing: -0.8 }}>
-            每一笔，都是生活。
-          </Txt>
-        </View>
-        <View
-          style={{
-            width: 42,
-            flexShrink: 0,
-            height: 42,
-            borderRadius: 21,
-            backgroundColor: t.accentSoft,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon name="leaf" color={t.accent} size={21} />
-        </View>
-      </View>
-      <LinearGradient
-        colors={
-          t.dark
-            ? ['#2A4232', '#22392B', '#1D3025']
-            : ['#E8F1E5', '#EDF3E8', '#F5F7ED']
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          borderRadius: 28,
-          padding: 25,
-          overflow: 'hidden',
-          borderWidth: 1,
-          borderColor: t.dark ? '#3D5744' : '#DDE7D9',
-        }}
-      >
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            width: 180,
-            height: 180,
-            borderRadius: 90,
-            right: -68,
-            top: 45,
-            borderWidth: 1,
-            borderColor: t.dark ? '#49634C' : '#D4DFCD',
-            transform: [{ rotate: '-25deg' }, { scaleX: 0.7 }],
-          }}
-        />
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            width: 160,
-            height: 160,
-            borderRadius: 80,
-            right: -38,
-            top: 70,
-            borderWidth: 1,
-            borderColor: t.dark ? '#49634C' : '#D4DFCD',
-            transform: [{ rotate: '-25deg' }, { scaleX: 0.7 }],
-          }}
-        />
-        <View
-          style={[
-            styles.row,
-            {
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 8,
-              marginTop: -7,
-              marginBottom: 8,
-            },
-          ]}
-        >
-          <Txt color={t.dark ? '#B6C9B8' : '#6B826B'} size={12}>
-            本月支出
-          </Txt>
-          <MonthPicker month={month} onChange={onMonth} />
-        </View>
+      <MonthPageHeader title="首页" month={month} onChange={onMonth} />
+      <Card style={{ backgroundColor: t.accentSoft, padding: 20, borderRadius: 22 }}>
+        <Txt color={t.text} size={14} weight="500">本月支出</Txt>
         <View style={[styles.row, { gap: 7, alignItems: 'baseline' }]}>
-          <Txt size={24} color={t.dark ? '#B6C9B8' : '#6B826B'} weight="400">
+          <Txt size={24} color={t.muted} weight="400">
             ¥
           </Txt>
           <MoneyText
@@ -231,7 +140,7 @@ export function HomeScreen({
             gap: 9,
           }}
         >
-          <Txt size={12} color={t.dark ? '#B6C9B8' : '#6B826B'}>
+          <Txt size={12} color={t.muted}>
             今日支出
           </Txt>
           <MoneyText
@@ -240,13 +149,13 @@ export function HomeScreen({
             testID="today-expense"
             size={18}
           />
-          <Icon name="right" size={13} color={t.dark ? '#B6C9B8' : '#6B826B'} />
+          <Icon name="right" size={13} color={t.muted} />
         </Button>
         <View
           style={{
             height: 1,
             backgroundColor: t.dark ? '#405643' : '#D3DFCD',
-            marginVertical: 19,
+            marginVertical: 12,
           }}
         />
         <View style={styles.row}>
@@ -255,9 +164,9 @@ export function HomeScreen({
               <Icon
                 name="arrow-down"
                 size={13}
-                color={t.dark ? '#B6C9B8' : '#6B826B'}
+                color={t.muted}
               />
-              <Txt color={t.dark ? '#B6C9B8' : '#6B826B'} size={11}>
+              <Txt color={t.muted} size={11}>
                 本月收入
               </Txt>
             </View>
@@ -276,75 +185,38 @@ export function HomeScreen({
               <Icon
                 name="wallet"
                 size={13}
-                color={t.dark ? '#B6C9B8' : '#6B826B'}
+                color={t.muted}
               />
-              <Txt color={t.dark ? '#B6C9B8' : '#6B826B'} size={11}>
+              <Txt color={t.muted} size={11}>
                 本月结余
               </Txt>
             </View>
             <MoneyText amount={income - expense} testID="month-net" size={20} />
           </View>
         </View>
-      </LinearGradient>
+      </Card>
 
       <Card style={{ marginTop: 13, padding: 18, borderRadius: 20 }}>
-        <View style={[styles.row, { justifyContent: 'space-between' }]}>
-          <View style={styles.row}>
-            <View
-              style={{
-                width: 29,
-                height: 29,
-                backgroundColor: t.accentSoft,
-                borderRadius: 10,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Icon name="sparkles" color={t.accent} size={15} />
-            </View>
-            <Txt size={13} weight="500">
-              月度预算
-            </Txt>
+        <Button variant="plain" onPress={onSettings} label="设置月度预算"
+          style={{ paddingHorizontal: 0, alignItems: 'stretch', gap: 6 }}>
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <Txt size={13} color={t.muted}>月度预算</Txt>
+            <Icon name="right" size={15} color={t.muted} />
           </View>
-          <Button
-            variant="plain"
-            onPress={onSettings}
-            style={{ minHeight: 30, paddingHorizontal: 0 }}
-            label="设置月度预算"
-          >
-            <View style={styles.row}>
-              <Txt
-                size={11}
-                color={remaining < 0 && budget > 0 ? t.expense : t.muted}
-              >
-                {budget
-                  ? remaining < 0
-                    ? `已超支 ¥${money(-remaining)}`
-                    : `还可用 ¥${money(remaining)}`
-                  : '给花费一点边界'}
-              </Txt>
-              <Icon name="right" size={12} color={t.muted} />
+          {budget ? (
+            <View style={[styles.row, { flexWrap: 'wrap', alignItems: 'baseline' }]}>
+              <Txt size={15}>{remaining < 0 ? '已超支' : '本月还可用'}</Txt>
+              <MoneyText amount={Math.abs(remaining)} currency size={25}
+                color={remaining < 0 ? t.danger : t.text} style={{ flexShrink: 1 }} />
             </View>
-          </Button>
-        </View>
-        <View
-          style={{
-            height: 5,
-            borderRadius: 3,
-            backgroundColor: t.surfaceAlt,
-            overflow: 'hidden',
-            marginTop: 12,
-          }}
-        >
-          <View
-            style={{
-              height: 5,
-              borderRadius: 3,
-              backgroundColor: remaining < 0 ? t.expense : t.accent,
-              width: `${budget ? Math.min((expense / budget) * 100, 100) : 0}%`,
-            }}
-          />
-        </View>
+          ) : <Txt size={16} color={t.accent}>设置本月额度</Txt>}
+        </Button>
+        {budget > 0 && (
+          <View style={{ height: 5, borderRadius: 3, backgroundColor: t.surfaceAlt, marginTop: 8 }}>
+            <View style={{ height: 5, borderRadius: 3, backgroundColor: remaining < 0 ? t.danger : t.accent,
+              width: `${Math.min(expense / budget * 100, 100)}%` }} />
+          </View>
+        )}
         {budget > 0 && (
           <View
             style={[
@@ -372,6 +244,36 @@ export function HomeScreen({
               </Txt>
             )}
           </View>
+        )}
+      </Card>
+
+      <SectionTitle title="最近账单" action="查看全部" onPress={onAll} />
+      <Card style={{ paddingVertical: 0, paddingHorizontal: 18 }}>
+        {entries.length ? (
+          entries
+            .slice(0, 4)
+            .map((entry, i, list) => (
+              <EntryRow
+                key={entry.id}
+                entry={entry}
+                ledger={ledger}
+                onPress={() => onEntry(entry)}
+                onLongPress={() => onEntryActions(entry)}
+                last={i === list.length - 1}
+              />
+            ))
+        ) : (
+          <EmptyState
+            compact
+            title="生活的记录，从这里开始"
+            description={
+              month === localDate().slice(0, 7)
+                ? '一杯咖啡、一顿晚餐。让每一笔花费都有迹可循。'
+                : '这个月还没有账单，试试切换月份。'
+            }
+            action="记下第一笔"
+            onAction={onAdd}
+          />
         )}
       </Card>
 
@@ -551,53 +453,6 @@ export function HomeScreen({
           </ScrollView>
         </>
       )}
-      <SectionTitle title="最近账单" action="查看全部" onPress={onAll} />
-      <Card style={{ paddingVertical: 0, paddingHorizontal: 18 }}>
-        {entries.length ? (
-          entries
-            .slice(0, 4)
-            .map((entry, i, list) => (
-              <EntryRow
-                key={entry.id}
-                entry={entry}
-                ledger={ledger}
-                onPress={() => onEntry(entry)}
-                onLongPress={() => onEntryActions(entry)}
-                last={i === list.length - 1}
-              />
-            ))
-        ) : (
-          <EmptyState
-            compact
-            title="生活的记录，从这里开始"
-            description={
-              month === localDate().slice(0, 7)
-                ? '一杯咖啡、一顿晚餐。让每一笔花费都有迹可循。'
-                : '这个月还没有账单，试试切换月份。'
-            }
-            action="记下第一笔"
-            onAction={onAdd}
-          />
-        )}
-      </Card>
-      <View
-        style={[
-          styles.row,
-          { justifyContent: 'center', marginTop: 25, marginBottom: 8 },
-        ]}
-      >
-        <Icon name="shield" size={11} color={t.subtle} />
-        <Txt size={10} color={t.subtle}>
-          数据保存在本机 · 记得定期备份
-        </Txt>
-      </View>
-      <Txt
-        size={10}
-        color={t.subtle}
-        style={{ textAlign: 'center', letterSpacing: 2 }}
-      >
-        {Number(today.slice(0, 4))} · 简单记录，轻盈生活
-      </Txt>
     </>
   );
 }

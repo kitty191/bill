@@ -515,31 +515,33 @@ export function EntryRow({
           size={20}
         />
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Txt size={14} weight="500" numberOfLines={1}>
-          {entry.note || category.label}
-        </Txt>
-        <Txt size={11} color={t.muted} numberOfLines={1}>
-          {entry.kind === 'refund' ? '退款 · ' : ''}
-          {category.label} · {account}
-          {entry.kind === 'transfer' ? ` → ${destination}` : ''}
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+        <View style={[styles.row, { justifyContent: 'space-between' }]}>
+          <Txt size={15} weight="500" numberOfLines={1} style={{ flex: 1 }}>
+            {entry.note || category.label}
+          </Txt>
+          <MoneyText
+            amount={entry.amount}
+            currency
+            prefix={
+              entry.kind === 'income' || entry.kind === 'refund'
+                ? '+'
+                : entry.kind === 'expense'
+                  ? '−'
+                  : ''
+            }
+            size={16}
+            color={
+              entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
+            }
+            style={{ flexShrink: 1, maxWidth: '68%', textAlign: 'right' }}
+          />
+        </View>
+        <Txt size={12} color={t.muted} numberOfLines={1}>
+          {entry.kind === 'transfer' ? `${account} → ${destination} · 转账`
+            : `${entry.kind === 'refund' ? '退款到账 · ' : ''}${account} · ${category.label}`}
         </Txt>
       </View>
-      <MoneyText
-        amount={entry.amount}
-        prefix={
-          entry.kind === 'income' || entry.kind === 'refund'
-            ? '+'
-            : entry.kind === 'expense'
-              ? '−'
-              : ''
-        }
-        size={16}
-        color={
-          entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
-        }
-        style={{ flexShrink: 1 }}
-      />
     </Pressable>
   );
 }

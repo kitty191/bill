@@ -413,6 +413,7 @@ function Main() {
                   today={today}
                   target={entriesTarget}
                   listRef={entriesScroll}
+                  contentBottom={16}
                   ledger={ledger}
                   month={month}
                   onMonth={onMonth}
@@ -430,7 +431,7 @@ function Main() {
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={{
                     paddingHorizontal: 24,
-                    paddingBottom: Math.max(insets.bottom, 20) + 110,
+                    paddingBottom: 16,
                   }}
                 >
                   {key === 'home' ? (
@@ -493,7 +494,6 @@ function Main() {
       showCategoryExpenses,
       showExpenseDay,
       entriesTarget,
-      insets.bottom,
       today,
       statsReady,
     ],
@@ -641,7 +641,7 @@ function Main() {
                   Platform.OS === 'web' ? 26 : 12,
                 ),
                 paddingHorizontal: 24,
-                paddingBottom: 27,
+                paddingBottom: 12,
               }}
             >
               <View style={[styles.row, { justifyContent: 'space-between' }]}>

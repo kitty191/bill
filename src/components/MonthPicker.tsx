@@ -190,3 +190,16 @@ export function MonthPicker({
     </View>
   );
 }
+
+export function MonthPageHeader({ title, month, onChange }: {
+  title: string;
+  month: string;
+  onChange: (offset: number) => void;
+}) {
+  return (
+    <View style={[styles.row, { justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 14 }]}>
+      <Txt size={28} weight="600">{title}</Txt>
+      <MonthPicker month={month} onChange={onChange} />
+    </View>
+  );
+}

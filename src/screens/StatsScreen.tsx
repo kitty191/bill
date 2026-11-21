@@ -1,4 +1,4 @@
-import { MonthPicker } from '../components/MonthPicker';
+import { MonthPageHeader } from '../components/MonthPicker';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -85,26 +85,8 @@ function MonthlyStats({
   let running = 0;
   return (
     <>
-      <View
-        style={[
-          styles.row,
-          {
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-            marginBottom: 7,
-          },
-        ]}
-      >
-        <Txt size={29} weight="600">
-          统计
-        </Txt>
-        <MonthPicker month={month} onChange={onMonth} />
-      </View>
-      <Txt color={t.muted} size={12}>
-        看懂花费，把钱花在喜欢的生活上。
-      </Txt>
-      <Card style={{ marginTop: 24 }}>
+      <MonthPageHeader title="统计" month={month} onChange={onMonth} />
+      <Card style={{ marginTop: 0 }}>
         <Txt size={12} color={t.muted}>
           本月总支出
         </Txt>
