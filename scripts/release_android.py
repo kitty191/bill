@@ -176,11 +176,10 @@ def publish(app, notes, branch, previous):
         with tempfile.TemporaryDirectory(prefix='qingzhang-public-notes-') as folder:
             body = Path(folder)/'release.md'
             body.write_text(notes.read_text().strip()+f"\n\n[下载 v{version} APK]({url})\n\n约 {meta['bytes']/1024/1024:.1f} MB，ARM64 / Android 7.0+，沿用原签名，可直接覆盖安装。\n\nSHA-256：`{meta['sha256']}`\n")
-            subprocess.run(['gh', 'release', 'create', tag, paths[0], paths[1], '--repo', REPOSITORY, '--target', head, '--title', f'清账 v{version} · Android 预览版', '--prerelease', '--notes-file', str(body)], cwd=ROOT, check=True)
+            subprocess.run(['gh', 'release', 'create', tag, '--repo', REPOSITORY, '--target', head, '--title', f'清账 v{version} · Android 预览版', '--prerelease', '--notes-file', str(body)], cwd=ROOT, check=True)
     info = json.loads(run(['gh', 'release', 'view', tag, '--repo', REPOSITORY, '--json', 'url,isDraft,isPrerelease']))
     if info['isDraft'] or not info['isPrerelease']:
         raise ReleaseError('Expected a published preview prerelease')
-    url = f'https://github.com/{REPOSITORY}/releases/download/{tag}/{Path(paths[0]).name}'
     checksum = hashlib.sha256(); size = 0
     with urllib.request.urlopen(url, timeout=60) as response:
         while block := response.read(1024*1024):
