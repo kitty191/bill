@@ -1,6 +1,6 @@
 import { MonthPicker } from './MonthPicker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Switch, TextInput, View } from 'react-native';
+import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useLedger } from '../state/LedgerProvider';
 import {
   type Account,
@@ -260,26 +260,41 @@ export function SettingsSheet({
         style={[
           styles.row,
           {
-            backgroundColor: t.accentSoft,
-            borderRadius: 18,
+            backgroundColor: t.heroSurface,
+            borderWidth: 1,
+            borderColor: t.heroBorder,
+            borderRadius: 20,
             padding: 16,
-            gap: 12,
+            gap: 13,
           },
         ]}
       >
-        <Icon name="shield" size={25} color={t.accent} />
+        <View
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            backgroundColor: t.surface,
+            borderWidth: 1,
+            borderColor: t.heroBorder,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="shield" size={22} color={t.accent} />
+        </View>
         <View style={{ flex: 1 }}>
-          <Txt size={13} weight="500">
+          <Txt size={14} weight="600">
             你的生活，由你保管
           </Txt>
-          <Txt size={11} color={t.muted} style={{ marginTop: 3 }}>
+          <Txt size={11} color={t.muted} style={{ marginTop: 2 }}>
             无需注册 · 离线可用 · 数据保存在本机
           </Txt>
         </View>
       </View>
       {!!notice && (
         <View accessibilityLiveRegion="polite" style={{ marginTop: 12 }}>
-          <Txt size={12} color={t.accent}>
+          <Txt size={12} color={t.accent} weight="500">
             {notice}
           </Txt>
         </View>
@@ -297,17 +312,19 @@ export function SettingsSheet({
           styles.row,
           {
             backgroundColor: t.surfaceAlt,
-            borderRadius: 18,
-            padding: 15,
+            borderWidth: 1,
+            borderColor: t.cardBorder,
+            borderRadius: 20,
+            padding: 16,
             gap: 16,
           },
         ]}
       >
         <View style={{ flex: 1, gap: 4 }}>
-          <Txt size={13} weight="500">
+          <Txt size={14} weight="500">
             首页显示账户卡片
           </Txt>
-          <Txt size={10} color={t.muted}>
+          <Txt size={11} color={t.muted}>
             关闭后隐藏账户与总资产，账单记录不受影响
           </Txt>
         </View>
@@ -323,7 +340,15 @@ export function SettingsSheet({
         />
       </View>
       <SectionTitle title="记账偏好" />
-      <View style={{ gap: 9 }}>
+      <View
+        style={{
+          backgroundColor: t.surfaceAlt,
+          borderWidth: 1,
+          borderColor: t.cardBorder,
+          borderRadius: 20,
+          overflow: 'hidden',
+        }}
+      >
         <SettingAction
           icon="list"
           title="分类管理"
@@ -350,67 +375,97 @@ export function SettingsSheet({
           title="周期账单"
           description="房租、会员等到期提醒，确认后入账"
           disabled={disabled}
+          last
           onPress={() => setPage('recurring')}
         />
       </View>
       <SectionTitle title="月度预算" />
-      <View style={{ alignItems: 'flex-end', marginBottom: 12 }}>
-        <MonthPicker
-          month={budgetMonth}
-          labelPrefix="预算"
-          disabled={disabled}
-          onChange={(offset) => {
-            const next = shiftMonth(budgetMonth, offset);
-            setBudgetMonth(next);
-            const value = budgetForMonth(ledger, next);
-            setBudget(value ? amountInput(value) : '');
-          }}
-        />
+      <View
+        style={{
+          backgroundColor: t.surfaceAlt,
+          borderWidth: 1,
+          borderColor: t.cardBorder,
+          borderRadius: 20,
+          padding: 16,
+          gap: 12,
+        }}
+      >
+        <View style={[styles.row, { justifyContent: 'space-between', flexWrap: 'wrap' }]}>
+          <Txt size={13} color={t.muted} weight="500">
+            适用月份
+          </Txt>
+          <MonthPicker
+            month={budgetMonth}
+            labelPrefix="预算"
+            disabled={disabled}
+            onChange={(offset) => {
+              const next = shiftMonth(budgetMonth, offset);
+              setBudgetMonth(next);
+              const value = budgetForMonth(ledger, next);
+              setBudget(value ? amountInput(value) : '');
+            }}
+          />
+        </View>
+        <View style={styles.row}>
+          <TextInput
+            accessibilityLabel="月度预算金额"
+            placeholder="输入每月预算"
+            placeholderTextColor={t.subtle}
+            keyboardType="decimal-pad"
+            inputMode="decimal"
+            value={budget}
+            onChangeText={setBudget}
+            editable={!disabled}
+            style={[
+              inputStyle,
+              {
+                backgroundColor: t.surface,
+                borderWidth: 1,
+                borderColor: t.cardBorder,
+              },
+            ]}
+          />
+          <Button
+            disabled={disabled}
+            onPress={() =>
+              void perform(async () => {
+                const value = budget.trim() ? parseAmount(budget, true) : 0;
+                await update((current) => ({
+                  ...current,
+                  monthBudgets: { ...current.monthBudgets, [budgetMonth]: value },
+                }));
+              }, '预算已更新')
+            }
+            style={{ borderRadius: 13 }}
+          >
+            保存预算
+          </Button>
+        </View>
+        <Txt size={11} color={t.muted}>
+          只修改所选月份，留空或设为 0 关闭该月预算。
+          {ledger.monthlyBudget > 0 ? '未单独设置的月份沿用升级前预算。' : ''}
+        </Txt>
+        <View style={[styles.row, { flexWrap: 'wrap', gap: 10 }]}>
+          {previousBudget > 0 && (
+            <Button
+              variant="soft"
+              disabled={disabled}
+              onPress={() => setBudget(amountInput(previousBudget))}
+              style={{ minHeight: 36, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}
+            >
+              带入上月预算
+            </Button>
+          )}
+          <Button
+            variant="plain"
+            disabled={disabled}
+            onPress={() => setPage('category-budgets')}
+            style={{ minHeight: 36, paddingHorizontal: 4, paddingVertical: 6 }}
+          >
+            设置分类预算
+          </Button>
+        </View>
       </View>
-      <View style={styles.row}>
-        <TextInput
-          accessibilityLabel="月度预算金额"
-          placeholder="输入每月预算"
-          placeholderTextColor={t.subtle}
-          keyboardType="decimal-pad"
-          inputMode="decimal"
-          value={budget}
-          onChangeText={setBudget}
-          editable={!disabled}
-          style={inputStyle}
-        />
-        <Button
-          disabled={disabled}
-          onPress={() =>
-            void perform(async () => {
-              const value = budget.trim() ? parseAmount(budget, true) : 0;
-              await update((current) => ({
-                ...current,
-                monthBudgets: { ...current.monthBudgets, [budgetMonth]: value },
-              }));
-            }, '预算已更新')
-          }
-        >
-          保存预算
-        </Button>
-      </View>
-      <Txt size={10} color={t.muted} style={{ marginTop: 8 }}>
-        只修改所选月份，留空或设为 0 关闭该月预算。
-        {ledger.monthlyBudget > 0 ? '未单独设置的月份沿用升级前预算。' : ''}
-      </Txt>
-      {previousBudget > 0 && (
-        <Button
-          variant="plain"
-          disabled={disabled}
-          onPress={() => setBudget(amountInput(previousBudget))}
-          style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}
-        >
-          带入上月预算
-        </Button>
-      )}
-      <Button variant="plain" disabled={disabled} onPress={() => setPage('category-budgets')} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }}>
-        设置分类预算
-      </Button>
       <SectionTitle
         title="账户管理"
         action="添加账户"
@@ -418,9 +473,11 @@ export function SettingsSheet({
       />
       <View
         style={{
-          borderRadius: 18,
+          borderRadius: 20,
           backgroundColor: t.surfaceAlt,
-          paddingHorizontal: 15,
+          borderWidth: 1,
+          borderColor: t.cardBorder,
+          paddingHorizontal: 16,
         }}
       >
         {ledger.accounts.map((a, i) => (
@@ -429,9 +486,10 @@ export function SettingsSheet({
             style={[
               styles.row,
               {
-                paddingVertical: 11,
+                paddingVertical: 12,
                 justifyContent: 'space-between',
-                borderBottomWidth: i === ledger.accounts.length - 1 ? 0 : 1,
+                borderBottomWidth:
+                  i === ledger.accounts.length - 1 ? 0 : StyleSheet.hairlineWidth,
                 borderColor: t.border,
               },
             ]}
@@ -449,11 +507,11 @@ export function SettingsSheet({
                 paddingVertical: 0,
               }}
             >
-              <Txt size={13}>
+              <Txt size={14} weight="500">
                 {a.name}
                 {a.archived ? ' · 已归档' : ''}
               </Txt>
-              <Txt size={10} color={t.muted}>
+              <Txt size={11} color={t.muted} style={{ fontVariant: ['tabular-nums'] }}>
                 余额 ¥{money(accountBalance(ledger, a.id))}
               </Txt>
             </Button>
@@ -470,8 +528,18 @@ export function SettingsSheet({
         ))}
       </View>
       {account && (
-        <View style={{ gap: 10, paddingTop: 15 }}>
-          <Txt size={13} weight="500">
+        <View
+          style={{
+            gap: 10,
+            padding: 16,
+            marginTop: 12,
+            borderRadius: 20,
+            backgroundColor: t.surfaceAlt,
+            borderWidth: 1,
+            borderColor: t.cardBorder,
+          }}
+        >
+          <Txt size={14} weight="600">
             {ledger.accounts.some((a) => a.id === account.id)
               ? '编辑账户'
               : '添加账户'}
@@ -483,7 +551,15 @@ export function SettingsSheet({
             maxLength={20}
             value={accountName}
             onChangeText={setAccountName}
-            style={[inputStyle, { flex: undefined }]}
+            style={[
+              inputStyle,
+              {
+                flex: undefined,
+                backgroundColor: t.surface,
+                borderWidth: 1,
+                borderColor: t.cardBorder,
+              },
+            ]}
           />
           <TextInput
             accessibilityLabel="初始余额"
@@ -492,9 +568,17 @@ export function SettingsSheet({
             keyboardType="numbers-and-punctuation"
             value={opening}
             onChangeText={setOpening}
-            style={[inputStyle, { flex: undefined }]}
+            style={[
+              inputStyle,
+              {
+                flex: undefined,
+                backgroundColor: t.surface,
+                borderWidth: 1,
+                borderColor: t.cardBorder,
+              },
+            ]}
           />
-          <Txt size={10} color={t.muted}>
+          <Txt size={11} color={t.muted}>
             当前余额 = 初始余额 + 所有账单变动。修改初始余额不计入收支。
           </Txt>
           {ledger.accounts.some((a) => a.id === account.id) && (
@@ -537,7 +621,15 @@ export function SettingsSheet({
         </View>
       )}
       <SectionTitle title="数据与备份" />
-      <View style={{ gap: 9 }}>
+      <View
+        style={{
+          backgroundColor: t.surfaceAlt,
+          borderWidth: 1,
+          borderColor: t.cardBorder,
+          borderRadius: 20,
+          overflow: 'hidden',
+        }}
+      >
         <SettingAction
           icon="shield"
           title="本机自动快照"
@@ -590,21 +682,23 @@ export function SettingsSheet({
           title="导入 CSV"
           description="预览模板账单，确认后追加到当前账本"
           disabled={disabled}
+          last={!legacy}
           onPress={() => setPage('csv')}
         />
+        {legacy && (
+          <SettingAction
+            icon="download"
+            title="导出升级前备份"
+            description="保留本机首次升级前的原始账本文件"
+            disabled={disabled}
+            last
+            onPress={() =>
+              void perform(() => exportLegacyBackup(legacy), '升级前备份已导出')
+            }
+          />
+        )}
       </View>
-      {legacy && (
-        <SettingAction
-          icon="download"
-          title="导出升级前备份"
-          description="保留本机首次升级前的原始账本文件"
-          disabled={disabled}
-          onPress={() =>
-            void perform(() => exportLegacyBackup(legacy), '升级前备份已导出')
-          }
-        />
-      )}
-      <Txt size={10} color={t.muted} style={{ marginTop: 11 }}>
+      <Txt size={11} color={t.muted} style={{ marginTop: 12 }}>
         本地数据不会自动同步。卸载应用或清除浏览器数据可能导致账本丢失，请定期备份。备份文件包含财务记录，请妥善保管。
       </Txt>
       {!ledger.entries.length && (
@@ -612,7 +706,7 @@ export function SettingsSheet({
           variant="soft"
           disabled={disabled}
           onPress={() => setConfirmation('demo')}
-          style={{ marginTop: 20 }}
+          style={{ marginTop: 18, borderRadius: 16 }}
         >
           载入示例账本，看看效果
         </Button>
@@ -623,22 +717,23 @@ export function SettingsSheet({
         onPress={() => setConfirmation('clear')}
         style={{ marginTop: 10 }}
       >
-        <Txt size={12} color={t.danger}>
+        <Txt size={12} color={t.danger} weight="500">
           清空本地账本
         </Txt>
       </Button>
       {!!confirmation && (
         <View
           style={{
-            padding: 17,
+            padding: 18,
+            backgroundColor: t.surfaceAlt,
             borderWidth: 1,
-            borderColor: t.border,
-            borderRadius: 18,
+            borderColor: t.cardBorder,
+            borderRadius: 20,
             gap: 12,
             marginTop: 12,
           }}
         >
-          <Txt size={14} weight="600">
+          <Txt size={15} weight="600">
             {confirmation === 'clear'
               ? '确定清空账本？'
               : confirmation === 'demo'
@@ -702,7 +797,7 @@ export function SettingsSheet({
         style={{ alignItems: 'center', marginTop: 28, marginBottom: 6, gap: 4 }}
       >
         <Icon name="leaf" size={20} color={t.accent} />
-        <Txt size={13} weight="500">
+        <Txt size={13} weight="600">
           清账
         </Txt>
         <Txt size={10} color={t.subtle}>
@@ -722,12 +817,14 @@ function SettingAction({
   description,
   onPress,
   disabled,
+  last = false,
 }: {
   icon: string;
   title: string;
   description: string;
   onPress: () => void;
   disabled: boolean;
+  last?: boolean;
 }) {
   const t = useTheme();
   return (
@@ -737,20 +834,36 @@ function SettingAction({
       disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: t.surfaceAlt,
+        backgroundColor: 'transparent',
         flexDirection: 'row',
-        padding: 14,
+        paddingHorizontal: 15,
+        paddingVertical: 13,
         gap: 12,
         justifyContent: 'flex-start',
-        borderRadius: 17,
+        borderRadius: 0,
+        borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
+        borderColor: t.border,
       }}
     >
-      <Icon name={icon} color={t.accent} size={19} />
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 12,
+          backgroundColor: t.surface,
+          borderWidth: 1,
+          borderColor: t.cardBorder,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon name={icon} color={t.accent} size={18} />
+      </View>
       <View style={{ flex: 1 }}>
-        <Txt size={13} weight="500">
+        <Txt size={14} weight="500">
           {title}
         </Txt>
-        <Txt size={10} color={t.muted} style={{ marginTop: 3 }}>
+        <Txt size={11} color={t.muted} style={{ marginTop: 2 }}>
           {description}
         </Txt>
       </View>

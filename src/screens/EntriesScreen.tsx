@@ -289,15 +289,28 @@ export function EntriesScreen({
             onMonth(offset);
           }}
         />
-      <Card style={{ marginTop: 0, flexDirection: 'row', gap: 20 }}>
+      <Card style={{ marginTop: 0, flexDirection: 'row', alignItems: 'center', gap: 0 }}>
         <View style={{ flex: 1, gap: 4 }}>
-          <Txt size={11} color={t.muted}>
+          <Txt size={11} color={t.muted} weight="500">
             {active ? '筛选支出' : '本月支出'}
           </Txt>
-          <MoneyText amount={expense} currency size={width < 360 ? 17 : 22} />
+          <MoneyText
+            amount={expense}
+            currency
+            size={width < 360 ? 17 : 22}
+            style={{ fontWeight: '600' }}
+          />
         </View>
+        <View
+          style={{
+            width: 1,
+            height: 34,
+            backgroundColor: t.border,
+            marginHorizontal: 14,
+          }}
+        />
         <View style={{ flex: 1, gap: 4 }}>
-          <Txt size={11} color={t.muted}>
+          <Txt size={11} color={t.muted} weight="500">
             {active ? '筛选收入' : '本月收入'}
           </Txt>
           <MoneyText
@@ -305,13 +318,14 @@ export function EntriesScreen({
             currency
             size={width < 360 ? 17 : 22}
             color={t.income}
+            style={{ fontWeight: '600' }}
           />
         </View>
       </Card>
       {filter === 'expense' && grossExpense > expense && (
         <Txt
           testID="expense-refund-summary"
-          size={10}
+          size={11}
           color={t.muted}
           style={{ marginTop: 10 }}
         >
@@ -319,7 +333,7 @@ export function EntriesScreen({
         </Txt>
       )}
       {refunded > 0 && (
-        <Txt size={10} color={t.muted} style={{ marginTop: 10 }}>
+        <Txt size={11} color={t.muted} style={{ marginTop: 10 }}>
           退款到账 ¥{money(refunded)} · 抵减原支出，不计收入
         </Txt>
       )}
@@ -327,38 +341,20 @@ export function EntriesScreen({
         style={[
           styles.row,
           {
-            borderRadius: 15,
+            borderRadius: 16,
             backgroundColor: t.surface,
-            paddingHorizontal: 15,
-            marginTop: 18,
-            marginBottom: 14,
+            borderWidth: 1,
+            borderColor: t.cardBorder,
+            boxShadow: t.pillShadow,
+            paddingLeft: 14,
+            paddingRight: 6,
+            marginTop: 14,
+            marginBottom: 12,
+            gap: 8,
           },
         ]}
       >
         <Icon name="search" size={17} color={t.muted} />
-        <Button
-          variant="plain"
-          label="打开组合筛选"
-          onPress={() => {
-            Keyboard.dismiss();
-            setFiltersOpen(true);
-          }}
-          style={{ paddingHorizontal: 5 }}
-        >
-          <Icon
-            name="list"
-            size={19}
-            color={
-              advanced.range ||
-              advanced.categoryId !== 'all' ||
-              advanced.accountId !== 'all' ||
-              !!advanced.minAmount?.trim() ||
-              !!advanced.maxAmount?.trim()
-                ? t.accent
-                : t.muted
-            }
-          />
-        </Button>
         <TextInput
           accessibilityLabel="搜索账单"
           placeholder="搜索备注、分类、账户或金额"
@@ -372,13 +368,59 @@ export function EntriesScreen({
             variant="plain"
             label="清除搜索"
             onPress={() => setQuery('')}
-            style={{ paddingHorizontal: 0 }}
+            style={{ minHeight: 36, width: 34, paddingHorizontal: 0, borderRadius: 12 }}
           >
             <Icon name="close" size={15} color={t.muted} />
           </Button>
         )}
+        <Button
+          variant="plain"
+          label="打开组合筛选"
+          onPress={() => {
+            Keyboard.dismiss();
+            setFiltersOpen(true);
+          }}
+          style={{
+            minHeight: 36,
+            width: 38,
+            paddingHorizontal: 0,
+            borderRadius: 12,
+            backgroundColor:
+              advanced.range ||
+              advanced.categoryId !== 'all' ||
+              advanced.accountId !== 'all' ||
+              !!advanced.minAmount?.trim() ||
+              !!advanced.maxAmount?.trim()
+                ? t.accentSoft
+                : 'transparent',
+          }}
+        >
+          <Icon
+            name="list"
+            size={18}
+            color={
+              advanced.range ||
+              advanced.categoryId !== 'all' ||
+              advanced.accountId !== 'all' ||
+              !!advanced.minAmount?.trim() ||
+              !!advanced.maxAmount?.trim()
+                ? t.accent
+                : t.muted
+            }
+          />
+        </Button>
       </View>
-      <View style={[styles.row, { gap: 7 }]}>
+      <View
+        style={[
+          styles.row,
+          {
+            gap: 3,
+            padding: 4,
+            borderRadius: 15,
+            backgroundColor: t.surfaceAlt,
+          },
+        ]}
+      >
         {(
           [
             ['all', '全部'],
@@ -390,7 +432,7 @@ export function EntriesScreen({
         ).map(([value, label]) => (
           <Button
             key={value}
-            variant={filter === value ? 'soft' : 'plain'}
+            variant="plain"
             onPress={() => {
               setFilter(value);
               const category = ledger.categories.find(
@@ -410,15 +452,23 @@ export function EntriesScreen({
             label={`筛选${label}`}
             style={{
               flex: 1,
-              minHeight: 39,
-              borderRadius: 13,
-              paddingHorizontal: 8,
+              minHeight: 36,
+              borderRadius: 11,
+              paddingHorizontal: 6,
+              paddingVertical: 6,
+              backgroundColor:
+                filter === value
+                  ? t.dark
+                    ? t.accentSoft
+                    : t.surface
+                  : 'transparent',
+              boxShadow: filter === value ? t.pillShadow : 'none',
             }}
           >
             <Txt
               size={12}
               color={filter === value ? t.accent : t.muted}
-              weight={filter === value ? '600' : '400'}
+              weight={filter === value ? '600' : '500'}
             >
               {label}
             </Txt>
@@ -426,10 +476,10 @@ export function EntriesScreen({
         ))}
       </View>
       {active && (
-        <View style={[styles.row, { marginTop: 10, flexWrap: 'wrap', gap: 4 }]}>
+        <View style={[styles.row, { marginTop: 10, flexWrap: 'wrap', gap: 6 }]}>
           <Txt
             testID="active-entry-filters"
-            size={10}
+            size={11}
             color={t.muted}
             style={{ flex: 1 }}
           >
@@ -447,55 +497,107 @@ export function EntriesScreen({
           </Txt>
           <Button
             variant="plain"
+            label="清除筛选"
             onPress={() => {
               setFilter('all');
               setQuery('');
               setAdvanced(emptyFilters());
             }}
-            style={{ paddingHorizontal: 5, minHeight: 32 }}
+            style={{ paddingHorizontal: 8, minHeight: 32, borderRadius: 10 }}
           >
-            清除筛选
+            <Txt size={12} color={t.accent} weight="500">
+              清除筛选
+            </Txt>
           </Button>
         </View>
       )}
       <View
         style={[
           styles.row,
-          { flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 6 },
+          { flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 10 },
         ]}
       >
         {selection === null ? (
           <Button
             variant="plain"
+            label="批量分类"
             disabled={filtering || !entries.some((item) => item.kind === 'expense' || item.kind === 'income')}
             onPress={() => setSelection([])}
+            style={{
+              minHeight: 34,
+              paddingHorizontal: 12,
+              paddingVertical: 5,
+              borderRadius: 12,
+              backgroundColor: t.surface,
+              borderWidth: 1,
+              borderColor: t.cardBorder,
+            }}
           >
-            批量分类
+            <Txt size={12} color={t.muted} weight="500">
+              批量分类
+            </Txt>
           </Button>
         ) : (
           <>
-            <Button variant="plain" onPress={() => setSelection(null)}>取消多选</Button>
-            <Button disabled={!selection.length} onPress={() => setBatchCategory('')}>
+            <Button
+              variant="plain"
+              label="取消多选"
+              onPress={() => setSelection(null)}
+              style={{
+                minHeight: 34,
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+                borderRadius: 12,
+                backgroundColor: t.surface,
+                borderWidth: 1,
+                borderColor: t.cardBorder,
+              }}
+            >
+              <Txt size={12} color={t.muted} weight="500">
+                取消多选
+              </Txt>
+            </Button>
+            <Button
+              disabled={!selection.length}
+              onPress={() => setBatchCategory('')}
+              style={{ minHeight: 34, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}
+            >
               {`调整分类 · ${selection.length} 笔`}
             </Button>
           </>
         )}
         <Button
           variant="plain"
+          label="常用筛选"
           onPress={() => {
             Keyboard.dismiss();
             setSavedFiltersOpen(true);
           }}
+          style={{
+            minHeight: 34,
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+            borderRadius: 12,
+            backgroundColor: t.surface,
+            borderWidth: 1,
+            borderColor: t.cardBorder,
+          }}
         >
-          常用筛选
+          <Txt size={12} color={t.muted} weight="500">
+            常用筛选
+          </Txt>
         </Button>
         {(active || filtering) && (
           <Button
             variant="soft"
+            label={exporting ? '正在导出…' : '导出筛选结果 CSV'}
             disabled={filtering || exporting || !entries.length}
             onPress={() => void exportResults()}
+            style={{ minHeight: 34, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 }}
           >
-            {exporting ? '正在导出…' : '导出筛选结果 CSV'}
+            <Txt size={12} color={t.accent} weight="600">
+              {exporting ? '正在导出…' : '导出筛选结果 CSV'}
+            </Txt>
           </Button>
         )}
       </View>
@@ -666,15 +768,15 @@ export function EntriesScreen({
             style={{
               backgroundColor: t.surface,
               paddingHorizontal: 16,
-              borderTopLeftRadius: first ? 24 : 0,
-              borderTopRightRadius: first ? 24 : 0,
-              borderBottomLeftRadius: last ? 24 : 0,
-              borderBottomRightRadius: last ? 24 : 0,
+              borderTopLeftRadius: first ? 22 : 0,
+              borderTopRightRadius: first ? 22 : 0,
+              borderBottomLeftRadius: last ? 22 : 0,
+              borderBottomRightRadius: last ? 22 : 0,
               borderLeftWidth: 1,
               borderRightWidth: 1,
               borderTopWidth: first ? 1 : 0,
               borderBottomWidth: last ? 1 : 0,
-              borderColor: t.dark ? t.border : '#E8EDE5',
+              borderColor: t.cardBorder,
             }}
           >
             <EntryRow

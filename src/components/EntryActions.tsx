@@ -22,44 +22,61 @@ export function EntryActions({
   const t = useTheme();
   return (
     <Sheet visible title="账单快捷操作" onClose={onClose}>
-      <View style={{ gap: 8, paddingBottom: 16 }}>
-        <Txt size={14} weight="500">
-          {entry.note || categoryFor(ledger, entry.categoryId).label}
-        </Txt>
-        <Txt size={11} color={t.muted}>
-          {entry.date} · {categoryFor(ledger, entry.categoryId).label}
-        </Txt>
-        <MoneyText
-          amount={entry.amount}
-          currency
-          size={32}
-          style={{ marginBottom: 12 }}
-        />
+      <View style={{ gap: 10, paddingBottom: 14 }}>
+        <View
+          style={{
+            backgroundColor: t.surfaceAlt,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: t.cardBorder,
+            padding: 16,
+            gap: 4,
+            marginBottom: 4,
+          }}
+        >
+          <Txt size={15} weight="600">
+            {entry.note || categoryFor(ledger, entry.categoryId).label}
+          </Txt>
+          <Txt size={12} color={t.muted}>
+            {entry.date} · {categoryFor(ledger, entry.categoryId).label}
+          </Txt>
+          <MoneyText
+            amount={entry.amount}
+            currency
+            size={30}
+            style={{ marginTop: 4, fontWeight: '600' }}
+          />
+        </View>
         <Button
           label="再记一笔"
           onPress={() => {
             feedback('light');
             onRepeat(entry);
           }}
+          style={{ minHeight: 50, borderRadius: 16 }}
         >
           <View style={styles.row}>
             <Icon
               name="copy"
               size={18}
-              color={t.dark ? '#193423' : '#FFFFFF'}
+              color={t.onPrimary}
             />
-            <Txt weight="600" color={t.dark ? '#193423' : '#FFFFFF'}>
+            <Txt weight="600" color={t.onPrimary}>
               再记一笔
             </Txt>
           </View>
         </Button>
-        <Button variant="soft" onPress={() => onEdit(entry)}>
+        <Button
+          variant="soft"
+          onPress={() => onEdit(entry)}
+          style={{ minHeight: 48, borderRadius: 16 }}
+        >
           编辑这笔账单
         </Button>
         <Txt
           size={11}
           color={t.muted}
-          style={{ textAlign: 'center', marginTop: 6 }}
+          style={{ textAlign: 'center', marginTop: 4 }}
         >
           再记一笔会预填原内容，日期默认今天，确认后保存。
         </Txt>
