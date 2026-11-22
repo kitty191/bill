@@ -109,6 +109,7 @@ export default function App() {
 function Main() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const [dockHeight, setDockHeight] = useState(0);
   const reduce = useReducedMotion();
   const {
     ledger,
@@ -710,6 +711,7 @@ function Main() {
             progress={pageProgress}
             onTab={navigate}
             bottom={Math.max(insets.bottom, 18)}
+            onHeight={setDockHeight}
             onAdd={() => {
               openEditor();
               feedback('light');
@@ -723,7 +725,7 @@ function Main() {
               pointerEvents={undo || quickEntry ? 'auto' : 'none'}
               style={{
                 position: 'absolute',
-                bottom: Math.max(insets.bottom, 18) + 74,
+                bottom: dockHeight + 10,
                 left: 20,
                 right: 20,
                 borderRadius: 16,
@@ -746,7 +748,7 @@ function Main() {
                       disabled={saving}
                       onPress={editRecentlySaved}
                       style={{
-                        minHeight: 34,
+                        minHeight: 44,
                         paddingHorizontal: 11,
                         paddingVertical: 5,
                         borderRadius: 11,
@@ -786,7 +788,7 @@ function Main() {
                         );
                     }}
                     style={{
-                      minHeight: 34,
+                      minHeight: 44,
                       paddingHorizontal: 11,
                       paddingVertical: 5,
                       borderRadius: 11,

@@ -52,7 +52,7 @@ export function ExpenseLineChart({
   const gradient = `daily-expense-${month}`;
   const tipWidth = Math.min(
     Math.max(132, Math.round(width * 0.44)),
-    Math.max(132, width - 8),
+    Math.max(0, width - 8),
   );
   return (
     <>
@@ -216,7 +216,8 @@ export function ExpenseLineChart({
                   selected.x + (selected.x < width / 2 ? 14 : -(tipWidth + 14)),
                 ),
               ),
-              top: aboveFinger ? 4 : Math.max(4, height - 76),
+              top: aboveFinger ? 4 : undefined,
+              bottom: aboveFinger ? undefined : 4,
               paddingHorizontal: 12,
               paddingVertical: 8,
               borderRadius: 14,

@@ -210,7 +210,7 @@ def main():
         device.tap('记一笔')
         for key in '12.34': device.tap('计算键'+key)
         device.input_value('金额','12.34')
-        device.tap('选择分类、账户和日期')
+        device.tap('修改记账日期' if old_version >= 26 else '选择分类、账户和日期')
         for _ in range(5):
             if device.find('备注'): break
             device.shell('input','swipe','500','1400','500','700','250')
@@ -243,6 +243,7 @@ def main():
         device.tap('放弃草稿，重新记一笔')
         for key in '5': device.tap('计算键'+key)
         device.input_value('金额','5')
+        (args.output/'calculator-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
         device.tap('修改记账日期')
         for _ in range(5):
             if device.find('备注'): break
@@ -251,7 +252,12 @@ def main():
         device.input_value('备注','keyboard-check')
         # First hardware back hides the IME, without cancelling the draft.
         device.shell('input','keyevent','4'); device.wait('记好了')
-        device.tap('记好了'); device.wait('记一笔')
+        device.tap('记好了')
+        _, toast_action = device.wait('修改刚保存的账单', timeout=8)
+        _, add_action = device.wait('记一笔')
+        assert toast_action[3] < add_action[1], 'Saved-entry action overlaps the dock'
+        (args.output/'toast-dock-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
+        results['checks']['saved_entry_action_above_dock']=True
         with tempfile.TemporaryDirectory() as temporary:
             final,draft=device.data(Path(temporary))
         assert len(final['entries'])==2 and sorted(item['amount'] for item in final['entries'])==[500,1234]
@@ -274,7 +280,15 @@ def main():
         with tempfile.TemporaryDirectory() as temporary: final,draft=device.data(Path(temporary))
         assert len(final['entries'])==4 and draft is None
         results['checks']['process_kill_during_native_transaction_rolls_back']=True
-        device.launch(); device.tap('打开设置'); device.tap('隐私与备份提醒')
+        device.launch(); device.tap('打开设置')
+        device.scroll_to('记账偏好')
+        (args.output/'settings-preferences-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
+        device.scroll_to('月度预算金额')
+        (args.output/'settings-budget-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
+        device.scroll_to('恢复备份')
+        (args.output/'settings-backup-screen.png').write_bytes(device.call('exec-out','screencap','-p',binary=True))
+        results['checks']['settings_groups_reachable']=True
+        device.tap('关闭'); device.tap('打开设置'); device.tap('隐私与备份提醒')
         device.scroll_to('选择自动备份目录')
         device.shell('mkdir','-p','/sdcard/Documents/QingzhangBackupTest')
         device.tap('选择自动备份目录'); device.tap_any(['QingzhangBackupTest'])

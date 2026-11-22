@@ -26,12 +26,14 @@ export function BottomNavigation({
   onTab,
   onAdd,
   bottom,
+  onHeight,
   progress,
 }: {
   tab: Tab;
   onTab: (tab: Tab) => void;
   onAdd: () => void;
   bottom: number;
+  onHeight: (height: number) => void;
   progress: SharedValue<number>;
 }) {
   const t = useTheme();
@@ -58,6 +60,7 @@ export function BottomNavigation({
   return (
     <View
       pointerEvents="box-none"
+      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
       style={{
         paddingTop: 6,
         paddingBottom: bottom,
