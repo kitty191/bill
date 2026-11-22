@@ -61,7 +61,7 @@ def main():
         else:
             baseline.mkdir()
             names = set(subprocess.check_output(['git','ls-tree','--name-only',ref],cwd=ROOT,text=True).splitlines())
-            allowed = [name for name in ['App.tsx','src','assets','native-deps','scripts','app.json','package.json','package-lock.json','babel.config.js','metro.config.js','index.ts','tsconfig.json'] if name in names]
+            allowed = [name for name in ['App.tsx','src','assets','native-deps','modules', 'plugins','scripts','app.json','package.json','package-lock.json','babel.config.js','metro.config.js','index.ts','tsconfig.json'] if name in names]
             archive = subprocess.check_output(['git','archive','--format=tar',ref,'--',*allowed],cwd=ROOT)
             with tarfile.open(fileobj=io.BytesIO(archive)) as files: files.extractall(baseline,filter='data')
             def dependencies(path):
@@ -70,8 +70,13 @@ def main():
                 return data
             if dependencies(baseline) == dependencies(ROOT): (baseline/'node_modules').symlink_to(ROOT/'node_modules',target_is_directory=True)
             else: call(['npm','ci','--no-audit','--no-fund'],cwd=baseline)
-            # The helper is infrastructure only. Baseline app source, assets and
-            # manifest are extracted unchanged from the selected historical commit.
+            # Exercise real SQLite migration on a disposable emulator package.
+            # Adapt the historical application ID so Android can install over it.
+            baseline_config = baseline/'app.json'
+            previous_app = json.loads(baseline_config.read_text())
+            current_app = json.loads((ROOT/'app.json').read_text())
+            previous_app['expo']['android']['package'] = current_app['expo']['android']['package']
+            baseline_config.write_text(json.dumps(previous_app, ensure_ascii=False) + '\n')
             shutil.copyfile(ROOT/'scripts/build_android.py',baseline/'scripts/build_android.py')
         keystore = work/'test-only.keystore'
         call(['keytool','-genkeypair','-keystore',str(keystore),'-storepass','android','-keypass','android','-alias','ci-only','-keyalg','RSA','-keysize','2048','-validity','30','-dname','CN=Qingzhang disposable CI test'])

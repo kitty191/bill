@@ -1,9 +1,11 @@
 import { Directory, File, FileMode } from 'expo-file-system';
+import { requireNativeModule } from 'expo';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import {
   defaultBackupPreferences,
   validateBackupPreferences,
+  type BackupFile,
   type BackupFiles,
   type BackupPreferences,
 } from '../domain/automaticBackup';
@@ -47,6 +49,11 @@ export async function pickBackupDirectory(): Promise<{
     throw error;
   }
 }
+const androidDocuments = () => requireNativeModule<{
+  displayName(uri: string): Promise<string>;
+  listFiles(uri: string): Promise<BackupFile[]>;
+}>('BackupDocuments');
+
 export const backupFiles: BackupFiles = {
   async write(directory, name, payload) {
     const file = new Directory(directory).createFile(name, 'application/json');
@@ -57,7 +64,9 @@ export const backupFiles: BackupFiles = {
       } finally {
         handle.close();
       }
-      return { name: file.name, uri: file.uri };
+      const displayName = Platform.OS === 'android' && file.uri.startsWith('content://')
+        ? await androidDocuments().displayName(file.uri) : file.name;
+      return { name: displayName, uri: file.uri };
     } catch (error) {
       try {
         file.delete();
@@ -68,11 +77,16 @@ export const backupFiles: BackupFiles = {
     }
   },
   read: async (file) => new File(file.uri).text(),
-  list: async (directory) =>
-    new Directory(directory)
+  list: async (directory) => {
+    if (Platform.OS === 'android' && directory.startsWith('content://')) {
+      const files = await androidDocuments().listFiles(directory);
+      return files.map((file) => ({ ...file, legacyName: new File(file.uri).name }));
+    }
+    return new Directory(directory)
       .list()
       .filter((item): item is File => item instanceof File)
-      .map((file) => ({ name: file.name, uri: file.uri })),
+      .map((file) => ({ name: file.name, uri: file.uri }));
+  },
   remove: async (file) => {
     new File(file.uri).delete();
   },

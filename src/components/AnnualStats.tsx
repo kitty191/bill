@@ -68,13 +68,26 @@ export function AnnualStats({
       <View
         style={[
           styles.row,
-          { justifyContent: 'space-between', marginBottom: 8 },
+          { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 6 },
         ]}
       >
-        <Txt size={29} weight="600">
+        <Txt size={28} weight="600" style={{ letterSpacing: -0.4 }}>
           年度统计
         </Txt>
-        <View style={styles.row}>
+        <View
+          style={[
+            styles.row,
+            {
+              gap: 0,
+              backgroundColor: t.surface,
+              borderRadius: 22,
+              borderWidth: 1,
+              borderColor: t.cardBorder,
+              boxShadow: t.pillShadow,
+              paddingHorizontal: 2,
+            },
+          ]}
+        >
           <Button
             label="上一年"
             variant="plain"
@@ -83,11 +96,16 @@ export function AnnualStats({
               onYear(year - 1);
               setSelected(1);
             }}
-            style={{ width: 36, paddingHorizontal: 0 }}
+            style={{ width: 40, minHeight: 40, paddingHorizontal: 0, borderRadius: 20 }}
           >
-            <Icon name="left" size={17} />
+            <Icon name="left" size={16} color={t.muted} />
           </Button>
-          <Txt testID="annual-year" size={13}>
+          <Txt
+            testID="annual-year"
+            size={13}
+            weight="600"
+            style={{ paddingHorizontal: 6, fontVariant: ['tabular-nums'] }}
+          >
             {year} 年
           </Txt>
           <Button
@@ -98,17 +116,17 @@ export function AnnualStats({
               onYear(year + 1);
               setSelected(1);
             }}
-            style={{ width: 36, paddingHorizontal: 0 }}
+            style={{ width: 40, minHeight: 40, paddingHorizontal: 0, borderRadius: 20 }}
           >
-            <Icon name="right" size={17} />
+            <Icon name="right" size={16} color={t.muted} />
           </Button>
         </View>
       </View>
       <Txt size={12} color={t.muted}>
         把一年的生活，慢慢看清。
       </Txt>
-      <Card style={{ marginTop: 24 }}>
-        <Txt size={12} color={t.muted}>
+      <Card style={{ marginTop: 18 }}>
+        <Txt size={12} color={t.muted} weight="500">
           全年净支出
         </Txt>
         <MoneyText
@@ -116,23 +134,52 @@ export function AnnualStats({
           currency
           testID="annual-expense"
           size={36}
-          style={{ marginVertical: 8 }}
+          style={{ marginVertical: 6, fontWeight: '600' }}
         />
-        <View style={[styles.row, { marginTop: 12 }]}>
+        <View
+          style={[
+            styles.row,
+            {
+              borderTopWidth: 1,
+              borderColor: t.border,
+              marginTop: 14,
+              paddingTop: 14,
+              gap: 0,
+            },
+          ]}
+        >
           {[
             ['全年收入', summary.income, 'annual-income'],
             ['全年结余', summary.net, 'annual-net'],
             ['月均净支出', summary.averageExpense, 'annual-average'],
-          ].map(([label, value, id]) => (
-            <View key={label} style={{ flex: 1, gap: 5 }}>
-              <Txt size={10} color={t.muted}>
-                {label}
-              </Txt>
-              <MoneyText testID={String(id)} amount={Number(value)} size={14} />
-            </View>
+          ].map(([label, value, id], index) => (
+            <React.Fragment key={label}>
+              {index > 0 && (
+                <View
+                  style={{
+                    width: 1,
+                    height: 28,
+                    backgroundColor: t.border,
+                    marginHorizontal: 8,
+                  }}
+                />
+              )}
+              <View style={{ flex: 1, gap: 4 }}>
+                <Txt size={10} color={t.muted}>
+                  {label}
+                </Txt>
+                <MoneyText
+                  testID={String(id)}
+                  amount={Number(value)}
+                  size={14}
+                  color={label === '全年收入' ? t.income : t.text}
+                  style={{ fontWeight: '600' }}
+                />
+              </View>
+            </React.Fragment>
           ))}
         </View>
-        <Txt size={10} color={t.muted} style={{ marginTop: 15 }}>
+        <Txt size={11} color={t.muted} style={{ marginTop: 14 }}>
           截至 {summary.observedMonths} 月，月均按 {summary.observedMonths}{' '}
           个月计算。
         </Txt>
@@ -145,12 +192,32 @@ export function AnnualStats({
             { justifyContent: 'space-between', marginBottom: 12 },
           ]}
         >
-          <Txt size={11} color={t.income}>
-            ● 收入
-          </Txt>
-          <Txt size={11} color={t.expense}>
-            ● 净支出
-          </Txt>
+          <View style={[styles.row, { gap: 6 }]}>
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: t.income,
+              }}
+            />
+            <Txt size={11} color={t.muted} weight="500">
+              收入
+            </Txt>
+          </View>
+          <View style={[styles.row, { gap: 6 }]}>
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: t.expense,
+              }}
+            />
+            <Txt size={11} color={t.muted} weight="500">
+              净支出
+            </Txt>
+          </View>
         </View>
         <ChartScrubber
           testID="annual-trend-chart"
@@ -252,7 +319,7 @@ export function AnnualStats({
         </View>
       </Card>
       <SectionTitle title="分类年度对比" />
-      <Card>
+      <Card style={{ paddingVertical: 8 }}>
         {!summary.categories.length ? (
           <EmptyState
             compact
@@ -267,24 +334,38 @@ export function AnnualStats({
                 styles.row,
                 {
                   paddingVertical: 12,
+                  gap: 11,
                   borderBottomWidth:
                     index === summary.categories.length - 1 ? 0 : 1,
                   borderColor: t.border,
                 },
               ]}
             >
-              <Icon name={category.icon} color={category.color} size={20} />
-              <View style={{ flex: 1, gap: 4 }}>
-                <Txt size={13}>{category.label}</Txt>
-                <Txt size={10} color={t.muted}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  backgroundColor: `${category.color}${t.dark ? '24' : '16'}`,
+                  borderWidth: 1,
+                  borderColor: `${category.color}${t.dark ? '2E' : '22'}`,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Icon name={category.icon} color={category.color} size={17} />
+              </View>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Txt size={13} weight="500">{category.label}</Txt>
+                <Txt size={11} color={t.muted}>
                   上年同期 ¥{money(category.previous)}
                 </Txt>
               </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <Txt size={14} weight="500">
+              <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                <Txt size={14} weight="600" style={{ fontVariant: ['tabular-nums'] }}>
                   ¥{money(category.total)}
                 </Txt>
-                <Txt size={10} color={t.muted}>
+                <Txt size={11} color={t.muted}>
                   {category.previous
                     ? `${category.total >= category.previous ? '增加' : '减少'} ${Math.abs(((category.total - category.previous) / category.previous) * 100).toFixed(1)}%`
                     : '本期新增'}
@@ -295,7 +376,7 @@ export function AnnualStats({
         )}
       </Card>
       <Txt
-        size={10}
+        size={11}
         color={t.muted}
         style={{ marginTop: 17, textAlign: 'center' }}
       >

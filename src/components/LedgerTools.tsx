@@ -3,12 +3,14 @@ import { Switch, TextInput, View } from 'react-native';
 import {
   type ManagedCategory,
   type QuickTemplate,
+  activeAccounts,
   amountInput,
   categoryColors,
   categoryFor,
   categoryIcons,
   entryDefault,
   id,
+  isAccountArchived,
   parseAmount,
 } from '../domain/ledger';
 import { useLedger } from '../state/LedgerProvider';
@@ -406,6 +408,7 @@ export function TemplateManager({ onBack }: { onBack: () => void }) {
                     (account) => account.id === item.accountId,
                   )?.name
                 }
+                {isAccountArchived(ledger, item.accountId) ? ' · 账户已归档' : ''}
                 {ledger.categories.find(
                   (category) => category.id === item.categoryId,
                 )?.hidden
@@ -482,7 +485,7 @@ export function TemplateManager({ onBack }: { onBack: () => void }) {
             账户
           </Txt>
           <View style={[styles.row, { flexWrap: 'wrap', gap: 7 }]}>
-            {ledger.accounts.map((account) => (
+            {activeAccounts(ledger).map((account) => (
               <Button
                 key={account.id}
                 label={`常用账户${account.name}`}
@@ -494,6 +497,11 @@ export function TemplateManager({ onBack }: { onBack: () => void }) {
               </Button>
             ))}
           </View>
+          {isAccountArchived(ledger, form.accountId) && (
+            <Txt size={11} color={t.muted}>
+              当前账户已归档，可改用上方账户。
+            </Txt>
+          )}
           <TextInput
             accessibilityLabel="常用备注"
             placeholder="备注（选填）"

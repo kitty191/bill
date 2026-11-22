@@ -7,12 +7,15 @@ import {
   type Entry,
   parseAmount,
   amountInput,
+  shiftMonth,
 } from './ledger';
+import { monthRange, shiftDay, validMonth } from './dates';
 
 export type EntryFilters = {
   range: boolean;
   startDate: string;
   endDate: string;
+  datePreset?: 'recent' | 'previous';
   categoryId: string;
   accountId: string;
   minAmount?: string;
@@ -27,14 +30,29 @@ export const emptyFilters = (): EntryFilters => ({
   minAmount: '',
   maxAmount: '',
 });
+
+export function dateFilterPresets(today: string) {
+  const month = today.slice(0, 7);
+  const previousMonth = shiftMonth(month, -1);
+  const weekStart = shiftDay(today, -6);
+  return {
+    recent: {
+      startDate: validDate(weekStart) ? weekStart : `${month}-01`,
+      endDate: today,
+    },
+    previous: validMonth(previousMonth) ? monthRange(previousMonth) : null,
+  };
+}
+
 export function validateFilters(filters: EntryFilters) {
-  if (
-    filters.range &&
-    (!validDate(filters.startDate) || !validDate(filters.endDate))
-  )
-    throw new Error('请选择有效的开始和结束日期');
-  if (filters.range && filters.startDate > filters.endDate)
-    throw new Error('开始日期不能晚于结束日期');
+  if (filters.range) {
+    if (!validDate(filters.startDate))
+      throw new Error('请输入有效的开始日期（YYYY-MM-DD）');
+    if (!validDate(filters.endDate))
+      throw new Error('请输入有效的结束日期（YYYY-MM-DD）');
+    if (filters.startDate > filters.endDate)
+      throw new Error('开始日期不能晚于结束日期');
+  }
   const min = amountBound(filters.minAmount);
   const max = amountBound(filters.maxAmount);
   if (min !== null && max !== null && min > max)

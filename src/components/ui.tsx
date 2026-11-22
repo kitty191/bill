@@ -199,6 +199,7 @@ export function Button({
   label,
   variant = 'primary',
   disabled,
+  selected,
   style,
   testID,
   hitSlop,
@@ -208,6 +209,7 @@ export function Button({
   label?: string;
   variant?: 'primary' | 'soft' | 'plain' | 'danger';
   disabled?: boolean;
+  selected?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   hitSlop?: number;
@@ -220,16 +222,14 @@ export function Button({
     transform: [{ scale: reduce ? 1 : 1 - pressed.value * 0.025 }],
   }));
   const bg = {
-    primary: t.dark ? '#A0CCAD' : '#345B48',
+    primary: t.primary,
     soft: t.accentSoft,
     plain: 'transparent',
-    danger: t.dark ? '#4E2A2A' : '#F9EDEC',
+    danger: t.dark ? '#4B2828' : '#FBECEB',
   }[variant];
   const fg =
     variant === 'primary'
-      ? t.dark
-        ? '#193423'
-        : '#FFFFFF'
+      ? t.onPrimary
       : variant === 'danger'
         ? t.danger
         : t.accent;
@@ -241,7 +241,7 @@ export function Button({
       accessibilityLabel={
         label ?? (typeof children === 'string' ? children : undefined)
       }
-      accessibilityState={{ disabled: !!disabled }}
+      accessibilityState={{ disabled: !!disabled, selected }}
       disabled={disabled}
       onPress={onPress}
       onPressIn={() => {
@@ -250,7 +250,16 @@ export function Button({
       onPressOut={() => {
         pressed.value = reduce ? 0 : withSpring(0, motion.spring);
       }}
-      style={[styles.button, { backgroundColor: bg }, style, pressStyle]}
+      style={[
+        styles.button,
+        {
+          backgroundColor: bg,
+          borderWidth: variant === 'soft' ? 1 : 0,
+          borderColor: variant === 'soft' ? t.heroBorder : 'transparent',
+        },
+        style,
+        pressStyle,
+      ]}
     >
       {typeof children === 'string' ? (
         <Txt weight="600" color={fg}>
@@ -292,7 +301,8 @@ export function IconButton({
           borderRadius: 22,
           backgroundColor: t.surface,
           borderWidth: 1,
-          borderColor: t.border,
+          borderColor: t.cardBorder,
+          boxShadow: t.pillShadow,
           alignItems: 'center',
           justifyContent: 'center',
           paddingHorizontal: 0,
@@ -320,11 +330,11 @@ export function Card({
       style={[
         {
           backgroundColor: t.surface,
-          borderRadius: 24,
-          padding: 22,
+          borderRadius: 22,
+          padding: 20,
           borderWidth: 1,
-          borderColor: t.dark ? t.border : '#E8EDE5',
-          boxShadow: t.dark ? 'none' : '0 3px 14px rgba(40,66,45,0.025)',
+          borderColor: t.cardBorder,
+          boxShadow: t.cardShadow,
         },
         style,
       ]}
@@ -354,7 +364,7 @@ export function Glass({
       style={[
         {
           overflow: 'hidden',
-          borderRadius: 30,
+          borderRadius: 28,
           borderWidth: 1,
           borderColor: t.glassEdge,
           backgroundColor: variant === 'sheet' ? t.sheet : t.glass,
@@ -413,10 +423,10 @@ export function SectionTitle({
     <View
       style={[
         styles.row,
-        { justifyContent: 'space-between', marginTop: 26, marginBottom: 14 },
+        { justifyContent: 'space-between', marginTop: 24, marginBottom: 12 },
       ]}
     >
-      <Txt size={17} weight="600">
+      <Txt size={16} weight="600" style={{ letterSpacing: -0.2 }}>
         {title}
       </Txt>
       {action && onPress && (
@@ -425,8 +435,8 @@ export function SectionTitle({
           onPress={onPress}
           style={{ minHeight: 32, paddingHorizontal: 0 }}
         >
-          <View style={styles.row}>
-            <Txt size={12} color={t.muted}>
+          <View style={[styles.row, { gap: 4 }]}>
+            <Txt size={12} color={t.muted} weight="500">
               {action}
             </Txt>
             <Icon name="right" size={13} color={t.muted} />
@@ -443,12 +453,16 @@ export function EntryRow({
   onPress,
   last = false,
   onLongPress,
+  selected,
+  disabled = false,
 }: {
   entry: Entry;
   ledger: Ledger;
   onPress: () => void;
   last?: boolean;
   onLongPress?: () => void;
+  selected?: boolean;
+  disabled?: boolean;
 }) {
   const t = useTheme();
   const money = useMoney();
@@ -460,7 +474,9 @@ export function EntryRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${entry.date} ${entry.note || category.label} ${entry.kind === 'income' ? '收入' : entry.kind === 'expense' ? '支出' : entry.kind === 'refund' ? '退款' : '转账'} ${money(entry.amount)} 元，查看详情`}
+      accessibilityLabel={`${entry.date} ${entry.note || category.label} ${entry.kind === 'income' ? '收入' : entry.kind === 'expense' ? '支出' : entry.kind === 'refund' ? '退款' : '转账'} ${money(entry.amount)} 元，${selected === undefined ? '查看详情' : selected ? '已选中' : '选择账单'}`}
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
       onLongPress={
         onLongPress
@@ -484,7 +500,8 @@ export function EntryRow({
         {
           paddingVertical: 16,
           gap: 13,
-          opacity: pressed ? 0.6 : 1,
+          opacity: disabled || pressed ? 0.6 : 1,
+          backgroundColor: selected ? t.accentSoft : undefined,
           borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth,
           borderColor: t.border,
         },
@@ -494,10 +511,12 @@ export function EntryRow({
         style={{
           width: 43,
           height: 43,
-          borderRadius: 15,
+          borderRadius: 14,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: `${category.color}${t.dark ? '24' : '15'}`,
+          backgroundColor: `${category.color}${t.dark ? '24' : '16'}`,
+          borderWidth: 1,
+          borderColor: `${category.color}${t.dark ? '2E' : '22'}`,
         }}
       >
         <Icon
@@ -506,31 +525,38 @@ export function EntryRow({
           size={20}
         />
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Txt size={14} weight="500" numberOfLines={1}>
-          {entry.note || category.label}
-        </Txt>
-        <Txt size={11} color={t.muted} numberOfLines={1}>
-          {entry.kind === 'refund' ? '退款 · ' : ''}
-          {category.label} · {account}
-          {entry.kind === 'transfer' ? ` → ${destination}` : ''}
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+        <View style={[styles.row, { justifyContent: 'space-between' }]}>
+          <Txt size={15} weight="500" numberOfLines={1} style={{ flex: 1 }}>
+            {entry.note || category.label}
+          </Txt>
+          <MoneyText
+            amount={entry.amount}
+            currency
+            prefix={
+              entry.kind === 'income' || entry.kind === 'refund'
+                ? '+'
+                : entry.kind === 'expense'
+                  ? '−'
+                  : ''
+            }
+            size={16}
+            color={
+              entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
+            }
+            style={{
+              flexShrink: 1,
+              maxWidth: '68%',
+              textAlign: 'right',
+              fontWeight: '600',
+            }}
+          />
+        </View>
+        <Txt size={12} color={t.muted} numberOfLines={1}>
+          {entry.kind === 'transfer' ? `${account} → ${destination} · 转账`
+            : `${entry.kind === 'refund' ? '退款到账 · ' : ''}${account} · ${category.label}`}
         </Txt>
       </View>
-      <MoneyText
-        amount={entry.amount}
-        prefix={
-          entry.kind === 'income' || entry.kind === 'refund'
-            ? '+'
-            : entry.kind === 'expense'
-              ? '−'
-              : ''
-        }
-        size={16}
-        color={
-          entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
-        }
-        style={{ flexShrink: 1 }}
-      />
     </Pressable>
   );
 }

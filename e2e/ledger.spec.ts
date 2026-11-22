@@ -146,6 +146,15 @@ test('backup validation and explicit confirmation protect existing data', async 
   );
   const data = JSON.parse(existing!);
   data.entries[0].amount = 777;
+  const existingDate = data.entries[0].date;
+  data.accounts[0].name = '备用钱包';
+  data.entries.push({
+    ...data.entries[0],
+    id: 'older-backup-entry',
+    date: '2020-01-05',
+    createdAt: '2020-01-05T04:00:00.000Z',
+    amount: 345,
+  });
   const nextPick = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: '恢复备份', exact: true }).click();
   await (
@@ -158,6 +167,8 @@ test('backup validation and explicit confirmation protect existing data', async 
   await expect(
     page.getByRole('button', { name: '确认恢复备份' }),
   ).toBeVisible();
+  await expect(page.getByText(`账单日期 2020-01-05 至 ${existingDate}`)).toBeVisible();
+  await expect(page.getByText(/账户 备用钱包/)).toBeVisible();
   expect(
     await page.evaluate(() => localStorage.getItem('qingzhang.ledger.v1')),
   ).toBe(existing);
@@ -198,17 +209,19 @@ test('corrupt local data is preserved and can be recovered from a valid backup',
   expect(
     await page.evaluate(() => localStorage.getItem('qingzhang.ledger.v1')),
   ).toBe('damaged-json');
-  const pick = page.waitForEvent('filechooser');
-  await page
-    .getByRole('button', { name: '从备份恢复账本', exact: true })
-    .click();
-  await (
-    await pick
-  ).setFiles({
-    name: 'backup.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(backup!),
-  });
+  const chooseBackup = async (content: string) => {
+    const picker = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: '从备份恢复账本', exact: true }).click();
+    await (await picker).setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(content) });
+  };
+  await chooseBackup(backup!);
+  const confirm = page.getByRole('button', { name: '确认恢复账本', exact: true });
+  await expect(confirm).toBeVisible();
+  await chooseBackup('invalid-json');
+  await expect(page.getByText(/无法导入/)).toBeVisible();
+  await expect(confirm).toHaveCount(0);
+  await chooseBackup(backup!);
+  await expect(page.getByText(/无法导入/)).toHaveCount(0);
   await page.getByRole('button', { name: '确认恢复账本', exact: true }).click();
   await expect(page.getByTestId('month-expense')).toHaveText('22.20');
 });

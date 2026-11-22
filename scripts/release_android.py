@@ -20,7 +20,7 @@ from android_inputs import changed_android_inputs
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = 'kitty191/bill'
 AUTHOR = {'GIT_AUTHOR_NAME': 'kitty191', 'GIT_AUTHOR_EMAIL': '265797658+kitty191@users.noreply.github.com', 'GIT_COMMITTER_NAME': 'Codex', 'GIT_COMMITTER_EMAIL': 'codex@openai.com'}
-APP_INPUTS = ['App.tsx', 'src', 'assets', 'native-deps', 'index.ts', 'app.json', 'package.json', 'package-lock.json', 'babel.config.js', 'metro.config.js', 'scripts/build_android.py', 'scripts/android-release.init.gradle']
+APP_INPUTS = ['App.tsx', 'src', 'assets', 'native-deps', 'modules', 'plugins', 'index.ts', 'app.json', 'package.json', 'package-lock.json', 'babel.config.js', 'metro.config.js', 'scripts/build_android.py', 'scripts/android-release.init.gradle']
 REQUIRED = {'typecheck', 'unit', 'web-export', 'browser', 'ios-export', 'apk-build', 'apk-verify'}
 
 class ReleaseError(RuntimeError):
@@ -34,6 +34,8 @@ def git(*args):
 
 def context():
     app = json.loads((ROOT/'app.json').read_text())['expo']
+    if app['android']['package'] == 'com.kitty191.qingzhang.app':
+        raise ReleaseError('Use scripts/prepare_android_update.py for com.kitty191.qingzhang.app')
     package = json.loads((ROOT/'package.json').read_text())
     if package['version'] != app['version']:
         raise ReleaseError('package.json and app.json versions differ')

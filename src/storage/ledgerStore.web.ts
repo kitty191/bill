@@ -8,6 +8,7 @@ import {
 const key = 'qingzhang.ledger.v1';
 const snapshotsKey = 'qingzhang.ledger.snapshots.v1';
 const draftKey = 'qingzhang.entry-draft.v1';
+const savedEntryFiltersKey = 'qingzhang.saved-entry-filters.v1';
 export type SaveLedgerOptions = {
   consumeDraftId?: string;
   clearDraft?: boolean;
@@ -37,6 +38,12 @@ export async function loadEntryDraftRaw() {
 }
 export async function saveEntryDraftRaw(payload: string) {
   localStorage.setItem(draftKey, payload);
+}
+export async function loadSavedEntryFiltersRaw() {
+  return localStorage.getItem(savedEntryFiltersKey);
+}
+export async function saveSavedEntryFiltersRaw(payload: string) {
+  localStorage.setItem(savedEntryFiltersKey, payload);
 }
 export async function clearEntryDraftRaw(id?: string) {
   const raw = localStorage.getItem(draftKey);

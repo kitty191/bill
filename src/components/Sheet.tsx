@@ -39,6 +39,8 @@ import { motion } from '../motion';
 import { SheetScrollContext } from './sheetScroll';
 
 const sheetEntering = FadeInDown.duration(motion.sheet);
+// On web, on-drag also blurs inputs during scrolls caused by focus or layout.
+const keyboardDismissMode = Platform.OS === 'web' ? 'none' : 'on-drag';
 export type SheetHandle = { close: () => void; reopen: () => void };
 
 export function Sheet({
@@ -262,11 +264,11 @@ export function Sheet({
               >
                 <View
                   style={{
-                    width: 36,
-                    height: 4,
-                    borderRadius: 2,
+                    width: 38,
+                    height: 4.5,
+                    borderRadius: 3,
                     backgroundColor: t.muted,
-                    opacity: 0.32,
+                    opacity: 0.25,
                   }}
                 />
               </View>
@@ -275,16 +277,16 @@ export function Sheet({
               style={[
                 styles.row,
                 {
-                  paddingHorizontal: 25,
+                  paddingHorizontal: 24,
                   justifyContent: 'space-between',
-                  marginBottom: 15,
+                  marginBottom: 14,
                 },
               ]}
             >
               <Txt
                 size={21}
                 weight="600"
-                style={{ flex: 1, minWidth: 0, paddingRight: 12 }}
+                style={{ flex: 1, minWidth: 0, paddingRight: 12, letterSpacing: -0.3 }}
               >
                 {title}
               </Txt>
@@ -294,10 +296,13 @@ export function Sheet({
                 disabled={!dismissible}
                 onPress={dismiss}
                 style={{
-                  width: 36,
-                  height: 36,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
                   backgroundColor: t.surfaceAlt,
-                  borderWidth: 0,
+                  borderWidth: 1,
+                  borderColor: t.cardBorder,
+                  boxShadow: 'none',
                 }}
               />
             </View>
@@ -311,7 +316,7 @@ export function Sheet({
                 focusedInput.current = null;
               }}
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+              keyboardDismissMode={keyboardDismissMode}
               contentContainerStyle={{
                 paddingHorizontal: 25,
                 paddingBottom: 14,

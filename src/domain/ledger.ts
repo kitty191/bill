@@ -1,5 +1,10 @@
 export type EntryKind = 'expense' | 'income' | 'transfer' | 'refund';
-export type Account = { id: string; name: string; openingBalance: number };
+export type Account = {
+  id: string;
+  name: string;
+  openingBalance: number;
+  archived?: boolean;
+};
 export type Entry = {
   id: string;
   kind: EntryKind;
@@ -20,6 +25,7 @@ export type Ledger = {
   entries: Entry[];
   monthlyBudget: number;
   monthBudgets: Record<string, number>;
+  categoryBudgets?: { categoryId: string; amount: number }[];
   showAccountCards: boolean;
   categories: ManagedCategory[];
   templates: QuickTemplate[];
@@ -102,18 +108,28 @@ export function categoryFor(ledger: Ledger, categoryId: string): Category {
 export function visibleCategories(ledger: Ledger, kind: 'expense' | 'income') {
   return ledger.categories.filter((c) => c.kind === kind && !c.hidden);
 }
+export function activeAccounts(ledger: Ledger): Account[] {
+  return ledger.accounts.filter((account) => !account.archived);
+}
+
+export function isAccountArchived(ledger: Ledger, accountId?: string): boolean {
+  return ledger.accounts.some(
+    (account) => account.id === accountId && account.archived,
+  );
+}
+
 export function entryDefault(
   ledger: Ledger,
   kind: 'expense' | 'income',
 ): EntryDefault {
   const saved = ledger.defaults[kind];
+  const accounts = activeAccounts(ledger);
   return {
     categoryId:
       visibleCategories(ledger, kind).find((c) => c.id === saved?.categoryId)
         ?.id ?? visibleCategories(ledger, kind)[0]!.id,
     accountId:
-      ledger.accounts.find((a) => a.id === saved?.accountId)?.id ??
-      ledger.accounts[0]!.id,
+      accounts.find((a) => a.id === saved?.accountId)?.id ?? accounts[0]!.id,
   };
 }
 
@@ -294,9 +310,19 @@ export function validateLedger(input: unknown): Ledger {
       isText(x.name, 20, true) && isAmount(x.openingBalance, true),
       '账户名称或初始余额无效',
     );
+    invariant(
+      x.archived === undefined || typeof x.archived === 'boolean',
+      '账户归档状态无效',
+    );
     ids.add(x.id);
-    return { id: x.id, name: x.name.trim(), openingBalance: x.openingBalance };
+    return {
+      id: x.id,
+      name: x.name.trim(),
+      openingBalance: x.openingBalance,
+      ...(x.archived ? { archived: true } : {}),
+    };
   });
+  invariant(accounts.some((a) => !a.archived), '请至少保留一个可用账户');
   const categoryIds = new Set<string>();
   const categoryNames = new Set<string>();
   const rawCategories =
@@ -336,6 +362,18 @@ export function validateLedger(input: unknown): Ledger {
       hidden: c.hidden,
     };
   });
+  const categoryBudgets: NonNullable<Ledger['categoryBudgets']> = [];
+  if (data.categoryBudgets !== undefined) {
+    invariant(Array.isArray(data.categoryBudgets) && data.categoryBudgets.length <= categories.length, '分类预算格式无效');
+    const eligible = new Set(categories.filter((category) => category.kind === 'expense').map((category) => category.id));
+    for (const raw of data.categoryBudgets) {
+      invariant(raw && typeof raw === 'object', '分类预算格式无效');
+      const { categoryId, amount } = raw;
+      invariant(typeof categoryId === 'string' && eligible.delete(categoryId), '分类预算引用的分类无效或重复');
+      invariant(isAmount(amount) && amount > 0, '分类预算须为正金额');
+      categoryBudgets.push({ categoryId, amount });
+    }
+  }
   for (const kind of ['expense', 'income'])
     invariant(
       categories.some((c) => c.kind === kind && !c.hidden),
@@ -590,6 +628,7 @@ export function validateLedger(input: unknown): Ledger {
     entries,
     monthlyBudget: data.monthlyBudget,
     monthBudgets,
+    ...(categoryBudgets.length ? { categoryBudgets } : {}),
     showAccountCards: data.showAccountCards ?? false,
     categories,
     templates,
@@ -605,6 +644,16 @@ export function upsertEntry(
   entry: Entry,
   remember = false,
 ): Ledger {
+  const previous = ledger.entries.find((item) => item.id === entry.id);
+  const original = previous?.kind === entry.kind ? previous : undefined;
+  const allowed = (accountId?: string, originalId?: string) =>
+    accountId === originalId || !isAccountArchived(ledger, accountId);
+  invariant(
+    allowed(entry.accountId, original?.accountId) &&
+      (entry.kind !== 'transfer' ||
+        allowed(entry.toAccountId, original?.toAccountId)),
+    '所选账户已归档，请选择可用账户',
+  );
   const entries = [
     ...ledger.entries.filter((e) => e.id !== entry.id),
     entry,
@@ -645,7 +694,7 @@ export function restoreEntry(ledger: Ledger, entry: Entry): Ledger {
     !ledger.entries.some((item) => item.id === entry.id),
     '同一账单已存在，不能重复恢复',
   );
-  return upsertEntry(ledger, entry);
+  return validateLedger({ ...ledger, entries: [...ledger.entries, entry] });
 }
 export function refundAmounts(entries: Entry[]): Map<string, number> {
   const values = new Map<string, number>();
@@ -663,24 +712,49 @@ export function remainingRefund(ledger: Ledger, expense: Entry): number {
     : 0;
 }
 
+function accountMovement(entry: Entry, accountId: string): number {
+  if (entry.kind === 'transfer') {
+    return (
+      (entry.toAccountId === accountId ? entry.amount : 0) -
+      (entry.accountId === accountId ? entry.amount : 0)
+    );
+  }
+  if (entry.accountId !== accountId) return 0;
+  return entry.kind === 'expense' ? -entry.amount : entry.amount;
+}
+
 export function accountBalance(ledger: Ledger, accountId: string): number {
   return ledger.entries.reduce(
-    (sum, e) => {
-      if (e.kind === 'transfer')
-        return (
-          sum -
-          (e.accountId === accountId ? e.amount : 0) +
-          (e.toAccountId === accountId ? e.amount : 0)
-        );
-      return (
-        sum +
-        (e.accountId === accountId
-          ? e.amount * (e.kind === 'income' || e.kind === 'refund' ? 1 : -1)
-          : 0)
-      );
-    },
+    (sum, entry) => sum + accountMovement(entry, accountId),
     ledger.accounts.find((a) => a.id === accountId)?.openingBalance ?? 0,
   );
+}
+
+export function accountPeriodBalance(
+  entries: readonly Entry[],
+  account: Account,
+  startDate: string,
+  endDate: string,
+) {
+  let opening = account.openingBalance;
+  let inflow = 0;
+  let outflow = 0;
+  for (const entry of entries) {
+    if (entry.date > endDate) continue;
+    const movement = accountMovement(entry, account.id);
+    if (entry.date < startDate) opening += movement;
+    else if (movement > 0) inflow += movement;
+    else outflow -= movement;
+  }
+  return { opening, inflow, outflow, closing: opening + inflow - outflow };
+}
+
+export function parseReconciliationBalance(raw: string): number {
+  const parts = /^(-?)(\d{1,12})(?:\.(\d{1,2}))?$/.exec(raw.trim());
+  if (!parts) throw new Error('请输入有效的实际余额，最多保留两位小数');
+  const [, sign, whole, fraction = ''] = parts;
+  const amount = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  return sign === '-' && amount !== 0 ? -amount : amount;
 }
 
 export function monthEntries(ledger: Ledger, month: string): Entry[] {
@@ -768,23 +842,21 @@ export function demoLedger(now = new Date()): Ledger {
   return validateLedger(ledger);
 }
 
-export function csv(ledger: Ledger): string {
+export const csvColumns = [
+  '日期', '类型', '分类', '金额（元）', '账户', '转入账户', '备注', '关联原账单',
+] as const;
+
+export function csv(
+  ledger: Ledger,
+  entries: readonly Entry[] = ledger.entries,
+): string {
   const cell = (value: string) =>
-    `"${(/^[=+\-@\t\r]/.test(value) ? "'" : '') + value.replace(/"/g, '""')}"`;
+    `"${(/^'*(?:[=+\-@\t\r])/.test(value) ? "'" : '') + value.replace(/"/g, '""')}"`;
   return (
     '\uFEFF' +
     [
-      [
-        '日期',
-        '类型',
-        '分类',
-        '金额（元）',
-        '账户',
-        '转入账户',
-        '备注',
-        '关联原账单',
-      ],
-      ...[...ledger.entries]
+      csvColumns,
+      ...[...entries]
         .sort((a, b) => b.date.localeCompare(a.date))
         .map((e) => [
           e.date,
@@ -806,4 +878,17 @@ export function csv(ledger: Ledger): string {
 
 export function budgetForMonth(ledger: Ledger, month: string): number {
   return ledger.monthBudgets[month] ?? ledger.monthlyBudget;
+}
+
+export function budgetPace(budget: number, expense: number, today: string) {
+  const year = Number(today.slice(0, 4));
+  const month = Number(today.slice(5, 7));
+  const day = Number(today.slice(8, 10));
+  const totalDays = daysInMonth(year, month);
+  const daysLeft = totalDays - day + 1;
+  return {
+    daysLeft,
+    dailyAllowance: Math.floor(Math.max(0, budget - expense) / daysLeft),
+    overPace: expense * totalDays > budget * day,
+  };
 }

@@ -16,6 +16,7 @@ import { clearEntryDraft, loadEntryDraft } from './src/storage/entryDraftStore';
 import {
   ActivityIndicator,
   Keyboard,
+  Linking,
   Platform,
   ScrollView,
   View,
@@ -41,6 +42,7 @@ import {
   shiftMonth,
 } from './src/domain/ledger';
 import { importLedger } from './src/storage/backup';
+import { emptyFilters } from './src/domain/entryFilters';
 import { LedgerProvider, useLedger } from './src/state/LedgerProvider';
 import { ThemeProvider, useTheme } from './src/theme';
 import {
@@ -55,10 +57,15 @@ import { BottomNavigation, type Tab } from './src/components/BottomNavigation';
 import { EntryEditor } from './src/components/EntryEditor';
 import { EntryActions } from './src/components/EntryActions';
 import { SettingsSheet } from './src/components/SettingsSheet';
+import { AccountDetailsSheet } from './src/components/AccountDetailsSheet';
+import { BackupPasswordSheet } from './src/components/BackupPasswordSheet';
+import { type EncryptedBackup } from './src/domain/encryptedBackup';
+import { shortcutKind } from './src/domain/entryShortcut';
 import { HomeScreen } from './src/screens/HomeScreen';
 import {
   EntriesScreen,
   type EntriesListHandle,
+  type EntriesTarget,
 } from './src/screens/EntriesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { SwipePager } from './src/components/SwipePager';
@@ -115,6 +122,9 @@ function Main() {
     restoreDeleted,
   } = useLedger();
   const [recovery, setRecovery] = useState<Ledger | null>(null);
+  const pickingRecovery = useRef(false);
+  const [pickingBackup, setPickingBackup] = useState(false);
+  const [encryptedRecovery, setEncryptedRecovery] = useState<EncryptedBackup | null>(null);
   const [recoveryError, setRecoveryError] = useState('');
   const [tab, setTab] = useState<Tab>('home');
   const [statsReady, setStatsReady] = useState(false);
@@ -135,10 +145,10 @@ function Main() {
   const tabRef = useRef<Tab>('home');
   const pageProgress = useSharedValue(0);
   const [month, setMonth] = useState(localDate().slice(0, 7));
-  const [entriesTarget, setEntriesTarget] = useState<{
-    key: number;
-    date?: string;
-  }>({ key: 0 });
+  const [entriesTarget, setEntriesTarget] = useState<EntriesTarget>(() => ({
+    kind: 'all',
+    filters: emptyFilters(),
+  }));
   const entriesScroll = useRef<EntriesListHandle>(null);
   const homeScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const statsScroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -153,6 +163,14 @@ function Main() {
   const [settings, setSettings] = useState<
     false | 'main' | 'privacy' | 'recurring'
   >(false);
+  const [accountDetailsId, setAccountDetailsId] = useState<string | null>(null);
+  const [accountEntries, setAccountEntries] = useState<{
+    month: string;
+    target: EntriesTarget;
+  } | null>(null);
+  const accountDetails = ledger?.accounts.find(
+    (account) => account.id === accountDetailsId,
+  );
   const [snapshotRecovery, setSnapshotRecovery] = useState(false);
   const privacy = usePrivacy();
   const automaticBackup = useAutomaticBackup();
@@ -230,7 +248,7 @@ function Main() {
     setActionEntryId(null);
     setEditor({ repeatSource });
   }, []);
-  const openEditor = useCallback(() => {
+  const openEditorWithKind = useCallback((initialKind?: 'expense' | 'income') => {
     if (openingEditor.current) return;
     openingEditor.current = true;
     void (async () => {
@@ -241,27 +259,73 @@ function Main() {
           try {
             setEditor({
               ...resumeEntryDraft(draft, current),
+              initialKind,
               restoredDraft: draft,
+              draftWarning: initialKind && initialKind !== draft.fields.kind
+                ? '已继续未完成的草稿，可点「重新记」开始新账单'
+                : undefined,
             });
           } catch (error) {
             await clearEntryDraft(draft.id);
             setEditor({
+              initialKind,
               draftWarning:
                 error instanceof Error ? error.message : '旧草稿已失效',
             });
           }
-        } else setEditor({});
+        } else setEditor({ initialKind });
       } catch (error) {
         setEditor({
+          initialKind,
           draftWarning: error instanceof Error ? error.message : '草稿读取失败',
         });
       } finally {
         openingEditor.current = false;
       }
     })();
-  }, [setToast]);
+  }, []);
+  const openEditor = useCallback(() => openEditorWithKind(), [openEditorWithKind]);
+  const [shortcut, setShortcut] = useState<'expense' | 'income' | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    let active = true;
+    let receivedShortcutEvent = false;
+    const receive = (url: string | null | undefined) => {
+      const kind = shortcutKind(url ?? null);
+      if (active && kind) setShortcut(kind);
+    };
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (!receivedShortcutEvent) receive(url);
+      })
+      .catch(() => {});
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (shortcutKind(url)) receivedShortcutEvent = true;
+      receive(url);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      !shortcut || !ledger || loading || !privacy.active ||
+      privacy.phase !== 'unlocked' || editor || settings || accountDetails
+    ) return;
+    setShortcut(null);
+    openEditorWithKind(shortcut);
+  }, [
+    shortcut, ledger, loading, privacy.active, privacy.phase, editor,
+    settings, accountDetails, openEditorWithKind,
+  ]);
   const openSettings = useCallback(() => setSettings('main'), []);
   const closeSettings = useCallback(() => setSettings(false), []);
+  const openAccountDetails = useCallback(
+    (id: string) => setAccountDetailsId(id),
+    [],
+  );
+  const closeAccountDetails = useCallback(() => setAccountDetailsId(null), []);
   const openBackup = useCallback(() => setSettings('privacy'), []);
   const openTemplate = useCallback(
     (templateId: string) => setEditor({ templateId }),
@@ -279,18 +343,45 @@ function Main() {
     [],
   );
   const openRecurringSettings = useCallback(() => setSettings('recurring'), []);
-  const showAll = useCallback(() => {
-    setEntriesTarget((value) => ({ key: value.key + 1 }));
-    entriesScroll.current?.scrollToTop();
-    navigate('entries');
-  }, [navigate]);
+  const showEntries = useCallback(
+    (target: EntriesTarget) => {
+      setEntriesTarget(target);
+      entriesScroll.current?.scrollToTop();
+      navigate('entries');
+    },
+    [navigate],
+  );
+  useEffect(() => {
+    if (!accountEntries) return;
+    // Navigate after the sheet unmounts and returns focus to its opener.
+    setAccountEntries(null);
+    setMonth(accountEntries.month);
+    showEntries(accountEntries.target);
+  }, [accountEntries, showEntries]);
+  const showAll = useCallback(
+    () => showEntries({ kind: 'all', filters: emptyFilters() }),
+    [showEntries],
+  );
+  const showExpenseDay = useCallback(
+    (date: string) => {
+      setMonth(date.slice(0, 7));
+      showEntries({
+        kind: 'expense',
+        filters: { ...emptyFilters(), range: true, startDate: date, endDate: date },
+      });
+    },
+    [showEntries],
+  );
   const showToday = useCallback(() => {
-    const date = localDate();
-    setMonth(date.slice(0, 7));
-    setEntriesTarget((value) => ({ key: value.key + 1, date }));
-    entriesScroll.current?.scrollToTop();
-    navigate('entries');
-  }, [navigate]);
+    showExpenseDay(localDate());
+  }, [showExpenseDay]);
+  const showCategoryExpenses = useCallback(
+    (categoryId: string, selectedMonth?: string) => {
+      if (selectedMonth) setMonth(selectedMonth);
+      showEntries({ kind: 'expense', filters: { ...emptyFilters(), categoryId } });
+    },
+    [showEntries],
+  );
   const quickEntry =
     notice?.entryId && Date.now() < notice.expiresAt
       ? ledger?.entries.find((entry) => entry.id === notice.entryId)
@@ -320,9 +411,9 @@ function Main() {
               key === 'entries' ? (
                 <MemoEntriesScreen
                   today={today}
-                  resetKey={entriesTarget.key}
-                  focusDate={entriesTarget.date}
+                  target={entriesTarget}
                   listRef={entriesScroll}
+                  contentBottom={16}
                   ledger={ledger}
                   month={month}
                   onMonth={onMonth}
@@ -340,7 +431,7 @@ function Main() {
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={{
                     paddingHorizontal: 24,
-                    paddingBottom: Math.max(insets.bottom, 20) + 110,
+                    paddingBottom: 16,
                   }}
                 >
                   {key === 'home' ? (
@@ -355,6 +446,7 @@ function Main() {
                       onAll={showAll}
                       onToday={showToday}
                       onSettings={openSettings}
+                      onAccountDetails={openAccountDetails}
                       onTemplate={openTemplate}
                       onBackup={openBackup}
                       onRecurring={openRecurring}
@@ -366,6 +458,8 @@ function Main() {
                       ledger={ledger}
                       month={month}
                       onMonth={onMonth}
+                      onCategoryExpenses={showCategoryExpenses}
+                      onDayExpenses={showExpenseDay}
                     />
                   ) : (
                     <View
@@ -390,14 +484,16 @@ function Main() {
       onEntryActions,
       openEditor,
       openSettings,
+      openAccountDetails,
       openTemplate,
       openBackup,
       openRecurring,
       openRecurringSettings,
       showAll,
       showToday,
+      showCategoryExpenses,
+      showExpenseDay,
       entriesTarget,
-      insets.bottom,
       today,
       statsReady,
     ],
@@ -426,10 +522,10 @@ function Main() {
             <Txt color={t.muted} style={{ textAlign: 'center' }}>
               {error}
             </Txt>
-            <Button disabled={saving} onPress={reload}>
+            <Button disabled={saving || pickingBackup} onPress={reload}>
               重新读取
             </Button>
-            <Button variant="soft" onPress={() => setSnapshotRecovery(true)}>
+            <Button variant="soft" disabled={saving || pickingBackup} onPress={() => setSnapshotRecovery(true)}>
               从本机快照恢复
             </Button>
             {snapshotRecovery && (
@@ -446,15 +542,25 @@ function Main() {
             )}
             <Button
               variant="soft"
-              disabled={saving}
+              disabled={saving || pickingBackup}
               onPress={() => {
-                void importLedger()
+                if (pickingRecovery.current) return;
+                pickingRecovery.current = true;
+                setPickingBackup(true);
+                setRecovery(null);
+                setRecoveryError('');
+                setEncryptedRecovery(null);
+                void importLedger(setEncryptedRecovery)
                   .then(setRecovery)
                   .catch((e) =>
                     setRecoveryError(
                       e instanceof Error ? e.message : '备份读取失败',
                     ),
-                  );
+                  )
+                  .finally(() => {
+                    pickingRecovery.current = false;
+                    setPickingBackup(false);
+                  });
               }}
             >
               从备份恢复账本
@@ -483,6 +589,12 @@ function Main() {
                   取消恢复
                 </Button>
               </View>
+            )}
+            {encryptedRecovery && (
+              <BackupPasswordSheet
+                action={{ encrypted: encryptedRecovery, onDecode: setRecovery }}
+                onClose={() => setEncryptedRecovery(null)}
+              />
             )}
             {!!recoveryError && (
               <Txt size={12} color={t.danger}>
@@ -526,35 +638,36 @@ function Main() {
               style={{
                 paddingTop: Math.max(
                   insets.top,
-                  Platform.OS === 'web' ? 26 : 12,
+                  Platform.OS === 'web' ? 20 : 10,
                 ),
                 paddingHorizontal: 24,
-                paddingBottom: 27,
+                paddingBottom: 10,
               }}
             >
               <View style={[styles.row, { justifyContent: 'space-between' }]}>
-                <View style={[styles.row, { gap: 8 }]}>
+                <View style={[styles.row, { gap: 9 }]}>
                   <View
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 10,
-                      backgroundColor: t.accent,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 11,
+                      backgroundColor: t.primary,
                       alignItems: 'center',
                       justifyContent: 'center',
+                      boxShadow: t.pillShadow,
                     }}
                   >
                     <Icon
                       name="leaf"
                       size={17}
-                      color={t.dark ? '#203526' : '#FFFFFF'}
+                      color={t.onPrimary}
                     />
                   </View>
-                  <Txt size={19} weight="600" style={{ letterSpacing: 3 }}>
+                  <Txt size={19} weight="600" style={{ letterSpacing: 2.5 }}>
                     清账
                   </Txt>
                 </View>
-                <View style={[styles.row, { gap: 4 }]}>
+                <View style={[styles.row, { gap: 8 }]}>
                   <IconButton
                     name={privacy.preferences.hideAmounts ? 'eye-off' : 'eye'}
                     label={
@@ -580,7 +693,6 @@ function Main() {
                     name="settings"
                     label="打开设置"
                     onPress={openSettings}
-                    style={{ width: 38, height: 38, borderRadius: 19 }}
                   />
                 </View>
               </View>
@@ -611,19 +723,20 @@ function Main() {
               pointerEvents={undo || quickEntry ? 'auto' : 'none'}
               style={{
                 position: 'absolute',
-                top: Math.max(insets.top, 25) + 48,
-                left: 30,
-                right: 30,
-                borderRadius: 17,
+                bottom: Math.max(insets.bottom, 18) + 74,
+                left: 20,
+                right: 20,
+                borderRadius: 16,
                 backgroundColor: t.text,
-                paddingHorizontal: 17,
-                paddingVertical: 13,
-                gap: 5,
+                paddingHorizontal: 16,
+                paddingVertical: 11,
+                gap: 6,
+                boxShadow: '0 10px 28px rgba(16,32,22,0.22)',
               }}
             >
               {!!toast && (!undo || !toast.startsWith('账单已删除')) && (
                 <View style={[styles.row, { justifyContent: 'space-between' }]}>
-                  <Txt size={12} color={t.background} style={{ flex: 1 }}>
+                  <Txt size={13} color={t.background} style={{ flex: 1 }}>
                     {toast}
                   </Txt>
                   {quickEntry && (
@@ -633,9 +746,13 @@ function Main() {
                       disabled={saving}
                       onPress={editRecentlySaved}
                       style={{
-                        minHeight: 36,
-                        paddingHorizontal: 9,
-                        paddingVertical: 6,
+                        minHeight: 34,
+                        paddingHorizontal: 11,
+                        paddingVertical: 5,
+                        borderRadius: 11,
+                        backgroundColor: t.dark
+                          ? 'rgba(14,23,18,0.14)'
+                          : 'rgba(255,255,255,0.16)',
                       }}
                     >
                       <Txt size={12} color={t.background} weight="600">
@@ -647,7 +764,7 @@ function Main() {
               )}
               {undo && (
                 <View style={[styles.row, { justifyContent: 'space-between' }]}>
-                  <Txt size={12} color={t.background} style={{ flex: 1 }}>
+                  <Txt size={13} color={t.background} style={{ flex: 1 }}>
                     已删除一笔账单 · 8 秒内可撤销
                   </Txt>
                   <Button
@@ -669,9 +786,13 @@ function Main() {
                         );
                     }}
                     style={{
-                      minHeight: 36,
-                      paddingHorizontal: 9,
-                      paddingVertical: 6,
+                      minHeight: 34,
+                      paddingHorizontal: 11,
+                      paddingVertical: 5,
+                      borderRadius: 11,
+                      backgroundColor: t.dark
+                        ? 'rgba(14,23,18,0.14)'
+                        : 'rgba(255,255,255,0.16)',
                     }}
                   >
                     <Txt size={12} color={t.background} weight="600">
@@ -711,6 +832,7 @@ function Main() {
                       : (editor.templateId ?? 'new'))
               }
               entry={editor.entry}
+              initialKind={editor.initialKind}
               repeatSource={editor.repeatSource}
               refundOf={editor.refundOf}
               templateId={editor.templateId}
@@ -729,11 +851,40 @@ function Main() {
           )}
           {settings && (
             <SettingsSheet
+              visible={!accountDetails}
               month={month}
               initialPage={settings || 'main'}
               onClose={closeSettings}
               onSaved={setToast}
               onRecurring={openRecurring}
+              onAccountDetails={openAccountDetails}
+            />
+          )}
+          {accountDetails && (
+            <AccountDetailsSheet
+              key={accountDetails.id}
+              account={accountDetails}
+              entries={ledger.entries}
+              initialMonth={month}
+              today={today}
+              onClose={closeAccountDetails}
+              onEntries={(startDate, endDate) => {
+                closeAccountDetails();
+                closeSettings();
+                setAccountEntries({
+                  month: startDate.slice(0, 7),
+                  target: {
+                    kind: 'all',
+                    filters: {
+                      ...emptyFilters(),
+                      accountId: accountDetails.id,
+                      range: true,
+                      startDate,
+                      endDate,
+                    },
+                  },
+                });
+              }}
             />
           )}
         </View>

@@ -3,13 +3,19 @@ import { describe, expect, it } from 'vitest';
 import {
   type Entry,
   accountBalance,
+  accountPeriodBalance,
+  budgetPace,
   categoryTotals,
   csv,
   demoLedger,
+  deleteEntry,
   emptyLedger,
+  entryDefault,
   localDate,
   monthEntries,
   parseAmount,
+  parseReconciliationBalance,
+  restoreEntry,
   shiftMonth,
   totals,
   upsertEntry,
@@ -28,6 +34,55 @@ const expense: Entry = {
   createdAt: '2026-11-02T04:00:00.000Z',
 };
 
+describe('account reconciliation', () => {
+  it('uses cash movement dates for refunds, both transfer directions, and period cutoffs', () => {
+    const openingExpense = { ...expense, amount: 14000, date: '2026-10-26' };
+    const incoming: Entry = {
+      ...expense, id: 'in', kind: 'transfer', categoryId: 'transfer',
+      accountId: 'bank', toAccountId: 'wechat', amount: 1000, date: '2026-11-06',
+    };
+    const entries: Entry[] = [
+      openingExpense,
+      { ...expense, id: 'refund', kind: 'refund', originalEntryId: expense.id, amount: 2500, date: '2026-11-05' },
+      incoming,
+      { ...incoming, id: 'out', accountId: 'wechat', toAccountId: 'bank', amount: 900, date: '2026-11-07' },
+      { ...expense, id: 'future', amount: 500, date: '2026-11-30' },
+    ];
+    const account = { id: 'wechat', name: '微信', openingBalance: 10000 };
+    expect(accountPeriodBalance(entries, account, '2026-11-01', '2026-11-20')).toEqual({
+      opening: -4000, inflow: 3500, outflow: 900, closing: -1400,
+    });
+    expect(accountPeriodBalance(entries, account, '2026-11-01', '2026-11-30').closing)
+      .toBe(accountBalance({ ...emptyLedger(), accounts: [account], entries }, account.id));
+  });
+
+  it('parses an actual balance exactly, including zero and negative aggregates', () => {
+    expect(parseReconciliationBalance('  -14.01 ')).toBe(-1401);
+    expect(parseReconciliationBalance('-0')).toBe(0);
+    expect(parseReconciliationBalance('999999999999.99')).toBe(99_999_999_999_999);
+    expect(() => parseReconciliationBalance('1.005')).toThrow('两位小数');
+    expect(() => parseReconciliationBalance('1e5')).toThrow();
+  });
+});
+
+describe('monthly budget pace', () => {
+  it('includes today and rounds the daily allowance down to whole cents', () => {
+    expect(budgetPace(30_001, 24_000, '2028-02-20')).toEqual({
+      daysLeft: 10,
+      dailyAllowance: 600,
+      overPace: true,
+    });
+  });
+  it('keeps the last day available and clamps an overspent budget to zero', () => {
+    expect(budgetPace(1000, 1001, '2027-02-28')).toEqual({
+      daysLeft: 1,
+      dailyAllowance: 0,
+      overPace: true,
+    });
+    expect(budgetPace(3000, 1000, '2026-11-10').overPace).toBe(false);
+  });
+});
+
 describe('integer money', () => {
   it('parses decimal money exactly, without floating point rounding', () => {
     expect(parseAmount('0.29')).toBe(29);
@@ -42,6 +97,63 @@ describe('integer money', () => {
 });
 
 describe('ledger integrity and balance', () => {
+  it('preserves archived accounts in backups and validates their status', () => {
+    const ledger = upsertEntry(emptyLedger(), expense, true);
+    ledger.accounts[0]!.archived = true;
+    const restored = validateLedger(JSON.parse(JSON.stringify(ledger)));
+    expect(restored.accounts[0]?.archived).toBe(true);
+    expect(restored.entries).toEqual([expense]);
+    expect(accountBalance(restored, 'wechat')).toBe(-1234);
+    expect(entryDefault(restored, 'expense').accountId).toBe('alipay');
+    expect(() =>
+      validateLedger({
+        ...restored,
+        accounts: restored.accounts.map((account) => ({
+          ...account,
+          archived: true,
+        })),
+      }),
+    ).toThrow('请至少保留一个可用账户');
+    expect(() =>
+      validateLedger({
+        ...restored,
+        accounts: [
+          { ...restored.accounts[0], archived: 'true' },
+          ...restored.accounts.slice(1),
+        ],
+      }),
+    ).toThrow('账户归档状态无效');
+  });
+  it('allows historical edits and undo but rejects new postings to archived accounts', () => {
+    const transfer: Entry = {
+      ...expense,
+      id: 'transfer-existing',
+      kind: 'transfer',
+      accountId: 'alipay',
+      toAccountId: 'wechat',
+      categoryId: 'transfer',
+    };
+    const ledger = upsertEntry(upsertEntry(emptyLedger(), expense), transfer);
+    ledger.accounts[0]!.archived = true;
+    expect(() => upsertEntry(ledger, { ...expense, id: 'repeat' })).toThrow(
+      '已归档',
+    );
+    expect(() =>
+      upsertEntry(ledger, { ...transfer, id: 'another-transfer' }),
+    ).toThrow('已归档');
+    expect(() =>
+      upsertEntry(ledger, { ...expense, kind: 'income', categoryId: 'salary' }),
+    ).toThrow('已归档');
+    expect(
+      upsertEntry(ledger, { ...expense, note: '补充备注' }).entries,
+    ).toContainEqual({ ...expense, note: '补充备注' });
+    expect(
+      upsertEntry(ledger, { ...transfer, note: '历史转账' }).entries,
+    ).toContainEqual({ ...transfer, note: '历史转账' });
+    expect(
+      restoreEntry(deleteEntry(ledger, transfer.id), transfer).entries,
+    ).toContainEqual(transfer);
+  });
   it('starts with no sample entries', () =>
     expect(emptyLedger().entries).toEqual([]));
   it('opens older ledgers with account cards hidden and preserves financial data', () => {

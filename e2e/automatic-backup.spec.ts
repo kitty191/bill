@@ -136,6 +136,9 @@ test('manual independent backups keep seven valid owned versions and preserve un
   expect(
     Object.keys(archived).filter((name) => name.startsWith('qingzhang-auto-')),
   ).toHaveLength(7);
+  await page.getByRole('button', { name: '核验最近备份', exact: true }).click();
+  await expect(page.getByText('文件可恢复，共 1 笔账单')).toBeVisible();
+  expect(await files(page)).toEqual(archived);
   await page.screenshot({
     path: '/tmp/qingzhang-v070-automatic-backup-light.png',
   });
@@ -222,7 +225,10 @@ test('corrupt automation settings can be reset without overwriting a valid ledge
   await page
     .getByRole('button', { name: '重置自动备份设置', exact: true })
     .click();
-  await expect.poll(async () => (await pref(page))?.days).toBe(0);
+  await expect
+    .poll(() => page.evaluate((key) => localStorage.getItem(key), preferencesKey))
+    .not.toBe('{broken');
+  expect(await pref(page)).toMatchObject({ days: 0 });
   expect(
     await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)!),

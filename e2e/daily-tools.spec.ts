@@ -81,7 +81,7 @@ test('calendar details are accessible while the primary action stays visible', a
   await page.getByRole('button', { name: '记一笔', exact: true }).click();
   await page.getByRole('textbox', { name: '金额', exact: true }).fill('12');
   await page
-    .getByRole('button', { name: '选择分类、账户和日期', exact: true })
+    .getByRole('button', { name: '修改记账日期', exact: true })
     .click();
   await page.getByRole('button', { name: '记账日期昨天', exact: true }).click();
   await expect(
@@ -174,19 +174,38 @@ test('combined filters search across month boundaries and validate date order', 
   await expect(page.getByTestId('calendar-开始日期')).toHaveCount(0);
   await expect(page.getByTestId('calendar-结束日期')).toBeInViewport();
   await page.getByRole('button', { name: '选择结束日期', exact: true }).click();
-  await page
-    .getByRole('textbox', { name: '开始日期', exact: true })
-    .fill('2026-11-03');
-  await page
-    .getByRole('textbox', { name: '结束日期', exact: true })
-    .fill('2026-11-02');
+  const startDate = page.getByRole('textbox', { name: '开始日期', exact: true });
+  const endDate = page.getByRole('textbox', { name: '结束日期', exact: true });
+  await startDate.focus();
+  await startDate.evaluate(async (input) => {
+    let scroller = input.parentElement;
+    while (scroller && !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY))
+      scroller = scroller.parentElement;
+    if (!scroller || scroller.scrollHeight <= scroller.clientHeight)
+      throw new Error('Could not find the scrollable filter panel');
+    const scrolled = new Promise<void>((resolve) => {
+      scroller.addEventListener('scroll', () => requestAnimationFrame(() => resolve()), {
+        once: true,
+      });
+    });
+    scroller.scrollTop = scroller.scrollTop > 0 ? 0 : 24;
+    await scrolled;
+  });
+  await expect(startDate).toBeFocused();
+  await startDate.clear();
+  await startDate.pressSequentially('2026-11-03');
+  await endDate.clear();
+  await page.getByRole('button', { name: '应用筛选', exact: true }).click();
+  await expect(page.getByTestId('filter-error')).toContainText('有效的结束日期');
+  await endDate.pressSequentially('2026-11-02');
+  await expect(startDate).toHaveValue('2026-11-03');
+  await expect(endDate).toHaveValue('2026-11-02');
   await page.getByRole('button', { name: '应用筛选', exact: true }).click();
   await expect(page.getByTestId('filter-error')).toContainText(
     '开始日期不能晚于',
   );
-  await page
-    .getByRole('textbox', { name: '开始日期', exact: true })
-    .fill('2026-10-31');
+  await startDate.clear();
+  await startDate.pressSequentially('2026-10-31');
   await page.getByRole('button', { name: '筛选分类餐饮', exact: true }).click();
   await page.getByRole('button', { name: '筛选账户微信', exact: true }).click();
   await page.getByRole('button', { name: '应用筛选', exact: true }).click();
@@ -197,12 +216,24 @@ test('combined filters search across month boundaries and validate date order', 
     page.getByRole('button', { name: /十一月.*查看详情/ }),
   ).toHaveCount(0);
   await expect(page.getByTestId('active-entry-filters')).toContainText('1 笔');
+  const exportButton = page.getByRole('button', {
+    name: '导出筛选结果 CSV',
+    exact: true,
+  });
+  const downloading = page.waitForEvent('download');
+  await exportButton.click();
+  const file = await downloading;
+  expect(file.suggestedFilename()).toMatch(/^qingzhang-filtered-.*\.csv$/);
+  const table = await readFile((await file.path())!, 'utf8');
+  expect(table.split('\r\n')).toHaveLength(2);
+  expect(table).toContain('"2026-10-31","支出","餐饮","10.00","微信","","十月晚饭"');
   await page
     .getByRole('textbox', { name: '搜索账单', exact: true })
     .fill('不存在');
   await expect(
     page.getByText('没有找到这些账单', { exact: true }),
   ).toBeVisible();
+  await expect(exportButton).toBeDisabled();
   await page.getByRole('button', { name: '清除筛选', exact: true }).click();
   await expect(
     page.getByRole('button', { name: /十一月.*查看详情/ }),
@@ -210,6 +241,84 @@ test('combined filters search across month boundaries and validate date order', 
   await expect(
     page.getByRole('button', { name: /十月晚饭.*查看详情/ }),
   ).toHaveCount(0);
+});
+
+test('the current month shows budget pace and hides the daily amount in private mode', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2028-02-19T16:30:00Z'));
+  await seed(page, {
+    ...emptyLedger(),
+    monthBudgets: { '2028-01': 30_000, '2028-02': 30_000 },
+    entries: [{ ...expense, date: '2028-02-20', amount: 24_000 }],
+  });
+  const allowance = page.getByTestId('budget-daily-allowance');
+  await expect(allowance).toHaveText('本月还剩 10 天（含今天） · 日均可用 ¥6.00');
+  await expect(page.getByText('预算用量已超过本月进度')).toBeVisible();
+  await page.getByRole('button', { name: '隐藏金额', exact: true }).click();
+  await expect(allowance).toContainText('日均可用 ¥••••');
+  await page.getByRole('button', { name: '上个月', exact: true }).click();
+  await expect(allowance).toHaveCount(0);
+});
+
+test('relative date shortcuts use local dates across a year boundary and preserve other filters', async ({
+  page,
+}) => {
+  // In the browser's Asia/Shanghai time zone it is January 3, not January 2.
+  await page.clock.setFixedTime(new Date('2027-01-02T17:00:00Z'));
+  await seed(page, {
+    ...emptyLedger(),
+    entries: [
+      { ...expense, id: 'before', date: '2026-12-27', note: '窗口之前' },
+      { ...expense, id: 'first', date: '2026-12-28', note: '窗口第一天' },
+      { ...expense, id: 'today', date: '2027-01-03', note: '窗口最后一天' },
+      { ...expense, id: 'after', date: '2027-01-04', note: '窗口之后' },
+      {
+        ...expense,
+        id: 'different-account',
+        accountId: 'alipay',
+        date: '2026-12-31',
+        note: '其他账户账单',
+      },
+    ],
+  });
+  const button = (name: string) => page.getByRole('button', { name, exact: true });
+  const row = (note: string) =>
+    page.getByRole('button', { name: new RegExp(`${note}.*查看详情`) });
+  const startDate = page.getByRole('textbox', { name: '开始日期', exact: true });
+  const endDate = page.getByRole('textbox', { name: '结束日期', exact: true });
+  const summary = page.getByTestId('active-entry-filters');
+
+  await page.getByRole('tab', { name: '账单', exact: true }).click();
+  await button('上个月').click();
+  await button('打开组合筛选').click();
+  await button('近 7 天').click();
+  await expect(startDate).toHaveValue('2026-12-28');
+  await expect(endDate).toHaveValue('2027-01-03');
+  await button('筛选分类餐饮').click();
+  await button('筛选账户微信').click();
+  await button('应用筛选').click();
+  await expect(summary).toContainText('2026-12-28 至 2027-01-03 · 餐饮 · 微信');
+  await expect(row('窗口第一天')).toBeVisible();
+  await expect(row('窗口最后一天')).toBeVisible();
+  await expect(row('窗口之前')).toHaveCount(0);
+  await expect(row('窗口之后')).toHaveCount(0);
+  await expect(row('其他账户账单')).toHaveCount(0);
+
+  await button('打开组合筛选').click();
+  await button('选择开始日期').click();
+  await expect(page.getByTestId('calendar-开始日期')).toBeVisible();
+  await button('上月').click();
+  await expect(page.getByTestId('calendar-开始日期')).toHaveCount(0);
+  await expect(startDate).toHaveValue('2026-12-01');
+  await expect(endDate).toHaveValue('2026-12-31');
+  await button('关闭').click();
+  await expect(summary).toContainText('2026-12-28 至 2027-01-03');
+
+  await button('打开组合筛选').click();
+  await button('上月').click();
+  await button('应用筛选').click();
+  await expect(summary).toContainText('2026-12-01 至 2026-12-31 · 餐饮 · 微信');
+  await expect(row('窗口之前')).toBeVisible();
+  await expect(row('窗口最后一天')).toHaveCount(0);
 });
 
 test('monthly budgets stay independent and round-trip in JSON', async ({
