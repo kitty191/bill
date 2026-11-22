@@ -222,16 +222,14 @@ export function Button({
     transform: [{ scale: reduce ? 1 : 1 - pressed.value * 0.025 }],
   }));
   const bg = {
-    primary: t.dark ? '#A0CCAD' : '#345B48',
+    primary: t.primary,
     soft: t.accentSoft,
     plain: 'transparent',
-    danger: t.dark ? '#4E2A2A' : '#F9EDEC',
+    danger: t.dark ? '#4B2828' : '#FBECEB',
   }[variant];
   const fg =
     variant === 'primary'
-      ? t.dark
-        ? '#193423'
-        : '#FFFFFF'
+      ? t.onPrimary
       : variant === 'danger'
         ? t.danger
         : t.accent;
@@ -252,7 +250,16 @@ export function Button({
       onPressOut={() => {
         pressed.value = reduce ? 0 : withSpring(0, motion.spring);
       }}
-      style={[styles.button, { backgroundColor: bg }, style, pressStyle]}
+      style={[
+        styles.button,
+        {
+          backgroundColor: bg,
+          borderWidth: variant === 'soft' ? 1 : 0,
+          borderColor: variant === 'soft' ? t.heroBorder : 'transparent',
+        },
+        style,
+        pressStyle,
+      ]}
     >
       {typeof children === 'string' ? (
         <Txt weight="600" color={fg}>
@@ -294,7 +301,8 @@ export function IconButton({
           borderRadius: 22,
           backgroundColor: t.surface,
           borderWidth: 1,
-          borderColor: t.border,
+          borderColor: t.cardBorder,
+          boxShadow: t.pillShadow,
           alignItems: 'center',
           justifyContent: 'center',
           paddingHorizontal: 0,
@@ -322,11 +330,11 @@ export function Card({
       style={[
         {
           backgroundColor: t.surface,
-          borderRadius: 24,
-          padding: 22,
+          borderRadius: 22,
+          padding: 20,
           borderWidth: 1,
-          borderColor: t.dark ? t.border : '#E8EDE5',
-          boxShadow: t.dark ? 'none' : '0 3px 14px rgba(40,66,45,0.025)',
+          borderColor: t.cardBorder,
+          boxShadow: t.cardShadow,
         },
         style,
       ]}
@@ -356,7 +364,7 @@ export function Glass({
       style={[
         {
           overflow: 'hidden',
-          borderRadius: 30,
+          borderRadius: 28,
           borderWidth: 1,
           borderColor: t.glassEdge,
           backgroundColor: variant === 'sheet' ? t.sheet : t.glass,
@@ -415,10 +423,10 @@ export function SectionTitle({
     <View
       style={[
         styles.row,
-        { justifyContent: 'space-between', marginTop: 26, marginBottom: 14 },
+        { justifyContent: 'space-between', marginTop: 24, marginBottom: 12 },
       ]}
     >
-      <Txt size={17} weight="600">
+      <Txt size={16} weight="600" style={{ letterSpacing: -0.2 }}>
         {title}
       </Txt>
       {action && onPress && (
@@ -427,8 +435,8 @@ export function SectionTitle({
           onPress={onPress}
           style={{ minHeight: 32, paddingHorizontal: 0 }}
         >
-          <View style={styles.row}>
-            <Txt size={12} color={t.muted}>
+          <View style={[styles.row, { gap: 4 }]}>
+            <Txt size={12} color={t.muted} weight="500">
               {action}
             </Txt>
             <Icon name="right" size={13} color={t.muted} />
@@ -503,10 +511,12 @@ export function EntryRow({
         style={{
           width: 43,
           height: 43,
-          borderRadius: 15,
+          borderRadius: 14,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: `${category.color}${t.dark ? '24' : '15'}`,
+          backgroundColor: `${category.color}${t.dark ? '24' : '16'}`,
+          borderWidth: 1,
+          borderColor: `${category.color}${t.dark ? '2E' : '22'}`,
         }}
       >
         <Icon
@@ -534,7 +544,12 @@ export function EntryRow({
             color={
               entry.kind === 'income' || entry.kind === 'refund' ? t.income : t.text
             }
-            style={{ flexShrink: 1, maxWidth: '68%', textAlign: 'right' }}
+            style={{
+              flexShrink: 1,
+              maxWidth: '68%',
+              textAlign: 'right',
+              fontWeight: '600',
+            }}
           />
         </View>
         <Txt size={12} color={t.muted} numberOfLines={1}>

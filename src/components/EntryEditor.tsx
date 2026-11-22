@@ -400,7 +400,13 @@ export function EntryEditor({
           <Button
             disabled={saving}
             onPress={() => void save()}
-            style={{ minHeight: 50, borderRadius: 18 }}
+            style={{
+              minHeight: 52,
+              borderRadius: 18,
+              boxShadow: t.dark
+                ? 'none'
+                : '0 6px 18px rgba(34,76,55,0.18)',
+            }}
           >
             {resetting
               ? '正在清除草稿…'
@@ -419,10 +425,20 @@ export function EntryEditor({
         <View
           style={[
             styles.row,
-            { marginBottom: 10, alignItems: 'center', gap: 6 },
+            {
+              marginBottom: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 14,
+              backgroundColor: t.accentSoft,
+              borderWidth: 1,
+              borderColor: t.heroBorder,
+              alignItems: 'center',
+              gap: 6,
+            },
           ]}
         >
-          <Txt size={12} color={t.muted} style={{ flex: 1 }}>
+          <Txt size={12} color={t.text} style={{ flex: 1 }}>
             已恢复上次未完成的记账，确认后才会保存。
           </Txt>
           <Button
@@ -430,9 +446,11 @@ export function EntryEditor({
             variant="plain"
             disabled={saving}
             onPress={() => void restart()}
-            style={{ paddingHorizontal: 8, minHeight: 44 }}
+            style={{ paddingHorizontal: 8, minHeight: 36 }}
           >
-            重新记
+            <Txt size={12} weight="600" color={t.accent}>
+              重新记
+            </Txt>
           </Button>
         </View>
       )}
@@ -441,7 +459,7 @@ export function EntryEditor({
           style={[
             styles.row,
             {
-              borderRadius: 15,
+              borderRadius: 16,
               backgroundColor: t.surfaceAlt,
               padding: 4,
               gap: 4,
@@ -488,15 +506,25 @@ export function EntryEditor({
               }}
               style={{
                 flex: 1,
-                minHeight: 39,
-                backgroundColor: kind === value ? t.surface : 'transparent',
+                minHeight: 38,
+                backgroundColor:
+                  kind === value
+                    ? t.dark
+                      ? t.accentSoft
+                      : t.surface
+                    : 'transparent',
+                borderWidth: kind === value ? 1 : 0,
+                borderColor: kind === value ? t.cardBorder : 'transparent',
+                boxShadow: kind === value ? t.pillShadow : 'none',
                 borderRadius: 12,
                 paddingHorizontal: 6,
+                paddingVertical: 6,
               }}
             >
               <Txt
-                color={kind === value ? t.text : t.muted}
-                weight={kind === value ? '600' : '400'}
+                size={14}
+                color={kind === value ? (t.dark ? t.accent : t.text) : t.muted}
+                weight={kind === value ? '600' : '500'}
               >
                 {label}
               </Txt>
@@ -508,13 +536,15 @@ export function EntryEditor({
         <View
           style={{
             backgroundColor: t.accentSoft,
+            borderWidth: 1,
+            borderColor: t.heroBorder,
             borderRadius: 17,
             padding: 15,
             marginTop: 8,
             gap: 6,
           }}
         >
-          <Txt size={13} weight="500">
+          <Txt size={13} weight="600">
             原支出：
             {original.note || categoryFor(data, original.categoryId).label}
           </Txt>
@@ -540,7 +570,7 @@ export function EntryEditor({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingTop: 15 }}
+          contentContainerStyle={{ gap: 8, paddingTop: 14 }}
         >
           {shortcuts.map((template) => (
             <Button
@@ -557,6 +587,7 @@ export function EntryEditor({
                 setNote(template.note);
                 setError('');
               }}
+              style={{ minHeight: 38, paddingHorizontal: 13, borderRadius: 13 }}
             >
               {template.name}
             </Button>
@@ -592,7 +623,7 @@ export function EntryEditor({
       <View ref={details} collapsable={false}>
         {kind !== 'transfer' && kind !== 'refund' && (
           <>
-            <Txt size={12} color={t.muted} style={{ marginBottom: 13 }}>
+            <Txt size={12} color={t.muted} weight="500" style={{ marginBottom: 11 }}>
               选择分类
             </Txt>
             <View
@@ -600,46 +631,64 @@ export function EntryEditor({
                 flexDirection: 'row',
                 flexWrap: 'wrap',
                 gap: 8,
-                marginBottom: 23,
+                marginBottom: 22,
               }}
             >
-              {categories.map((c) => (
-                <Button
-                  key={c.id}
-                  label={`分类${c.label}`}
-                  disabled={saving}
-                  variant="plain"
-                  onPress={() => setCategoryId(c.id)}
-                  style={{
-                    width: '23%',
-                    paddingHorizontal: 2,
-                    paddingVertical: 12,
-                    borderRadius: 17,
-                    backgroundColor:
-                      categoryId === c.id ? t.accentSoft : t.surfaceAlt,
-                    borderWidth: 1,
-                    borderColor: categoryId === c.id ? t.accent : 'transparent',
-                    gap: 7,
-                  }}
-                >
-                  <Icon
-                    name={c.icon}
-                    size={22}
-                    color={categoryId === c.id ? t.accent : c.color}
-                  />
-                  <Txt
-                    size={11}
-                    color={categoryId === c.id ? t.accent : t.muted}
+              {categories.map((c) => {
+                const activeCategory = categoryId === c.id;
+                return (
+                  <Button
+                    key={c.id}
+                    label={`分类${c.label}`}
+                    disabled={saving}
+                    variant="plain"
+                    onPress={() => setCategoryId(c.id)}
+                    style={{
+                      width: '23%',
+                      paddingHorizontal: 4,
+                      paddingVertical: 11,
+                      borderRadius: 16,
+                      backgroundColor: activeCategory ? t.accentSoft : t.surfaceAlt,
+                      borderWidth: activeCategory ? 1.5 : 1,
+                      borderColor: activeCategory ? t.accent : t.cardBorder,
+                      boxShadow: activeCategory ? t.pillShadow : 'none',
+                      gap: 6,
+                    }}
                   >
-                    {c.label}
-                  </Txt>
-                </Button>
-              ))}
+                    <View
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: activeCategory
+                          ? t.surface
+                          : `${c.color}${t.dark ? '22' : '16'}`,
+                      }}
+                    >
+                      <Icon
+                        name={c.icon}
+                        size={19}
+                        color={activeCategory ? t.accent : c.color}
+                      />
+                    </View>
+                    <Txt
+                      size={11}
+                      weight={activeCategory ? '600' : '500'}
+                      color={activeCategory ? t.accent : t.muted}
+                      numberOfLines={1}
+                    >
+                      {c.label}
+                    </Txt>
+                  </Button>
+                );
+              })}
             </View>
           </>
         )}
         <View ref={accountDetails} collapsable={false}>
-        <Txt size={12} color={t.muted} style={{ marginBottom: 10 }}>
+        <Txt size={12} color={t.muted} weight="500" style={{ marginBottom: 10 }}>
           {kind === 'transfer'
             ? '转出账户'
             : kind === 'income'
@@ -655,7 +704,7 @@ export function EntryEditor({
           </Txt>
         )}
         <View
-          style={[styles.row, { flexWrap: 'wrap', gap: 7, marginBottom: 21 }]}
+          style={[styles.row, { flexWrap: 'wrap', gap: 8, marginBottom: 20 }]}
         >
           {sourceAccounts.map((a) => (
             <Button
@@ -672,14 +721,19 @@ export function EntryEditor({
                   );
               }}
               style={{
-                minHeight: 37,
-                paddingHorizontal: 13,
-                borderRadius: 12,
+                minHeight: 38,
+                paddingHorizontal: 14,
+                borderRadius: 13,
                 borderWidth: 1,
-                borderColor: accountId === a.id ? t.accent : t.border,
+                borderColor: accountId === a.id ? t.accent : t.cardBorder,
+                backgroundColor: accountId === a.id ? t.accentSoft : t.surfaceAlt,
               }}
             >
-              <Txt size={12} color={accountId === a.id ? t.accent : t.muted}>
+              <Txt
+                size={12}
+                weight={accountId === a.id ? '600' : '500'}
+                color={accountId === a.id ? t.accent : t.muted}
+              >
                 {a.name}
                 {a.archived ? ' · 已归档' : ''}
               </Txt>
@@ -688,13 +742,13 @@ export function EntryEditor({
         </View>
         {kind === 'transfer' && (
           <>
-            <Txt size={12} color={t.muted} style={{ marginBottom: 10 }}>
+            <Txt size={12} color={t.muted} weight="500" style={{ marginBottom: 10 }}>
               转入账户
             </Txt>
             <View
               style={[
                 styles.row,
-                { flexWrap: 'wrap', gap: 7, marginBottom: 21 },
+                { flexWrap: 'wrap', gap: 8, marginBottom: 20 },
               ]}
             >
               {destinationAccounts.map((a) => (
@@ -705,15 +759,17 @@ export function EntryEditor({
                   disabled={saving}
                   onPress={() => setToAccountId(a.id)}
                   style={{
-                    minHeight: 37,
-                    paddingHorizontal: 13,
-                    borderRadius: 12,
+                    minHeight: 38,
+                    paddingHorizontal: 14,
+                    borderRadius: 13,
                     borderWidth: 1,
-                    borderColor: toAccountId === a.id ? t.accent : t.border,
+                    borderColor: toAccountId === a.id ? t.accent : t.cardBorder,
+                    backgroundColor: toAccountId === a.id ? t.accentSoft : t.surfaceAlt,
                   }}
                 >
                   <Txt
                     size={12}
+                    weight={toAccountId === a.id ? '600' : '500'}
                     color={toAccountId === a.id ? t.accent : t.muted}
                   >
                     {a.name}
@@ -732,9 +788,12 @@ export function EntryEditor({
         <View ref={dateDetails} collapsable={false}
           style={{
             backgroundColor: t.surfaceAlt,
-            borderRadius: 17,
+            borderWidth: 1,
+            borderColor: t.cardBorder,
+            borderRadius: 18,
             paddingHorizontal: 15,
-            marginBottom: 20,
+            paddingVertical: 4,
+            marginBottom: 18,
           }}
         >
           <DateField
@@ -743,7 +802,16 @@ export function EntryEditor({
             onChange={setDate}
             disabled={saving}
           />
-          <View style={styles.row}>
+          <View
+            style={[
+              styles.row,
+              {
+                borderTopWidth: 1,
+                borderColor: t.border,
+                paddingTop: 2,
+              },
+            ]}
+          >
             <Icon name="edit" size={17} color={t.muted} />
             <TextInput
               editable={!saving}
@@ -761,14 +829,16 @@ export function EntryEditor({
           <View
             style={{
               backgroundColor: t.surfaceAlt,
-              borderRadius: 17,
+              borderWidth: 1,
+              borderColor: t.cardBorder,
+              borderRadius: 18,
               padding: 14,
               marginBottom: 18,
               gap: 10,
             }}
           >
             <View style={[styles.row, { justifyContent: 'space-between' }]}>
-              <Txt size={12}>同时存为常用</Txt>
+              <Txt size={13} weight="500">同时存为常用</Txt>
               <Switch
                 accessibilityLabel="同时存为常用"
                 value={saveTemplate}

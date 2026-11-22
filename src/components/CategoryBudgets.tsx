@@ -41,26 +41,69 @@ export function CategoryBudgets({
   return (
     <>
       <SectionTitle title="分类预算" />
-      <Card style={{ gap: 10 }}>
-        {rows.map(({ category, amount, used }) => (
-          <View
-            key={category.id}
-            style={[
-              styles.row,
-              { flexWrap: 'wrap', justifyContent: 'space-between' },
-            ]}
-          >
-            <Txt size={12}>{category.label}</Txt>
-            <Txt size={12} color={used >= amount * 0.8 ? t.expense : t.muted}>
-              ¥{money(used)} / ¥{money(amount)}
-              {used > amount
-                ? ' · 已超额'
-                : used >= amount * 0.8
-                  ? ' · 接近上限'
-                  : ''}
-            </Txt>
-          </View>
-        ))}
+      <Card style={{ gap: 14 }}>
+        {rows.map(({ category, amount, used }) => {
+          const ratio = amount > 0 ? Math.min(used / amount, 1) : 0;
+          const barColor =
+            used > amount
+              ? t.danger
+              : used >= amount * 0.8
+                ? t.expense
+                : category.color;
+          return (
+            <View key={category.id} style={{ gap: 6 }}>
+              <View
+                style={[
+                  styles.row,
+                  { flexWrap: 'wrap', justifyContent: 'space-between' },
+                ]}
+              >
+                <View style={[styles.row, { gap: 7 }]}>
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: category.color,
+                    }}
+                  />
+                  <Txt size={13} weight="500">
+                    {category.label}
+                  </Txt>
+                </View>
+                <Txt
+                  size={12}
+                  color={used > amount ? t.danger : used >= amount * 0.8 ? t.expense : t.muted}
+                  style={{ fontVariant: ['tabular-nums'] }}
+                >
+                  ¥{money(used)} / ¥{money(amount)}
+                  {used > amount
+                    ? ' · 已超额'
+                    : used >= amount * 0.8
+                      ? ' · 接近上限'
+                      : ''}
+                </Txt>
+              </View>
+              <View
+                style={{
+                  height: 5,
+                  borderRadius: 3,
+                  backgroundColor: t.surfaceAlt,
+                  overflow: 'hidden',
+                }}
+              >
+                <View
+                  style={{
+                    height: 5,
+                    borderRadius: 3,
+                    width: `${ratio * 100}%`,
+                    backgroundColor: barColor,
+                  }}
+                />
+              </View>
+            </View>
+          );
+        })}
       </Card>
     </>
   );

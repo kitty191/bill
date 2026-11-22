@@ -112,17 +112,26 @@ export function HomeScreen({
   return (
     <>
       <MonthPageHeader title="首页" month={month} onChange={onMonth} />
-      <Card style={{ backgroundColor: t.accentSoft, padding: 20, borderRadius: 22 }}>
-        <Txt color={t.text} size={14} weight="500">本月支出</Txt>
-        <View style={[styles.row, { gap: 7, alignItems: 'baseline' }]}>
+      <Card
+        style={{
+          backgroundColor: t.heroSurface,
+          borderColor: t.heroBorder,
+          padding: 22,
+          borderRadius: 24,
+        }}
+      >
+        <Txt color={t.muted} size={13} weight="500">
+          本月支出
+        </Txt>
+        <View style={[styles.row, { gap: 6, alignItems: 'baseline', marginTop: 2 }]}>
           <Txt size={24} color={t.muted} weight="400">
             ¥
           </Txt>
           <MoneyText
             amount={expense}
             testID="month-expense"
-            size={46}
-            style={{ flexShrink: 1 }}
+            size={44}
+            style={{ flexShrink: 1, fontWeight: '600' }}
           />
         </View>
         <Button
@@ -130,14 +139,20 @@ export function HomeScreen({
           onPress={onToday}
           label={`查看今日支出明细，${money(todayExpense)} 元`}
           style={{
-            marginTop: 3,
-            minHeight: 44,
-            paddingVertical: 5,
-            paddingHorizontal: 0,
+            marginTop: 8,
+            alignSelf: 'flex-start',
+            minHeight: 38,
+            paddingVertical: 6,
+            paddingHorizontal: 12,
+            borderRadius: 14,
+            backgroundColor: t.surface,
+            borderWidth: 1,
+            borderColor: t.heroBorder,
+            boxShadow: t.pillShadow,
             flexDirection: 'row',
             flexWrap: 'wrap',
             justifyContent: 'flex-start',
-            gap: 9,
+            gap: 7,
           }}
         >
           <Txt size={12} color={t.muted}>
@@ -147,73 +162,84 @@ export function HomeScreen({
             amount={todayExpense}
             currency
             testID="today-expense"
-            size={18}
+            size={15}
+            style={{ fontWeight: '600' }}
           />
           <Icon name="right" size={13} color={t.muted} />
         </Button>
         <View
           style={{
             height: 1,
-            backgroundColor: t.dark ? '#405643' : '#D3DFCD',
-            marginVertical: 12,
+            backgroundColor: t.heroDivider,
+            marginVertical: 16,
           }}
         />
         <View style={styles.row}>
-          <View style={{ flex: 1, gap: 5 }}>
-            <View style={styles.row}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={[styles.row, { gap: 5 }]}>
               <Icon
                 name="arrow-down"
                 size={13}
-                color={t.muted}
+                color={t.income}
               />
-              <Txt color={t.muted} size={11}>
+              <Txt color={t.muted} size={11} weight="500">
                 本月收入
               </Txt>
             </View>
-            <MoneyText amount={income} testID="month-income" size={20} />
+            <MoneyText
+              amount={income}
+              testID="month-income"
+              size={19}
+              style={{ fontWeight: '600' }}
+            />
           </View>
           <View
             style={{
               width: 1,
-              height: 32,
-              backgroundColor: t.dark ? '#405643' : '#D3DFCD',
-              marginRight: 20,
+              height: 34,
+              backgroundColor: t.heroDivider,
+              marginHorizontal: 12,
             }}
           />
-          <View style={{ flex: 1, gap: 5 }}>
-            <View style={styles.row}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={[styles.row, { gap: 5 }]}>
               <Icon
                 name="wallet"
                 size={13}
-                color={t.muted}
+                color={t.accent}
               />
-              <Txt color={t.muted} size={11}>
+              <Txt color={t.muted} size={11} weight="500">
                 本月结余
               </Txt>
             </View>
-            <MoneyText amount={income - expense} testID="month-net" size={20} />
+            <MoneyText
+              amount={income - expense}
+              testID="month-net"
+              size={19}
+              style={{ fontWeight: '600' }}
+            />
           </View>
         </View>
       </Card>
 
-      <Card style={{ marginTop: 13, padding: 18, borderRadius: 20 }}>
+      <Card style={{ marginTop: 14, padding: 20, borderRadius: 22 }}>
         <Button variant="plain" onPress={onSettings} label="设置月度预算"
-          style={{ paddingHorizontal: 0, alignItems: 'stretch', gap: 6 }}>
+          style={{ paddingHorizontal: 0, paddingVertical: 0, minHeight: 44, alignItems: 'stretch', gap: 6 }}>
           <View style={[styles.row, { justifyContent: 'space-between' }]}>
-            <Txt size={13} color={t.muted}>月度预算</Txt>
+            <Txt size={13} color={t.muted} weight="500">月度预算</Txt>
             <Icon name="right" size={15} color={t.muted} />
           </View>
           {budget ? (
-            <View style={[styles.row, { flexWrap: 'wrap', alignItems: 'baseline' }]}>
-              <Txt size={15}>{remaining < 0 ? '已超支' : '本月还可用'}</Txt>
-              <MoneyText amount={Math.abs(remaining)} currency size={25}
-                color={remaining < 0 ? t.danger : t.text} style={{ flexShrink: 1 }} />
+            <View style={[styles.row, { flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }]}>
+              <Txt size={14} color={t.muted}>{remaining < 0 ? '已超支' : '本月还可用'}</Txt>
+              <MoneyText amount={Math.abs(remaining)} currency size={26}
+                color={remaining < 0 ? t.danger : t.text} style={{ flexShrink: 1, fontWeight: '600' }} />
             </View>
-          ) : <Txt size={16} color={t.accent}>设置本月额度</Txt>}
+          ) : <Txt size={15} weight="600" color={t.accent}>设置本月额度</Txt>}
         </Button>
         {budget > 0 && (
-          <View style={{ height: 5, borderRadius: 3, backgroundColor: t.surfaceAlt, marginTop: 8 }}>
-            <View style={{ height: 5, borderRadius: 3, backgroundColor: remaining < 0 ? t.danger : t.accent,
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: t.surfaceAlt, marginTop: 12, overflow: 'hidden' }}>
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: remaining < 0 ? t.danger : t.accent,
               width: `${Math.min(expense / budget * 100, 100)}%` }} />
           </View>
         )}
@@ -221,25 +247,34 @@ export function HomeScreen({
           <View
             style={[
               styles.row,
-              { justifyContent: 'space-between', marginTop: 7 },
+              { justifyContent: 'space-between', marginTop: 8 },
             ]}
           >
-            <Txt size={10} color={t.muted}>
+            <Txt size={11} color={remaining < 0 ? t.danger : t.accent} weight="500">
               已用 {Math.round((expense / budget) * 100)}%
             </Txt>
-            <Txt size={10} color={t.muted}>
+            <Txt size={11} color={t.muted}>
               预算 ¥{money(budget, false)}
             </Txt>
           </View>
         )}
         {pace && (
-          <View style={{ marginTop: 9, gap: 3 }}>
+          <View
+            style={{
+              marginTop: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 9,
+              borderRadius: 13,
+              backgroundColor: t.surfaceAlt,
+              gap: 3,
+            }}
+          >
             <Txt size={11} color={t.muted} testID="budget-daily-allowance">
               本月还剩 {pace.daysLeft} 天（含今天） · 日均可用 ¥
               {money(pace.dailyAllowance)}
             </Txt>
             {pace.overPace && remaining >= 0 && (
-              <Txt size={11} color={t.expense}>
+              <Txt size={11} color={t.expense} weight="500">
                 预算用量已超过本月进度
               </Txt>
             )}
@@ -279,9 +314,9 @@ export function HomeScreen({
 
       <CategoryBudgets ledger={ledger} entries={entries} />
       {due.length > 0 && (
-        <Card style={{ marginTop: 16, padding: 17, gap: 10 }}>
+        <Card style={{ marginTop: 16, padding: 18, gap: 10 }}>
           <View style={[styles.row, { justifyContent: 'space-between' }]}>
-            <Txt size={13} weight="500">
+            <Txt size={13} weight="600">
               周期账单待确认 · {due.length}
             </Txt>
             <Button
@@ -293,19 +328,28 @@ export function HomeScreen({
               管理
             </Button>
           </View>
-          {due.slice(0, 3).map((bill) => (
+          {due.slice(0, 3).map((bill, index) => (
             <Button
               key={bill.id}
               label={`确认周期账单${bill.name}`}
               variant="plain"
               onPress={() => onRecurring(bill.id, bill.nextDate)}
-              style={{ alignItems: 'stretch', paddingHorizontal: 0 }}
+              style={{
+                alignItems: 'stretch',
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 14,
+                backgroundColor: t.surfaceAlt,
+                marginTop: index === 0 ? 2 : 0,
+              }}
             >
               <View style={[styles.row, { justifyContent: 'space-between' }]}>
                 <Txt size={13} weight="500" style={{ flex: 1 }}>
                   {bill.name}
                 </Txt>
-                <Txt size={14}>¥{money(bill.amount)}</Txt>
+                <Txt size={14} weight="600" style={{ fontVariant: ['tabular-nums'] }}>
+                  ¥{money(bill.amount)}
+                </Txt>
                 <Icon name="right" size={13} color={t.muted} />
               </View>
               <Txt size={10} color={t.muted}>
@@ -333,7 +377,7 @@ export function HomeScreen({
             onTouchEnd={unlock}
             onTouchCancel={unlock}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 10, paddingBottom: 3 }}
+            contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
           >
             {activeAccounts(ledger).map((account, i) => (
               <Button
@@ -343,34 +387,37 @@ export function HomeScreen({
                 onPress={() => onAccountDetails(account.id)}
                 style={{
                   backgroundColor: t.surface,
-                  borderRadius: 19,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: t.cardBorder,
+                  boxShadow: t.cardShadow,
                   alignItems: 'flex-start',
                   padding: 16,
-                  minWidth: 128,
-                  gap: 9,
+                  minWidth: 134,
+                  gap: 8,
                 }}
               >
-                <View style={styles.row}>
+                <View style={[styles.row, { gap: 6 }]}>
                   <View
                     style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
+                      width: 7,
+                      height: 7,
+                      borderRadius: 4,
                       backgroundColor: [
-                        '#80A28C',
-                        '#7FA0BB',
-                        '#B3A586',
-                        '#A697BB',
+                        '#5C9678',
+                        '#6A99BE',
+                        '#C1A36F',
+                        '#9A86BE',
                       ][i % 4],
                     }}
                   />
-                  <Txt size={11} color={t.muted}>
+                  <Txt size={12} color={t.muted} weight="500">
                     {account.name}
                   </Txt>
                 </View>
                 <Txt
                   size={17}
-                  weight="500"
+                  weight="600"
                   style={{ fontVariant: ['tabular-nums'] }}
                 >
                   {money(accountBalance(ledger, account.id))}
@@ -386,7 +433,7 @@ export function HomeScreen({
           <Card style={{ marginTop: 20, gap: 10 }}>
             <View style={styles.row}>
               <Icon name="bell" color={t.accent} />
-              <Txt size={13} weight="500">
+              <Txt size={13} weight="600">
                 该导出一份备份了
               </Txt>
             </View>
@@ -432,7 +479,7 @@ export function HomeScreen({
             onTouchEnd={unlock}
             onTouchCancel={unlock}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8 }}
+            contentContainerStyle={{ gap: 8, paddingBottom: 2 }}
           >
             {templates.map((item) => (
               <Button
@@ -440,12 +487,12 @@ export function HomeScreen({
                 variant="soft"
                 label={`常用记账${item.name}`}
                 onPress={() => onTemplate(item.id)}
-                style={{ gap: 4, alignItems: 'flex-start' }}
+                style={{ gap: 3, alignItems: 'flex-start', borderRadius: 16, paddingHorizontal: 15 }}
               >
-                <Txt size={12} weight="500">
+                <Txt size={12} weight="600">
                   {item.name}
                 </Txt>
-                <Txt size={11} color={t.muted}>
+                <Txt size={11} color={t.muted} style={{ fontVariant: ['tabular-nums'] }}>
                   ¥{money(item.amount)}
                 </Txt>
               </Button>

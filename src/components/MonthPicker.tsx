@@ -139,15 +139,30 @@ export function MonthPicker({
   const t = useTheme();
   const [open, setOpen] = useState(false);
   return (
-    <View style={[styles.row, { gap: 0, flexShrink: 1, minWidth: 0 }]}>
+    <View
+      style={[
+        styles.row,
+        {
+          gap: 0,
+          flexShrink: 1,
+          minWidth: 0,
+          backgroundColor: t.surface,
+          borderRadius: 22,
+          borderWidth: 1,
+          borderColor: t.cardBorder,
+          boxShadow: t.pillShadow,
+          paddingHorizontal: 2,
+        },
+      ]}
+    >
       <Button
         variant="plain"
         label={`${labelPrefix}上个月`}
         disabled={disabled || month === '1900-01'}
         onPress={() => onChange(-1)}
-        style={{ width: 44, paddingHorizontal: 0 }}
+        style={{ width: 44, minHeight: 40, paddingHorizontal: 0, borderRadius: 20 }}
       >
-        <Icon name="left" size={17} color={t.muted} />
+        <Icon name="left" size={16} color={t.muted} />
       </Button>
       <Button
         variant="plain"
@@ -157,11 +172,11 @@ export function MonthPicker({
           Keyboard.dismiss();
           setOpen(true);
         }}
-        style={{ flexShrink: 1, paddingHorizontal: 4 }}
+        style={{ flexShrink: 1, minHeight: 40, paddingHorizontal: 6, borderRadius: 16 }}
       >
         <Txt
           size={13}
-          weight="500"
+          weight="600"
           style={{ fontVariant: ['tabular-nums'], textAlign: 'center' }}
         >
           {monthLabel(month)}
@@ -172,9 +187,9 @@ export function MonthPicker({
         label={`${labelPrefix}下个月`}
         disabled={disabled || month === '2200-12'}
         onPress={() => onChange(1)}
-        style={{ width: 44, paddingHorizontal: 0 }}
+        style={{ width: 44, minHeight: 40, paddingHorizontal: 0, borderRadius: 20 }}
       >
-        <Icon name="right" size={17} color={t.muted} />
+        <Icon name="right" size={16} color={t.muted} />
       </Button>
       {open && !disabled && (
         <MonthSelection
@@ -197,8 +212,8 @@ export function MonthPageHeader({ title, month, onChange }: {
   onChange: (offset: number) => void;
 }) {
   return (
-    <View style={[styles.row, { justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 14 }]}>
-      <Txt size={28} weight="600">{title}</Txt>
+    <View style={[styles.row, { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 16 }]}>
+      <Txt size={28} weight="600" style={{ letterSpacing: -0.4 }}>{title}</Txt>
       <MonthPicker month={month} onChange={onChange} />
     </View>
   );
