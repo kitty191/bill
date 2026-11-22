@@ -35,7 +35,7 @@ def inspect_apk(build_tools, apk):
                         '--min-sdk-version', low, '--max-sdk-version', high, apk)
         certs = set(re.findall(r'certificate sha-256 digest: ([a-f0-9]{64})', signature.lower()))
         if certs != {CERTIFICATE}:
-            raise ValueError('APK signing certificate differs from 清账新版')
+            raise ValueError('APK signing certificate differs from the distributed app')
     run(build_tools / 'zipalign', '-c', '-P', '16', '4', apk)
     with zipfile.ZipFile(apk) as archive:
         architectures = {entry.split('/')[1] for entry in archive.namelist()

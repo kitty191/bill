@@ -35,7 +35,7 @@ def git(*args):
 def context():
     app = json.loads((ROOT/'app.json').read_text())['expo']
     if app['android']['package'] == 'com.kitty191.qingzhang.app':
-        raise ReleaseError('Use scripts/prepare_android_update.py for 清账新版; the legacy release signs a different app ID')
+        raise ReleaseError('Use scripts/prepare_android_update.py for com.kitty191.qingzhang.app')
     package = json.loads((ROOT/'package.json').read_text())
     if package['version'] != app['version']:
         raise ReleaseError('package.json and app.json versions differ')
