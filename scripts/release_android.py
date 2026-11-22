@@ -9,13 +9,11 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
-import re
 import socket
 from pathlib import Path
 import subprocess
 import tempfile
 import time
-from urllib.parse import urlencode
 import urllib.request
 from android_inputs import changed_android_inputs
 from prepare_android_update import FIRST_SUPPORTED_BASELINE, PACKAGE
@@ -69,31 +67,8 @@ def verify_artifact(meta, previous, apk):
     if apk.stat().st_size != meta['bytes'] or digest != meta['sha256']:
         raise ReleaseError('Prepared APK bytes/checksum differ from verification')
 
-def public_native_runs(branch):
-    query = urlencode({'branch': branch})
-    url = f'https://github.com/{REPOSITORY}/actions/workflows/android-acceptance.yml?{query}'
-    with urllib.request.urlopen(url, timeout=20) as response:
-        html = response.read().decode('utf-8')
-    payload = re.search(r'<script type="application/json" data-target="react-app\.embeddedData">(.*?)</script>', html, re.S)
-    if not payload:
-        raise ReleaseError('GitHub did not return the public workflow status')
-    result = []
-    for item in json.loads(payload[1])['payload']['workflowRunsRoute']['workflowRuns']:
-        if item['workflowFilePath'] != '.github/workflows/android-acceptance.yml':
-            continue
-        if item.get('branch', {}).get('name') != f'refs/heads/{branch}':
-            continue
-        commit = re.fullmatch(f'/{REPOSITORY}/commit/([a-f0-9]{{40}})', item.get('description', {}).get('linkUrl') or '')
-        if commit and item['state'].get('conclusion') == 'WORKFLOW_RUN_CONCLUSION_SUCCESS':
-            result.append({'databaseId': int(item['id']), 'headSha': commit[1], 'conclusion': 'success'})
-    return result
-
 def native_receipt(head, branch):
-    status = subprocess.run(
-        ['gh', 'run', 'list', '--repo', REPOSITORY, '--workflow', 'android-acceptance.yml', '--branch', branch, '--limit', '30', '--json', 'databaseId,headSha,conclusion'],
-        cwd=ROOT, capture_output=True, text=True,
-    )
-    runs = public_native_runs(branch) if status.returncode else json.loads(status.stdout)
+    runs = json.loads(run(['gh', 'run', 'list', '--repo', REPOSITORY, '--workflow', 'android-acceptance.yml', '--branch', branch, '--limit', '30', '--json', 'databaseId,headSha,conclusion']))
     for item in runs:
         if item['conclusion'] == 'success' and not changed_android_inputs(ROOT, item['headSha'], head):
             return {'run': item['databaseId'], 'app_source_commit': item['headSha'], 'url': f"https://github.com/{REPOSITORY}/actions/runs/{item['databaseId']}"}
@@ -205,7 +180,7 @@ def publish(app, notes, branch, previous):
     info = json.loads(run(['gh', 'release', 'view', tag, '--repo', REPOSITORY, '--json', 'url,isDraft,isPrerelease']))
     if info['isDraft'] or not info['isPrerelease']:
         raise ReleaseError('Expected a published preview prerelease')
-    url = f'https://github.com/{REPOSITORY}/raw/refs/tags/{tag}/{paths[0]}'
+    url = f'https://github.com/{REPOSITORY}/releases/download/{tag}/{Path(paths[0]).name}'
     checksum = hashlib.sha256(); size = 0
     with urllib.request.urlopen(url, timeout=60) as response:
         while block := response.read(1024*1024):
