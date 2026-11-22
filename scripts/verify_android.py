@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Verify the current signed APK without accessing private signing material."""
+import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -9,15 +10,28 @@ import re
 import subprocess
 import zipfile
 
+from prepare_android_update import CERTIFICATE, PACKAGE, inspect_apk, verify_update, run
+
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = Path(os.environ.get('QINGZHANG_TOOLCHAINS', '/workspace/shared/qingzhang-toolchains'))
+BINARIES = TOOLS / 'android-sdk' / 'build-tools' / os.environ.get('QINGZHANG_BUILD_TOOLS_VERSION', '37.0.0')
+
+
+def previous_metadata(code, previous_apk=None):
+    if previous_apk is not None:
+        return {**inspect_apk(BINARIES, previous_apk.resolve()), 'signer_certificate_sha256': CERTIFICATE}
+    older = [json.loads(path.read_text()) for path in (ROOT / 'downloads').glob('*-verification.json')]
+    return max((item for item in older if item['version_code'] < code), key=lambda item: item['version_code'])
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--previous-apk', type=Path, help='installed .app family baseline APK')
+    args = parser.parse_args()
     app = json.loads((ROOT / 'app.json').read_text())['expo']
     version, code = app['version'], app['android']['versionCode']
     apk = ROOT / f'downloads/qingzhang-v{version}-android-arm64.apk'
-    binaries = TOOLS / 'android-sdk/build-tools/37.0.0'
+    binaries = BINARIES
     env = os.environ.copy()
     if (TOOLS / 'java-home.txt').is_file():
         env['JAVA_HOME'] = (TOOLS / 'java-home.txt').read_text().strip()
@@ -25,8 +39,15 @@ def main():
     signature = subprocess.check_output([str(binaries / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)], text=True, env=env)
     assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in signature
     certificate = re.search(r'certificate SHA-256 digest: (\S+)', signature).group(1)
-    previous = [json.loads(path.read_text()) for path in (ROOT / 'downloads').glob('*-verification.json')]
-    previous = max((item for item in previous if item['version_code'] < code), key=lambda item: item['version_code'])
+    if app['android']['package'] == PACKAGE and args.previous_apk is None:
+        parser.error('--previous-apk is required for com.kitty191.qingzhang.app')
+    previous = previous_metadata(code, args.previous_apk)
+    if args.previous_apk is not None:
+        if app['android']['package'] != PACKAGE:
+            parser.error('--previous-apk requires com.kitty191.qingzhang.app')
+        verify_update(previous, inspect_apk(binaries, apk), app)
+        manifest = run(binaries / 'aapt2', 'dump', 'xmltree', '--file', 'AndroidManifest.xml', apk)
+        assert 'android.app.shortcuts' in manifest, 'Android launcher shortcuts missing'
     assert certificate == previous['signer_certificate_sha256'], 'Upgrade signing certificate changed'
     subprocess.run([str(binaries / 'zipalign'), '-c', '-P', '16', '4', str(apk)], check=True)
     badging = subprocess.check_output([str(binaries / 'aapt'), 'dump', 'badging', str(apk)], text=True)

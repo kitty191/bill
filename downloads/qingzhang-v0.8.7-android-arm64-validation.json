@@ -1,0 +1,21 @@
+{
+  "version": "0.8.7",
+  "source_commit": "fe4f57ac346799741f13ecc61498fbec81edb4f0",
+  "checked_source_commit": "f92a17a6eb464bc7352e1e2a227ea4bfbaf9d2be",
+  "completed_checks": [
+    "typecheck",
+    "unit",
+    "web-export",
+    "browser",
+    "ios-export",
+    "apk-build",
+    "apk-verify"
+  ],
+  "native_acceptance": {
+    "run": 45006573649,
+    "app_source_commit": "a312d5decffe0ed39c9188f787a67ddd6ed9c18d",
+    "url": "https://github.com/kitty191/bill/actions/runs/45006573649"
+  },
+  "apk_sha256": "76ea101aad4790fef841fc3567db4cc386d66c85df6dd2d7ce487ef86e3205e5",
+  "prepared_at": "2026-11-22T09:39:32.582327+00:00"
+}

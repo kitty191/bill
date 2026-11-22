@@ -1,0 +1,43 @@
+{
+  "same_signer_as": "0.8.6",
+  "file": "qingzhang-v0.8.7-android-arm64.apk",
+  "bytes": 32998855,
+  "sha256": "76ea101aad4790fef841fc3567db4cc386d66c85df6dd2d7ce487ef86e3205e5",
+  "package": "com.kitty191.qingzhang.app",
+  "version": "0.8.7",
+  "version_code": 28,
+  "min_android_api": 24,
+  "architectures": [
+    "arm64-v8a"
+  ],
+  "debuggable": false,
+  "signature_verified": true,
+  "signer_certificate_sha256": "e245b2b5b5e667d864213234ab101572c97b95e511169b06093f1b0dcc0851b0",
+  "zip_alignment_16k_verified": true,
+  "zip_crc_verified": true,
+  "standalone_bundles": [
+    "assets/index.android.bundle"
+  ],
+  "native_pager_dex_verified": true,
+  "benchmark_instrumentation_absent": true,
+  "native_authentication_and_secure_store_dex_verified": true,
+  "biometric_permission_verified": true,
+  "native_background_modules_dex_verified": true,
+  "work_manager_constructor_mapping_verified": true,
+  "headless_package_list_mapping_verified": true,
+  "pager_license_verified": true,
+  "new_launcher_resources_verified": {
+    "ic_launcher.webp": [
+      "res/sK.webp"
+    ],
+    "ic_launcher_round.webp": [
+      "res/-6.webp"
+    ],
+    "ic_launcher_foreground.webp": [
+      "res/5c.webp"
+    ]
+  },
+  "source_commit": "fe4f57ac346799741f13ecc61498fbec81edb4f0",
+  "verified_at": "2026-11-22T09:30:51.017580+00:00",
+  "device_installation_tested": false
+}

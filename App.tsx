@@ -109,6 +109,7 @@ export default function App() {
 function Main() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const [dockHeight, setDockHeight] = useState(0);
   const reduce = useReducedMotion();
   const {
     ledger,
@@ -413,6 +414,7 @@ function Main() {
                   today={today}
                   target={entriesTarget}
                   listRef={entriesScroll}
+                  contentBottom={16}
                   ledger={ledger}
                   month={month}
                   onMonth={onMonth}
@@ -430,7 +432,7 @@ function Main() {
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={{
                     paddingHorizontal: 24,
-                    paddingBottom: Math.max(insets.bottom, 20) + 110,
+                    paddingBottom: 16,
                   }}
                 >
                   {key === 'home' ? (
@@ -493,7 +495,6 @@ function Main() {
       showCategoryExpenses,
       showExpenseDay,
       entriesTarget,
-      insets.bottom,
       today,
       statsReady,
     ],
@@ -638,35 +639,36 @@ function Main() {
               style={{
                 paddingTop: Math.max(
                   insets.top,
-                  Platform.OS === 'web' ? 26 : 12,
+                  Platform.OS === 'web' ? 20 : 10,
                 ),
                 paddingHorizontal: 24,
-                paddingBottom: 27,
+                paddingBottom: 10,
               }}
             >
               <View style={[styles.row, { justifyContent: 'space-between' }]}>
-                <View style={[styles.row, { gap: 8 }]}>
+                <View style={[styles.row, { gap: 9 }]}>
                   <View
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 10,
-                      backgroundColor: t.accent,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 11,
+                      backgroundColor: t.primary,
                       alignItems: 'center',
                       justifyContent: 'center',
+                      boxShadow: t.pillShadow,
                     }}
                   >
                     <Icon
                       name="leaf"
                       size={17}
-                      color={t.dark ? '#203526' : '#FFFFFF'}
+                      color={t.onPrimary}
                     />
                   </View>
-                  <Txt size={19} weight="600" style={{ letterSpacing: 3 }}>
+                  <Txt size={19} weight="600" style={{ letterSpacing: 2.5 }}>
                     清账
                   </Txt>
                 </View>
-                <View style={[styles.row, { gap: 4 }]}>
+                <View style={[styles.row, { gap: 8 }]}>
                   <IconButton
                     name={privacy.preferences.hideAmounts ? 'eye-off' : 'eye'}
                     label={
@@ -692,7 +694,6 @@ function Main() {
                     name="settings"
                     label="打开设置"
                     onPress={openSettings}
-                    style={{ width: 38, height: 38, borderRadius: 19 }}
                   />
                 </View>
               </View>
@@ -710,6 +711,7 @@ function Main() {
             progress={pageProgress}
             onTab={navigate}
             bottom={Math.max(insets.bottom, 18)}
+            onHeight={setDockHeight}
             onAdd={() => {
               openEditor();
               feedback('light');
@@ -723,19 +725,20 @@ function Main() {
               pointerEvents={undo || quickEntry ? 'auto' : 'none'}
               style={{
                 position: 'absolute',
-                top: Math.max(insets.top, 25) + 48,
-                left: 30,
-                right: 30,
-                borderRadius: 17,
+                bottom: dockHeight + 10,
+                left: 20,
+                right: 20,
+                borderRadius: 16,
                 backgroundColor: t.text,
-                paddingHorizontal: 17,
-                paddingVertical: 13,
-                gap: 5,
+                paddingHorizontal: 16,
+                paddingVertical: 11,
+                gap: 6,
+                boxShadow: '0 10px 28px rgba(16,32,22,0.22)',
               }}
             >
               {!!toast && (!undo || !toast.startsWith('账单已删除')) && (
                 <View style={[styles.row, { justifyContent: 'space-between' }]}>
-                  <Txt size={12} color={t.background} style={{ flex: 1 }}>
+                  <Txt size={13} color={t.background} style={{ flex: 1 }}>
                     {toast}
                   </Txt>
                   {quickEntry && (
@@ -745,9 +748,13 @@ function Main() {
                       disabled={saving}
                       onPress={editRecentlySaved}
                       style={{
-                        minHeight: 36,
-                        paddingHorizontal: 9,
-                        paddingVertical: 6,
+                        minHeight: 44,
+                        paddingHorizontal: 11,
+                        paddingVertical: 5,
+                        borderRadius: 11,
+                        backgroundColor: t.dark
+                          ? 'rgba(14,23,18,0.14)'
+                          : 'rgba(255,255,255,0.16)',
                       }}
                     >
                       <Txt size={12} color={t.background} weight="600">
@@ -759,7 +766,7 @@ function Main() {
               )}
               {undo && (
                 <View style={[styles.row, { justifyContent: 'space-between' }]}>
-                  <Txt size={12} color={t.background} style={{ flex: 1 }}>
+                  <Txt size={13} color={t.background} style={{ flex: 1 }}>
                     已删除一笔账单 · 8 秒内可撤销
                   </Txt>
                   <Button
@@ -781,9 +788,13 @@ function Main() {
                         );
                     }}
                     style={{
-                      minHeight: 36,
-                      paddingHorizontal: 9,
-                      paddingVertical: 6,
+                      minHeight: 44,
+                      paddingHorizontal: 11,
+                      paddingVertical: 5,
+                      borderRadius: 11,
+                      backgroundColor: t.dark
+                        ? 'rgba(14,23,18,0.14)'
+                        : 'rgba(255,255,255,0.16)',
                     }}
                   >
                     <Txt size={12} color={t.background} weight="600">

@@ -9,6 +9,8 @@ QINGZHANG_SIGNING_CONFIG=/path/to/existing/private-signing.json \
 
 开始前提交审查后的代码和 `docs/release-v版本.md`，保证 main 工作目录干净、版本和 versionCode 递增。脚本不会生成新签名，不会复制或上传签名文件，不读取机器全局 Git 身份。
 
+在其他已审查的交付分支发布时，用 `--branch` 指定该分支。当前的 `com.kitty191.qingzhang.app` 需要用 `--previous-apk` 指定上一份已分发的原签名 APK，同一分支的 Android 原生验收通过后才会发布。
+
 流程执行 TypeScript、全部单元 / 组件测试、网页导出、完整浏览器交互回归、iOS 资源导出、ARM64 Release 构建和 APK 校验。原生 GitHub Actions 必须已成功验收相同应用 / 构建输入；仅文档与验收基础设施不同可复用原生结果。证书必须与上一预览版一致，版本、CRC、16 KB 对齐、架构、内置代码和 SHA-256 均检查通过。
 
 随后只提交 APK、校验和、校验 / 验收 JSON 和下载说明这些生成文件，Author 为 kitty191、Committer 为 Codex，并保留 Codex 联合作者尾注。普通推送失败即停止，不强推；创建预览 Release 后完整匿名下载带版本标签的 APK，核对字节数与 SHA-256。任何步骤失败均不会伪报发布成功，日志保留在打印出的临时目录。

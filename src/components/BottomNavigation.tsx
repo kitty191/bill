@@ -11,7 +11,6 @@ import Animated, {
 import { useTheme } from '../theme';
 import { Glass, Icon, Txt } from './ui';
 import { scheduleOnRN } from 'react-native-worklets';
-import { LinearGradient } from 'expo-linear-gradient';
 import { motion } from '../motion';
 
 export type Tab = 'home' | 'entries' | 'stats';
@@ -27,12 +26,14 @@ export function BottomNavigation({
   onTab,
   onAdd,
   bottom,
+  onHeight,
   progress,
 }: {
   tab: Tab;
   onTab: (tab: Tab) => void;
   onAdd: () => void;
   bottom: number;
+  onHeight: (height: number) => void;
   progress: SharedValue<number>;
 }) {
   const t = useTheme();
@@ -49,7 +50,7 @@ export function BottomNavigation({
     [progress],
   );
   const scale = useSharedValue(1);
-  const step = Math.max(0, width - 12) / 3;
+  const step = Math.max(0, width - 10) / 3;
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: progress.value * step }],
   }));
@@ -59,20 +60,20 @@ export function BottomNavigation({
   return (
     <View
       pointerEvents="box-none"
+      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
       style={{
-        position: 'absolute',
-        bottom,
-        left: 21,
-        right: 21,
+        paddingTop: 6,
+        paddingBottom: bottom,
+        paddingHorizontal: 16,
         flexDirection: 'row',
-        gap: 12,
         alignItems: 'center',
+        gap: 10,
       }}
     >
       <Glass style={{ flex: 1, borderRadius: 29 }}>
         <View
           onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-          style={{ flexDirection: 'row', padding: 6 }}
+          style={{ flexDirection: 'row', padding: 5 }}
         >
           {width > 0 && (
             <Animated.View
@@ -81,17 +82,17 @@ export function BottomNavigation({
               style={[
                 {
                   position: 'absolute',
-                  left: 6,
-                  top: 6,
-                  bottom: 6,
+                  left: 5,
+                  top: 5,
+                  bottom: 5,
                   width: step,
-                  borderRadius: 23,
+                  borderRadius: 24,
                   backgroundColor: t.accentSoft,
                   borderWidth: 1,
                   borderColor: t.dark
                     ? 'rgba(214,242,218,0.12)'
-                    : 'rgba(255,255,255,0.85)',
-                  boxShadow: t.dark ? 'none' : '0 2px 7px rgba(49,90,61,0.06)',
+                    : 'rgba(255,255,255,0.9)',
+                  boxShadow: t.pillShadow,
                 },
                 indicatorStyle,
               ]}
@@ -107,12 +108,12 @@ export function BottomNavigation({
               onPress={() => onTab(key)}
               style={({ pressed }) => ({
                 flex: 1,
-                minHeight: 49,
-                paddingVertical: 5,
-                borderRadius: 23,
+                minHeight: 46,
+                paddingVertical: 4,
+                borderRadius: 24,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 3,
+                gap: 2,
                 opacity: pressed ? 0.65 : 1,
               })}
             >
@@ -120,12 +121,13 @@ export function BottomNavigation({
                 name={icon}
                 size={19}
                 color={visibleIndex === index ? t.accent : t.muted}
-                strokeWidth={visibleIndex === index ? 2 : 1.6}
+                strokeWidth={visibleIndex === index ? 2.1 : 1.6}
               />
               <Txt
-                size={9}
+                size={10}
                 color={visibleIndex === index ? t.accent : t.muted}
-                weight={visibleIndex === index ? '600' : '400'}
+                weight={visibleIndex === index ? '600' : '500'}
+                style={{ lineHeight: 14 }}
               >
                 {label}
               </Txt>
@@ -145,35 +147,31 @@ export function BottomNavigation({
         }}
         style={[
           {
-            width: 62,
-            height: 62,
-            borderRadius: 31,
-            backgroundColor: t.dark ? '#A0CCAD' : '#345B48',
+            flexDirection: 'row',
+            gap: 6,
+            paddingHorizontal: 18,
+            minHeight: 58,
+            borderRadius: 29,
+            backgroundColor: t.primary,
             alignItems: 'center',
             justifyContent: 'center',
             borderWidth: 1,
-            borderColor: t.dark ? '#BEDBC6' : '#638771',
-            boxShadow: '0 6px 20px rgba(40,75,50,0.20)',
+            borderColor: t.primaryBorder,
+            boxShadow: t.dark
+              ? '0 6px 20px rgba(0,8,3,0.34)'
+              : '0 6px 20px rgba(34,76,55,0.22)',
             overflow: 'hidden',
           },
           addStyle,
         ]}
       >
-        <LinearGradient
-          pointerEvents="none"
-          colors={[
-            'rgba(255,255,255,0.18)',
-            'rgba(255,255,255,0)',
-            'rgba(0,25,7,0.06)',
-          ]}
-          style={{ position: 'absolute', inset: 0 }}
-        />
         <Icon
           name="plus"
-          size={27}
-          color={t.dark ? '#193423' : '#FFFFFF'}
-          strokeWidth={1.6}
+          size={19}
+          color={t.onPrimary}
+          strokeWidth={2.2}
         />
+        <Txt size={15} weight="600" color={t.onPrimary}>记一笔</Txt>
       </AnimatedPressable>
     </View>
   );

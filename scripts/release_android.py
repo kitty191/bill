@@ -16,6 +16,8 @@ import tempfile
 import time
 import urllib.request
 from android_inputs import changed_android_inputs
+from prepare_android_update import FIRST_SUPPORTED_BASELINE, PACKAGE
+from verify_android import previous_metadata
 
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = 'kitty191/bill'
@@ -32,15 +34,17 @@ def run(args, **kwargs):
 def git(*args):
     return run(['git', *args])
 
-def context():
+def context(branch, previous_apk):
     app = json.loads((ROOT/'app.json').read_text())['expo']
-    if app['android']['package'] == 'com.kitty191.qingzhang.app':
-        raise ReleaseError('Use scripts/prepare_android_update.py for 清账新版; the legacy release signs a different app ID')
+    if app['android']['package'] == PACKAGE and previous_apk is None:
+        raise ReleaseError('Supply the previously distributed APK with --previous-apk')
+    if app['android']['package'] != PACKAGE and previous_apk is not None:
+        raise ReleaseError('--previous-apk is for the com.kitty191.qingzhang.app update family')
     package = json.loads((ROOT/'package.json').read_text())
     if package['version'] != app['version']:
         raise ReleaseError('package.json and app.json versions differ')
-    if git('branch', '--show-current') != 'main':
-        raise ReleaseError('Publish from the reviewed main branch')
+    if git('branch', '--show-current') != branch:
+        raise ReleaseError(f'Check out the reviewed delivery branch {branch}')
     return app, git('rev-parse', 'HEAD')
 
 def check_source(source, head):
@@ -63,8 +67,8 @@ def verify_artifact(meta, previous, apk):
     if apk.stat().st_size != meta['bytes'] or digest != meta['sha256']:
         raise ReleaseError('Prepared APK bytes/checksum differ from verification')
 
-def native_receipt(head):
-    runs = json.loads(run(['gh', 'run', 'list', '--repo', REPOSITORY, '--workflow', 'android-acceptance.yml', '--branch', 'main', '--limit', '30', '--json', 'databaseId,headSha,conclusion']))
+def native_receipt(head, branch):
+    runs = json.loads(run(['gh', 'run', 'list', '--repo', REPOSITORY, '--workflow', 'android-acceptance.yml', '--branch', branch, '--limit', '30', '--json', 'databaseId,headSha,conclusion']))
     for item in runs:
         if item['conclusion'] == 'success' and not changed_android_inputs(ROOT, item['headSha'], head):
             return {'run': item['databaseId'], 'app_source_commit': item['headSha'], 'url': f"https://github.com/{REPOSITORY}/actions/runs/{item['databaseId']}"}
@@ -74,19 +78,12 @@ def generated(version):
     base = f'qingzhang-v{version}-android-arm64'
     return [f'downloads/{base}.apk', f'downloads/{base}.apk.sha256', f'downloads/{base}-verification.json', f'downloads/{base}-validation.json', 'downloads/README.md']
 
-def previous_metadata(code):
-    values = [json.loads(path.read_text()) for path in (ROOT/'downloads').glob('*-verification.json')]
-    older = [value for value in values if value['version_code'] < code]
-    if not older:
-        raise ReleaseError('An earlier verified original-signer release is required')
-    return max(older, key=lambda value: value['version_code'])
-
 def check_dirty(allowed=()):
     changed = set(filter(None, git('diff', '--name-only').splitlines()+git('diff', '--cached', '--name-only').splitlines()+git('ls-files', '--others', '--exclude-standard').splitlines()))
     if changed - set(allowed):
         raise ReleaseError('Commit reviewed source first; unexpected files: '+', '.join(sorted(changed-set(allowed))))
 
-def prepare(app, head, notes, wait_native=0):
+def prepare(app, head, notes, branch, previous, previous_apk, wait_native=0):
     check_dirty()
     selector = os.environ.get('QINGZHANG_SIGNING_CONFIG', '')
     if not selector or not Path(selector).is_file():
@@ -99,7 +96,7 @@ def prepare(app, head, notes, wait_native=0):
         ('browser', ['npm', 'run', 'test:e2e', '--', '--workers=1', '--output', str(logs/'browser-results')]),
         ('ios-export', ['npx', 'expo', 'export', '--platform', 'ios', '--output-dir', str(logs/'ios'), '--max-workers', '2']),
         ('apk-build', ['npm', 'run', 'build:apk']),
-        ('apk-verify', ['python3', 'scripts/verify_android.py']),
+        ('apk-verify', ['python3', 'scripts/verify_android.py', *(['--previous-apk', str(previous_apk)] if previous_apk else [])]),
     ]
     completed = []
     # An interrupted Playwright run may leave its detached server alive. Use a
@@ -117,11 +114,11 @@ def prepare(app, head, notes, wait_native=0):
     check_source(head, git('rev-parse', 'HEAD'))
     version = app['version']; paths = generated(version)
     meta = json.loads((ROOT/paths[2]).read_text())
-    verify_artifact(meta, previous_metadata(app['android']['versionCode']), ROOT/paths[0])
+    verify_artifact(meta, previous, ROOT/paths[0])
     deadline = time.monotonic() + wait_native * 60
     while True:
         try:
-            native = native_receipt(meta['source_commit'])
+            native = native_receipt(meta['source_commit'], branch)
             break
         except ReleaseError:
             if time.monotonic() >= deadline:
@@ -137,7 +134,7 @@ def prepare(app, head, notes, wait_native=0):
 [下载 v{version} APK]({url}) · [版本说明](https://github.com/{REPOSITORY}/releases/tag/v{version}-android-preview)
 
 版本 {version} / versionCode {app['android']['versionCode']}，{meta['bytes']:,} 字节，约 {meta['bytes']/1024/1024:.1f} MB。
-ARM64、Android 7.0+，独立安装包；沿用 v{previous_metadata(app['android']['versionCode'])['version']} 原签名，可直接覆盖安装，无需卸载。
+ARM64、Android 7.0+，独立安装包，沿用 v{previous['version']} 的包名和签名，可直接覆盖安装。
 
 {notes.read_text().strip()}
 
@@ -152,7 +149,7 @@ SHA-256：`{meta['sha256']}`
     check_dirty(paths)
     return meta
 
-def publish(app, notes):
+def publish(app, notes, branch, previous):
     version = app['version']; paths = generated(version)
     check_dirty(paths)
     meta = json.loads((ROOT/paths[2]).read_text()); receipt = json.loads((ROOT/paths[3]).read_text())
@@ -161,14 +158,15 @@ def publish(app, notes):
     if set(receipt['completed_checks']) != REQUIRED or receipt['source_commit'] != meta['source_commit'] or receipt['apk_sha256'] != meta['sha256']:
         raise ReleaseError('Prepared validation receipt does not match this APK')
     check_source(meta['source_commit'], git('rev-parse', 'HEAD'))
-    verify_artifact(meta, previous_metadata(meta['version_code']), ROOT/paths[0])
+    verify_artifact(meta, previous, ROOT/paths[0])
     subprocess.run(['git', 'add', '--', *paths], cwd=ROOT, check=True)
     if git('diff', '--cached', '--name-only'):
         subprocess.run(['git', 'commit', '-m', f'release: publish verified v{version} Android preview', '-m', 'Co-authored-by: Codex <codex@openai.com>'], cwd=ROOT, env={**os.environ, **AUTHOR}, check=True)
     head = git('rev-parse', 'HEAD')
-    subprocess.run(['git', 'push', 'origin', 'main'], cwd=ROOT, check=True)
-    if git('ls-remote', 'origin', 'refs/heads/main').split()[0] != head:
-        raise ReleaseError('Remote main moved during publication; inspect before continuing')
+    ref = f'refs/heads/{branch}'
+    subprocess.run(['git', 'push', 'origin', f'HEAD:{ref}'], cwd=ROOT, check=True)
+    if git('ls-remote', 'origin', ref).split()[0] != head:
+        raise ReleaseError('Remote delivery branch moved during publication; inspect before continuing')
     tag = f'v{version}-android-preview'
     url = f'https://github.com/{REPOSITORY}/raw/refs/tags/{tag}/{paths[0]}'
     existing = subprocess.run(['gh', 'release', 'view', tag, '--repo', REPOSITORY, '--json', 'url,isDraft,isPrerelease,targetCommitish'], cwd=ROOT, capture_output=True, text=True)
@@ -177,12 +175,11 @@ def publish(app, notes):
             raise ReleaseError(existing.stderr)
         with tempfile.TemporaryDirectory(prefix='qingzhang-public-notes-') as folder:
             body = Path(folder)/'release.md'
-            body.write_text(notes.read_text().strip()+f"\n\n[下载 v{version} APK]({url}) · [完整审查](https://github.com/{REPOSITORY}/blob/main/docs/review-v{version}.md)\n\n约 {meta['bytes']/1024/1024:.1f} MB，ARM64 / Android 7.0+，沿用原签名，可直接覆盖安装。\n\nSHA-256：`{meta['sha256']}`\n")
+            body.write_text(notes.read_text().strip()+f"\n\n[下载 v{version} APK]({url})\n\n约 {meta['bytes']/1024/1024:.1f} MB，ARM64 / Android 7.0+，沿用原签名，可直接覆盖安装。\n\nSHA-256：`{meta['sha256']}`\n")
             subprocess.run(['gh', 'release', 'create', tag, '--repo', REPOSITORY, '--target', head, '--title', f'清账 v{version} · Android 预览版', '--prerelease', '--notes-file', str(body)], cwd=ROOT, check=True)
     info = json.loads(run(['gh', 'release', 'view', tag, '--repo', REPOSITORY, '--json', 'url,isDraft,isPrerelease']))
     if info['isDraft'] or not info['isPrerelease']:
         raise ReleaseError('Expected a published preview prerelease')
-    url = f'https://github.com/{REPOSITORY}/raw/refs/tags/{tag}/{paths[0]}'
     checksum = hashlib.sha256(); size = 0
     with urllib.request.urlopen(url, timeout=60) as response:
         while block := response.read(1024*1024):
@@ -197,21 +194,28 @@ def main():
     mode.add_argument('--prepare-only', action='store_true', help='Run all checks/build/verification and leave reviewed artifacts locally')
     mode.add_argument('--publish-prepared', action='store_true', help='Resume publication of previously validated artifacts without rebuilding')
     parser.add_argument('--notes', type=Path)
+    parser.add_argument('--branch', default='main', help='reviewed delivery branch')
+    parser.add_argument('--previous-apk', type=Path, help='previously distributed APK for the current Android app ID')
     parser.add_argument('--wait-native-minutes', type=int, default=0, help='Wait up to 0–90 minutes for matching native acceptance')
     args = parser.parse_args()
     if not 0 <= args.wait_native_minutes <= 90:
         parser.error('Use a 0–90 minute native acceptance wait')
-    app, head = context()
+    previous_apk = args.previous_apk.resolve() if args.previous_apk else None
+    app, head = context(args.branch, previous_apk)
+    code = app['android']['versionCode']
+    previous = previous_metadata(code, previous_apk)
+    if previous_apk and not FIRST_SUPPORTED_BASELINE <= previous['version_code'] < code:
+        raise ReleaseError('The baseline APK versionCode must be in the supported update range')
     notes = (args.notes or ROOT/f"docs/release-v{app['version']}.md").resolve()
     if not notes.is_file():
         raise ReleaseError('Create reviewed release notes first: '+str(notes))
     if not args.publish_prepared:
-        prepare(app, head, notes, args.wait_native_minutes)
+        prepare(app, head, notes, args.branch, previous, previous_apk, args.wait_native_minutes)
     if not args.prepare_only:
-        publish(app, notes)
+        publish(app, notes, args.branch, previous)
 
 if __name__ == '__main__':
     try:
         main()
-    except (ReleaseError, subprocess.CalledProcessError) as error:
+    except (ReleaseError, ValueError, OSError, subprocess.CalledProcessError) as error:
         raise SystemExit(str(error))

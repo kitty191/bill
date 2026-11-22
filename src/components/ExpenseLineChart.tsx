@@ -50,6 +50,10 @@ export function ExpenseLineChart({
     ),
   ];
   const gradient = `daily-expense-${month}`;
+  const tipWidth = Math.min(
+    Math.max(132, Math.round(width * 0.44)),
+    Math.max(0, width - 8),
+  );
   return (
     <>
       <View
@@ -58,12 +62,26 @@ export function ExpenseLineChart({
           { justifyContent: 'space-between', marginBottom: 12 },
         ]}
       >
-        <Txt size={11} color={t.muted}>
+        <Txt size={12} color={t.muted}>
           每日花费，清晰有度
         </Txt>
-        <Txt size={11} color={t.accent}>
-          最高 ¥{money(chart.peak)}
-        </Txt>
+        <View
+          style={{
+            paddingHorizontal: 9,
+            paddingVertical: 3,
+            borderRadius: 9,
+            backgroundColor: t.accentSoft,
+          }}
+        >
+          <Txt
+            size={11}
+            color={t.accent}
+            weight="600"
+            style={{ fontVariant: ['tabular-nums'] }}
+          >
+            最高 ¥{money(chart.peak)}
+          </Txt>
+        </View>
       </View>
       <ChartScrubber
         testID="daily-expense-chart"
@@ -85,8 +103,8 @@ export function ExpenseLineChart({
         >
           <Defs>
             <LinearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={t.accent} stopOpacity={0.19} />
-              <Stop offset="1" stopColor={t.accent} stopOpacity={0.015} />
+              <Stop offset="0" stopColor={t.accent} stopOpacity={0.22} />
+              <Stop offset="1" stopColor={t.accent} stopOpacity={0.01} />
             </LinearGradient>
           </Defs>
           {ticks.map((value) => {
@@ -145,7 +163,7 @@ export function ExpenseLineChart({
                 y1={chart.top}
                 y2={chart.baseline}
                 stroke={t.accent}
-                strokeOpacity={0.3}
+                strokeOpacity={0.32}
                 strokeDasharray="3 4"
               />
               <Circle
@@ -153,7 +171,7 @@ export function ExpenseLineChart({
                 cy={selected.y}
                 r={9}
                 fill={t.accent}
-                opacity={0.12}
+                opacity={0.14}
               />
               <Circle
                 cx={selected.x}
@@ -190,28 +208,45 @@ export function ExpenseLineChart({
             aria-hidden
             style={{
               position: 'absolute',
-              width: 132,
+              width: tipWidth,
               left: Math.max(
                 0,
                 Math.min(
-                  width - 132,
-                  selected.x + (selected.x < width / 2 ? 14 : -146),
+                  width - tipWidth,
+                  selected.x + (selected.x < width / 2 ? 14 : -(tipWidth + 14)),
                 ),
               ),
-              top: aboveFinger ? 4 : height - 74,
+              top: aboveFinger ? 4 : undefined,
+              bottom: aboveFinger ? undefined : 4,
               paddingHorizontal: 12,
               paddingVertical: 8,
               borderRadius: 14,
               backgroundColor: t.surface,
               borderWidth: 1,
-              borderColor: t.border,
-              boxShadow: `0 4px 16px ${t.shadow}`,
+              borderColor: t.cardBorder,
+              boxShadow: `0 6px 20px ${t.shadow}`,
+              gap: 2,
             }}
           >
-            <Txt size={10} color={t.muted}>
-              {Number(month.slice(5))}月{selected.day}日 · 净支出
-            </Txt>
-            <MoneyText amount={selected.amount} currency size={17} />
+            <View style={[styles.row, { gap: 5 }]}>
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: t.accent,
+                }}
+              />
+              <Txt size={10} color={t.muted} numberOfLines={1} style={{ flexShrink: 1 }}>
+                {Number(month.slice(5))}月{selected.day}日 · 净支出
+              </Txt>
+            </View>
+            <MoneyText
+              amount={selected.amount}
+              currency
+              size={17}
+              style={{ fontWeight: '600' }}
+            />
           </View>
         )}
       </ChartScrubber>
@@ -227,6 +262,7 @@ export function ExpenseLineChart({
           testID="daily-expense-selection"
           size={11}
           color={selected ? t.accent : t.muted}
+          weight={selected ? '500' : '400'}
         >
           {selected
             ? `${Number(month.slice(5))}月${selected.day}日 · 支出 ¥${money(selected.amount)}`
@@ -237,14 +273,23 @@ export function ExpenseLineChart({
       </View>
       {selected && (
         <Button
-          variant="plain"
+          variant="soft"
           label={`查看${Number(month.slice(5))}月${selected.day}日支出账单`}
-          style={{ alignSelf: 'center' }}
+          style={{
+            alignSelf: 'center',
+            marginTop: 8,
+            minHeight: 36,
+            paddingHorizontal: 14,
+            paddingVertical: 6,
+            borderRadius: 12,
+          }}
           onPress={() =>
             onDayExpenses(`${month}-${String(selected.day).padStart(2, '0')}`)
           }
         >
-          查看当日账单
+          <Txt size={12} color={t.accent} weight="600">
+            查看当日账单
+          </Txt>
         </Button>
       )}
     </>

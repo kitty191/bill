@@ -1,6 +1,6 @@
-import { MonthPicker } from '../components/MonthPicker';
+import { MonthPageHeader } from '../components/MonthPicker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { dailyExpenseValues } from '../domain/expenseTrend';
 import { ExpenseLineChart } from '../components/ExpenseLineChart';
@@ -85,37 +85,31 @@ function MonthlyStats({
   let running = 0;
   return (
     <>
-      <View
-        style={[
-          styles.row,
-          {
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-            marginBottom: 7,
-          },
-        ]}
-      >
-        <Txt size={29} weight="600">
-          统计
-        </Txt>
-        <MonthPicker month={month} onChange={onMonth} />
-      </View>
-      <Txt color={t.muted} size={12}>
-        看懂花费，把钱花在喜欢的生活上。
-      </Txt>
-      <Card style={{ marginTop: 24 }}>
-        <Txt size={12} color={t.muted}>
+      <MonthPageHeader title="统计" month={month} onChange={onMonth} />
+      <Card style={{ marginTop: 0 }}>
+        <Txt size={12} color={t.muted} weight="500">
           本月总支出
         </Txt>
         <MoneyText
           amount={expense}
           currency
           size={36}
-          style={{ marginVertical: 8 }}
+          style={{ marginVertical: 6, fontWeight: '600' }}
         />
-        <View style={styles.row}>
-          <Icon name="trend" size={13} color={t.muted} />
+        <View
+          style={[
+            styles.row,
+            {
+              alignSelf: 'flex-start',
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 10,
+              backgroundColor: t.surfaceAlt,
+              gap: 6,
+            },
+          ]}
+        >
+          <Icon name="trend" size={13} color={t.accent} />
           <Txt size={11} color={t.muted}>
             {previous
               ? `较上月${expense >= previous ? '增加' : '减少'} ${Math.abs(((expense - previous) / previous) * 100).toFixed(1)}%`
@@ -128,8 +122,9 @@ function MonthlyStats({
             {
               borderTopWidth: 1,
               borderColor: t.border,
-              marginTop: 20,
+              marginTop: 18,
               paddingTop: 16,
+              gap: 0,
             },
           ]}
         >
@@ -137,19 +132,36 @@ function MonthlyStats({
             ['收入', income],
             ['结余', income - expense],
             ['记账天数', totalDays],
-          ].map(([label, value]) => (
-            <View key={label} style={{ flex: 1, gap: 4 }}>
-              <Txt size={10} color={t.muted}>
-                {label}
-              </Txt>
-              {label === '记账天数' ? (
-                <Txt size={15} weight="500">
-                  {value} 天
-                </Txt>
-              ) : (
-                <MoneyText amount={Number(value)} size={15} />
+          ].map(([label, value], index) => (
+            <React.Fragment key={label}>
+              {index > 0 && (
+                <View
+                  style={{
+                    width: 1,
+                    height: 28,
+                    backgroundColor: t.border,
+                    marginHorizontal: 10,
+                  }}
+                />
               )}
-            </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Txt size={11} color={t.muted}>
+                  {label}
+                </Txt>
+                {label === '记账天数' ? (
+                  <Txt size={15} weight="600" style={{ fontVariant: ['tabular-nums'] }}>
+                    {value} 天
+                  </Txt>
+                ) : (
+                  <MoneyText
+                    amount={Number(value)}
+                    size={15}
+                    color={label === '收入' ? t.income : t.text}
+                    style={{ fontWeight: '600' }}
+                  />
+                )}
+              </View>
+            </React.Fragment>
           ))}
         </View>
       </Card>
@@ -168,7 +180,7 @@ function MonthlyStats({
                 alignSelf: 'center',
                 width: 180,
                 height: 180,
-                marginVertical: 6,
+                marginVertical: 8,
               }}
             >
               <Svg
@@ -220,7 +232,7 @@ function MonthlyStats({
                 <Txt size={11} color={t.muted}>
                   支出分类
                 </Txt>
-                <Txt size={29} weight="500">
+                <Txt size={28} weight="600" style={{ fontVariant: ['tabular-nums'] }}>
                   {categories.length}
                   <Txt size={11} color={t.muted}>
                     {' '}
@@ -229,74 +241,84 @@ function MonthlyStats({
                 </Txt>
               </View>
             </View>
-            {categories.map((c) => (
-              <Button
-                key={c.id}
-                variant="plain"
-                label={`查看${c.label}支出账单，${money(c.total)} 元`}
-                onPress={() => onCategoryExpenses(c.id)}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'flex-start',
-                  marginTop: 8,
-                  minHeight: 44,
-                  paddingHorizontal: 0,
-                  gap: 10,
-                }}
-              >
-                <View
+            <View style={{ marginTop: 6, gap: 4 }}>
+              {categories.map((c) => (
+                <Button
+                  key={c.id}
+                  variant="plain"
+                  label={`查看${c.label}支出账单，${money(c.total)} 元`}
+                  onPress={() => onCategoryExpenses(c.id)}
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 11,
-                    backgroundColor: `${c.color}18`,
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'flex-start',
+                    minHeight: 48,
+                    paddingHorizontal: 4,
+                    paddingVertical: 6,
+                    borderRadius: 14,
+                    gap: 11,
                   }}
                 >
-                  <Icon name={c.icon} color={c.color} size={16} />
-                </View>
-                <View style={{ flex: 1, gap: 6 }}>
-                  <View
-                    style={[
-                      styles.row,
-                      {
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: 4,
-                      },
-                    ]}
-                  >
-                    <Txt size={12}>
-                      {c.label}{' '}
-                      <Txt color={t.muted} size={10}>
-                        {((c.total / expense) * 100).toFixed(1)}%
-                      </Txt>
-                    </Txt>
-                    <Txt size={13} weight="500">
-                      {money(c.total)}
-                    </Txt>
-                  </View>
                   <View
                     style={{
-                      height: 3,
-                      borderRadius: 2,
-                      backgroundColor: t.surfaceAlt,
+                      width: 36,
+                      height: 36,
+                      borderRadius: 12,
+                      backgroundColor: `${c.color}${t.dark ? '24' : '16'}`,
+                      borderWidth: 1,
+                      borderColor: `${c.color}${t.dark ? '2E' : '22'}`,
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
+                    <Icon name={c.icon} color={c.color} size={17} />
+                  </View>
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View
+                      style={[
+                        styles.row,
+                        {
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 4,
+                        },
+                      ]}
+                    >
+                      <Txt size={13} weight="500">
+                        {c.label}{' '}
+                        <Txt color={t.muted} size={11}>
+                          {((c.total / expense) * 100).toFixed(1)}%
+                        </Txt>
+                      </Txt>
+                      <Txt
+                        size={14}
+                        weight="600"
+                        style={{ fontVariant: ['tabular-nums'] }}
+                      >
+                        ¥{money(c.total)}
+                      </Txt>
+                    </View>
                     <View
                       style={{
-                        width: `${(c.total / expense) * 100}%`,
-                        height: 3,
-                        borderRadius: 2,
-                        backgroundColor: c.color,
+                        height: 5,
+                        borderRadius: 3,
+                        backgroundColor: t.surfaceAlt,
+                        overflow: 'hidden',
                       }}
-                    />
+                    >
+                      <View
+                        style={{
+                          width: `${(c.total / expense) * 100}%`,
+                          height: 5,
+                          borderRadius: 3,
+                          backgroundColor: c.color,
+                        }}
+                      />
+                    </View>
                   </View>
-                </View>
-                <Icon name="right" color={t.muted} size={13} />
-              </Button>
-            ))}
+                  <Icon name="right" color={t.muted} size={13} />
+                </Button>
+              ))}
+            </View>
           </>
         )}
       </Card>
@@ -311,24 +333,63 @@ function MonthlyStats({
       {(expense > 0 || previous > 0) && (
         <>
           <SectionTitle title="月度回顾" />
-          <Card style={{ gap: 10 }}>
-            <Txt size={13} weight="600">
+          <Card style={{ gap: 12 }}>
+            <Txt size={14} weight="600">
               {expense === previous ? '净支出与上月持平' : `净支出较上月${expense > previous ? '增加' : '减少'} ¥${money(Math.abs(expense - previous))}`}
             </Txt>
-            {changes.map((category) => (
-              <View key={category.id} style={[styles.row, { flexWrap: 'wrap' }]}>
-                <Txt size={12} style={{ flexGrow: 1 }}>
-                  {category.label} {category.change > 0 ? '多' : '少'} ¥{money(Math.abs(category.change))}
-                </Txt>
-                {category.current > 0 && <Button variant="plain" label={`查看回顾中的本月${category.label}`} onPress={() => onCategoryExpenses(category.id)}>本月</Button>}
-                {category.prior > 0 && <Button variant="plain" label={`查看回顾中的上月${category.label}`} onPress={() => onCategoryExpenses(category.id, priorMonth)}>上月</Button>}
+            {changes.map((category, index) => (
+              <View
+                key={category.id}
+                style={[
+                  styles.row,
+                  {
+                    flexWrap: 'wrap',
+                    paddingTop: index === 0 ? 4 : 10,
+                    borderTopWidth: index === 0 ? 0 : StyleSheet.hairlineWidth,
+                    borderColor: t.border,
+                  },
+                ]}
+              >
+                <View style={[styles.row, { flexGrow: 1, gap: 8 }]}>
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: category.color,
+                    }}
+                  />
+                  <Txt size={13} style={{ flexShrink: 1 }}>
+                    {category.label} {category.change > 0 ? '多' : '少'} ¥{money(Math.abs(category.change))}
+                  </Txt>
+                </View>
+                {category.current > 0 && (
+                  <Button
+                    variant="soft"
+                    label={`查看回顾中的本月${category.label}`}
+                    onPress={() => onCategoryExpenses(category.id)}
+                    style={{ minHeight: 32, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}
+                  >
+                    <Txt size={12} color={t.accent} weight="500">本月</Txt>
+                  </Button>
+                )}
+                {category.prior > 0 && (
+                  <Button
+                    variant="plain"
+                    label={`查看回顾中的上月${category.label}`}
+                    onPress={() => onCategoryExpenses(category.id, priorMonth)}
+                    style={{ minHeight: 32, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}
+                  >
+                    <Txt size={12} color={t.muted} weight="500">上月</Txt>
+                  </Button>
+                )}
               </View>
             ))}
           </Card>
         </>
       )}
       <Txt
-        size={10}
+        size={11}
         color={t.subtle}
         style={{ textAlign: 'center', marginTop: 22 }}
       >
@@ -339,27 +400,60 @@ function MonthlyStats({
 }
 
 export function StatsScreen(props: React.ComponentProps<typeof MonthlyStats>) {
+  const theme = useTheme();
   const [mode, setMode] = useState<'month' | 'year'>('month');
   const [year, setYear] = useState(Number(props.month.slice(0, 4)));
   const selectedYear = props.month.slice(0, 4);
   useEffect(() => setYear(Number(selectedYear)), [selectedYear]);
   return (
     <>
-      <View style={[styles.row, { gap: 8, marginBottom: 20 }]}>
-        <Button
-          label="按月统计"
-          variant={mode === 'month' ? 'soft' : 'plain'}
-          onPress={() => setMode('month')}
-        >
-          按月
-        </Button>
-        <Button
-          label="按年统计"
-          variant={mode === 'year' ? 'soft' : 'plain'}
-          onPress={() => setMode('year')}
-        >
-          按年
-        </Button>
+      <View
+        style={[
+          styles.row,
+          {
+            alignSelf: 'flex-start',
+            backgroundColor: theme.surfaceAlt,
+            borderRadius: 14,
+            padding: 3,
+            gap: 3,
+            marginBottom: 14,
+          },
+        ]}
+      >
+        {(
+          [
+            ['month', '按月', '按月统计'],
+            ['year', '按年', '按年统计'],
+          ] as const
+        ).map(([value, text, label]) => (
+          <Button
+            key={value}
+            label={label}
+            variant="plain"
+            onPress={() => setMode(value)}
+            style={{
+              minHeight: 34,
+              paddingHorizontal: 16,
+              paddingVertical: 5,
+              borderRadius: 11,
+              backgroundColor:
+                mode === value
+                  ? theme.dark
+                    ? theme.accentSoft
+                    : theme.surface
+                  : 'transparent',
+              boxShadow: mode === value ? theme.pillShadow : 'none',
+            }}
+          >
+            <Txt
+              size={13}
+              color={mode === value ? theme.accent : theme.muted}
+              weight={mode === value ? '600' : '500'}
+            >
+              {text}
+            </Txt>
+          </Button>
+        ))}
       </View>
       {mode === 'month' ? (
         <MonthlyStats {...props} />
